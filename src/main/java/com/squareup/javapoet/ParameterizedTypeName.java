@@ -15,71 +15,104 @@
  */
 package com.squareup.javapoet;
 
+import org.jetbrains.annotations.Contract;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
+
 import java.io.IOException;
 import java.lang.reflect.Modifier;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 import static com.squareup.javapoet.Util.checkArgument;
 import static com.squareup.javapoet.Util.checkNotNull;
 
-public final class ParameterizedTypeName extends TypeName {
-  private final ParameterizedTypeName enclosingType;
+public final class ParameterizedTypeName extends ObjectTypeName {
   public final ClassName rawType;
-  public final List<TypeName> typeArguments;
+  public final List<? extends TypeName> typeArguments;
+  private final ParameterizedTypeName enclosingType;
 
-  ParameterizedTypeName(ParameterizedTypeName enclosingType, ClassName rawType,
-      List<TypeName> typeArguments) {
-    this(enclosingType, rawType, typeArguments, new ArrayList<>());
-  }
-
-  private ParameterizedTypeName(ParameterizedTypeName enclosingType, ClassName rawType,
-      List<TypeName> typeArguments, List<AnnotationSpec> annotations) {
-    super(annotations);
-    this.rawType = checkNotNull(rawType, "rawType == null").annotated(annotations);
+  ParameterizedTypeName(@Nullable ParameterizedTypeName enclosingType, ClassName rawType,
+                        List<? extends TypeName> typeArguments) {
+    super();
+    this.rawType = checkNotNull(rawType, "rawType == null");
     this.enclosingType = enclosingType;
     this.typeArguments = Util.immutableList(typeArguments);
 
     checkArgument(!this.typeArguments.isEmpty() || enclosingType != null,
-        "no type arguments: %s", rawType);
-    for (TypeName typeArgument : this.typeArguments) {
-      checkArgument(!typeArgument.isPrimitive() && typeArgument != VOID,
-          "invalid type parameter: %s", typeArgument);
+            "no type arguments: %s", rawType);
+    for (var typeArgument : this.typeArguments) {
+      checkArgument(!(typeArgument instanceof PrimitiveType),
+              "invalid type parameter: %s", typeArgument);
     }
   }
 
-  @Override public ParameterizedTypeName annotated(List<AnnotationSpec> annotations) {
-    return new ParameterizedTypeName(
-        enclosingType, rawType, typeArguments, concatAnnotations(annotations));
+  /**
+   * Returns a parameterized type, applying {@code typeArguments} to {@code rawType}.
+   */
+  public static ParameterizedTypeName get(ClassName rawType, TypeName... typeArguments) {
+    return new ParameterizedTypeName(null, rawType, Arrays.asList(typeArguments));
+  }
+
+  /**
+   * Returns a parameterized type, applying {@code typeArguments} to {@code rawType}.
+   */
+  public static ParameterizedTypeName get(Class<?> rawType, Type... typeArguments) {
+    return new ParameterizedTypeName(null, ClassName.get(rawType), TypeName.list(typeArguments));
+  }
+
+  /**
+   * Returns a parameterized type equivalent to {@code type}.
+   */
+  public static ParameterizedTypeName get(ParameterizedType type) {
+    return get(type, new LinkedHashMap<>());
+  }
+
+  /**
+   * Returns a parameterized type equivalent to {@code type}.
+   */
+  static ParameterizedTypeName get(ParameterizedType type, Map<Type, TypeVariableName> map) {
+    var rawType = ClassName.get((Class<?>) type.getRawType());
+    var typeArguments = TypeName.list(type.getActualTypeArguments(), map);
+    if ((type.getOwnerType() instanceof ParameterizedType ownerType)
+            && !Modifier.isStatic(((Class<?>) type.getRawType()).getModifiers())) {
+      return get(ownerType, map).nestedClass(rawType.simpleName(), typeArguments);
+    } else {
+      return new ParameterizedTypeName(null, rawType, typeArguments);
+    }
+  }
+
+  @Contract(value = " -> this", pure = true)
+  @Override
+  public @NotNull ParameterizedTypeName withoutAnnotations() {
+    return this;
+  }
+
+  @Contract(pure = true)
+  @Override
+  public boolean isBoxedPrimitive() {
+    return false;
   }
 
   @Override
-  public TypeName withoutAnnotations() {
-    return new ParameterizedTypeName(
-        enclosingType, rawType.withoutAnnotations(), typeArguments, new ArrayList<>());
+  public @NotNull TypeName unbox() {
+    throw new UnsupportedOperationException("Cannot unbox " + this);
   }
 
-  @Override CodeWriter emit(CodeWriter out) throws IOException {
+  @Override
+  public @NotNull CodeWriter emit(@NotNull CodeWriter out) throws IOException {
     if (enclosingType != null) {
       enclosingType.emit(out);
       out.emit(".");
-      if (isAnnotated()) {
-        out.emit(" ");
-        emitAnnotations(out);
-      }
       out.emit(rawType.simpleName());
     } else {
       rawType.emit(out);
     }
     if (!typeArguments.isEmpty()) {
       out.emitAndIndent("<");
-      boolean firstParameter = true;
-      for (TypeName parameter : typeArguments) {
+      var firstParameter = true;
+      for (var parameter : typeArguments) {
         if (!firstParameter) out.emitAndIndent(", ");
         parameter.emit(out);
         firstParameter = false;
@@ -93,10 +126,15 @@ public final class ParameterizedTypeName extends TypeName {
    * Returns a new {@link ParameterizedTypeName} instance for the specified {@code name} as nested
    * inside this class.
    */
+  @Override
   public ParameterizedTypeName nestedClass(String name) {
     checkNotNull(name, "name == null");
-    return new ParameterizedTypeName(this, rawType.nestedClass(name), new ArrayList<>(),
-        new ArrayList<>());
+    return new ParameterizedTypeName(this, rawType.nestedClass(name), new ArrayList<>());
+  }
+
+  @Override
+  public TypeName withBounds(List<? extends TypeName> bounds) {
+    return new ParameterizedTypeName(null, rawType, bounds);
   }
 
   /**
@@ -105,34 +143,6 @@ public final class ParameterizedTypeName extends TypeName {
    */
   public ParameterizedTypeName nestedClass(String name, List<TypeName> typeArguments) {
     checkNotNull(name, "name == null");
-    return new ParameterizedTypeName(this, rawType.nestedClass(name), typeArguments,
-        new ArrayList<>());
-  }
-
-  /** Returns a parameterized type, applying {@code typeArguments} to {@code rawType}. */
-  public static ParameterizedTypeName get(ClassName rawType, TypeName... typeArguments) {
-    return new ParameterizedTypeName(null, rawType, Arrays.asList(typeArguments));
-  }
-
-  /** Returns a parameterized type, applying {@code typeArguments} to {@code rawType}. */
-  public static ParameterizedTypeName get(Class<?> rawType, Type... typeArguments) {
-    return new ParameterizedTypeName(null, ClassName.get(rawType), list(typeArguments));
-  }
-
-  /** Returns a parameterized type equivalent to {@code type}. */
-  public static ParameterizedTypeName get(ParameterizedType type) {
-    return get(type, new LinkedHashMap<>());
-  }
-
-  /** Returns a parameterized type equivalent to {@code type}. */
-  static ParameterizedTypeName get(ParameterizedType type, Map<Type, TypeVariableName> map) {
-    ClassName rawType = ClassName.get((Class<?>) type.getRawType());
-    ParameterizedType ownerType = (type.getOwnerType() instanceof ParameterizedType)
-        && !Modifier.isStatic(((Class<?>) type.getRawType()).getModifiers())
-        ? (ParameterizedType) type.getOwnerType() : null;
-    List<TypeName> typeArguments = TypeName.list(type.getActualTypeArguments(), map);
-    return (ownerType != null)
-        ? get(ownerType, map).nestedClass(rawType.simpleName(), typeArguments)
-        : new ParameterizedTypeName(null, rawType, typeArguments);
+    return new ParameterizedTypeName(this, rawType.nestedClass(name), typeArguments);
   }
 }

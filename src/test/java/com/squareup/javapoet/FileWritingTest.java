@@ -33,7 +33,12 @@ import org.junit.runners.JUnit4;
 import org.mockito.Mockito;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.squareup.javapoet.JavaFile.builder;
+import static com.squareup.javapoet.TypeSpec.classBuilder;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.nio.file.Files.createDirectories;
+import static java.nio.file.Files.createFile;
+import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
 
 @RunWith(JUnit4.class)
@@ -49,31 +54,23 @@ public final class FileWritingTest {
   private final TestFiler filer = new TestFiler(fs, fsRoot);
 
   @Test public void pathNotDirectory() throws IOException {
-    TypeSpec type = TypeSpec.classBuilder("Test").build();
-    JavaFile javaFile = JavaFile.builder("example", type).build();
+    TypeSpec type = classBuilder("Test").build();
+    JavaFile javaFile = builder("example", type).build();
     Path path = fs.getPath("/foo/bar");
-    Files.createDirectories(path.getParent());
-    Files.createFile(path);
-    try {
-      javaFile.writeTo(path);
-      fail();
-    } catch (IllegalArgumentException e) {
-      assertThat(e.getMessage()).isEqualTo("path /foo/bar exists but is not a directory.");
-    }
+    createDirectories(path.getParent());
+    createFile(path);
+    var e = assertThrows(IllegalArgumentException.class, () -> javaFile.writeTo(path));
+    assertThat(e.getMessage()).isEqualTo("path /foo/bar exists but is not a directory.");
   }
 
   @Test public void fileNotDirectory() throws IOException {
-    TypeSpec type = TypeSpec.classBuilder("Test").build();
-    JavaFile javaFile = JavaFile.builder("example", type).build();
+    TypeSpec type = classBuilder("Test").build();
+    JavaFile javaFile = builder("example", type).build();
     File file = new File(tmp.newFolder("foo"), "bar");
     file.createNewFile();
-    try {
-      javaFile.writeTo(file);
-      fail();
-    } catch (IllegalArgumentException e) {
-      assertThat(e.getMessage()).isEqualTo(
-          "path " + file.getPath() + " exists but is not a directory.");
-    }
+    var e = assertThrows(IllegalArgumentException.class, () -> javaFile.writeTo(file));
+    assertThat(e.getMessage()).isEqualTo(
+            "path " + file.getPath() + " exists but is not a directory.");
   }
 
   @Test public void pathDefaultPackage() throws IOException {
@@ -182,8 +179,7 @@ public final class FileWritingTest {
     assertThat(Files.exists(fooPath)).isTrue();
     String source = new String(Files.readAllBytes(fooPath));
 
-    assertThat(source).isEqualTo(""
-        + "package foo;\n"
+    assertThat(source).isEqualTo("package foo;\n"
         + "\n"
         + "import java.lang.String;\n"
         + "import java.lang.System;\n"
@@ -209,8 +205,7 @@ public final class FileWritingTest {
     javaFile.writeTo(fsRoot);
 
     Path fooPath = fsRoot.resolve(fs.getPath("foo", "Taco.java"));
-    assertThat(new String(Files.readAllBytes(fooPath), UTF_8)).isEqualTo(""
-        + "// Pi\u00f1ata\u00a1\n"
+    assertThat(new String(Files.readAllBytes(fooPath), UTF_8)).isEqualTo("// Pi\u00f1ata\u00a1\n"
         + "package foo;\n"
         + "\n"
         + "class Taco {\n"

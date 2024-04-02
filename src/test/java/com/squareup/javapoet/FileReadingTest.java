@@ -30,6 +30,8 @@ import javax.tools.JavaFileObject.Kind;
 import javax.tools.StandardJavaFileManager;
 import javax.tools.StandardLocation;
 import javax.tools.ToolProvider;
+
+import com.google.common.testing.EqualsTester;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
@@ -41,12 +43,12 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 
 @RunWith(JUnit4.class)
 public class FileReadingTest {
-  
+
   // Used for storing compilation output.
   @Rule public final TemporaryFolder temporaryFolder = new TemporaryFolder();
 
   @Test public void javaFileObjectUri() {
-    TypeSpec type = TypeSpec.classBuilder("Test").build();
+    var type = TypeSpec.classBuilder("Test").build();
     assertThat(JavaFile.builder("", type).build().toJavaFileObject().toUri())
         .isEqualTo(URI.create("Test.java"));
     assertThat(JavaFile.builder("foo", type).build().toJavaFileObject().toUri())
@@ -54,38 +56,38 @@ public class FileReadingTest {
     assertThat(JavaFile.builder("com.example", type).build().toJavaFileObject().toUri())
         .isEqualTo(URI.create("com/example/Test.java"));
   }
-  
+
   @Test public void javaFileObjectKind() {
-    JavaFile javaFile = JavaFile.builder("", TypeSpec.classBuilder("Test").build()).build();
+    var javaFile = JavaFile.builder("", TypeSpec.classBuilder("Test").build()).build();
     assertThat(javaFile.toJavaFileObject().getKind()).isEqualTo(Kind.SOURCE);
   }
-  
+
   @Test public void javaFileObjectCharacterContent() throws IOException {
-    TypeSpec type = TypeSpec.classBuilder("Test")
-        .addJavadoc("Pi\u00f1ata\u00a1")
+    var type = TypeSpec.classBuilder("Test")
+        .addJavadoc("Piñata¡")
         .addMethod(MethodSpec.methodBuilder("fooBar").build())
         .build();
-    JavaFile javaFile = JavaFile.builder("foo", type).build();
-    JavaFileObject javaFileObject = javaFile.toJavaFileObject();
-    
+    var javaFile = JavaFile.builder("foo", type).build();
+    var javaFileObject = javaFile.toJavaFileObject();
+
     // We can never have encoding issues (everything is in process)
     assertThat(javaFileObject.getCharContent(true)).isEqualTo(javaFile.toString());
     assertThat(javaFileObject.getCharContent(false)).isEqualTo(javaFile.toString());
   }
-  
+
   @Test public void javaFileObjectInputStreamIsUtf8() throws IOException {
-    JavaFile javaFile = JavaFile.builder("foo", TypeSpec.classBuilder("Test").build())
-        .addFileComment("Pi\u00f1ata\u00a1")
+    var javaFile = JavaFile.builder("foo", TypeSpec.classBuilder("Test").build())
+        .addFileComment("Piñata¡")
         .build();
-    byte[] bytes = ByteStreams.toByteArray(javaFile.toJavaFileObject().openInputStream());
-    
+    var bytes = ByteStreams.toByteArray(javaFile.toJavaFileObject().openInputStream());
+
     // JavaPoet always uses UTF-8.
     assertThat(bytes).isEqualTo(javaFile.toString().getBytes(UTF_8));
   }
-  
+
   @Test public void compileJavaFile() throws Exception {
-    final String value = "Hello World!";
-    TypeSpec type = TypeSpec.classBuilder("Test")
+    final var value = "Hello World!";
+    var type = TypeSpec.classBuilder("Test")
         .addModifiers(Modifier.PUBLIC)
         .addSuperinterface(ParameterizedTypeName.get(Callable.class, String.class))
         .addMethod(MethodSpec.methodBuilder("call")
@@ -94,25 +96,25 @@ public class FileReadingTest {
             .addStatement("return $S", value)
             .build())
         .build();
-    JavaFile javaFile = JavaFile.builder("foo", type).build();
+    var javaFile = JavaFile.builder("foo", type).build();
 
-    JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
-    DiagnosticCollector<JavaFileObject> diagnosticCollector = new DiagnosticCollector<>();
-    StandardJavaFileManager fileManager = compiler.getStandardFileManager(diagnosticCollector, 
+    var compiler = ToolProvider.getSystemJavaCompiler();
+    var diagnosticCollector = new DiagnosticCollector<JavaFileObject>();
+    var fileManager = compiler.getStandardFileManager(diagnosticCollector,
         Locale.getDefault(), UTF_8);
     fileManager.setLocation(StandardLocation.CLASS_OUTPUT,
         Collections.singleton(temporaryFolder.newFolder()));
-    CompilationTask task = compiler.getTask(null, 
+    var task = compiler.getTask(null,
         fileManager,
         diagnosticCollector,
         Collections.emptySet(),
         Collections.emptySet(),
         Collections.singleton(javaFile.toJavaFileObject()));
-    
+
     assertThat(task.call()).isTrue();
     assertThat(diagnosticCollector.getDiagnostics()).isEmpty();
 
-    ClassLoader loader = fileManager.getClassLoader(StandardLocation.CLASS_OUTPUT);
+    var loader = fileManager.getClassLoader(StandardLocation.CLASS_OUTPUT);
     Callable<?> test = Class.forName("foo.Test", true, loader)
             .asSubclass(Callable.class)
             .getDeclaredConstructor()

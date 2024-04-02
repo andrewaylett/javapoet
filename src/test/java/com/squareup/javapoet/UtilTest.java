@@ -45,15 +45,15 @@ public class UtilTest {
     assertEquals("\\u0000", Util.characterLiteralWithoutSingleQuotes('\u0000'));
     assertEquals("\\u0001", Util.characterLiteralWithoutSingleQuotes('\u0001'));
     assertEquals("\\u0002", Util.characterLiteralWithoutSingleQuotes('\u0002'));
-    assertEquals("€", Util.characterLiteralWithoutSingleQuotes('\u20AC'));
-    assertEquals("☃", Util.characterLiteralWithoutSingleQuotes('\u2603'));
-    assertEquals("♠", Util.characterLiteralWithoutSingleQuotes('\u2660'));
-    assertEquals("♣", Util.characterLiteralWithoutSingleQuotes('\u2663'));
-    assertEquals("♥", Util.characterLiteralWithoutSingleQuotes('\u2665'));
-    assertEquals("♦", Util.characterLiteralWithoutSingleQuotes('\u2666'));
-    assertEquals("✵", Util.characterLiteralWithoutSingleQuotes('\u2735'));
-    assertEquals("✺", Util.characterLiteralWithoutSingleQuotes('\u273A'));
-    assertEquals("／", Util.characterLiteralWithoutSingleQuotes('\uFF0F'));
+    assertEquals("€", Util.characterLiteralWithoutSingleQuotes('€'));
+    assertEquals("☃", Util.characterLiteralWithoutSingleQuotes('☃'));
+    assertEquals("♠", Util.characterLiteralWithoutSingleQuotes('♠'));
+    assertEquals("♣", Util.characterLiteralWithoutSingleQuotes('♣'));
+    assertEquals("♥", Util.characterLiteralWithoutSingleQuotes('♥'));
+    assertEquals("♦", Util.characterLiteralWithoutSingleQuotes('♦'));
+    assertEquals("✵", Util.characterLiteralWithoutSingleQuotes('✵'));
+    assertEquals("✺", Util.characterLiteralWithoutSingleQuotes('✺'));
+    assertEquals("／", Util.characterLiteralWithoutSingleQuotes('／'));
   }
 
   @Test public void stringLiteral() {
@@ -61,7 +61,7 @@ public class UtilTest {
     stringLiteral("♦♥♠♣");
     stringLiteral("€\\t@\\t$", "€\t@\t$", " ");
     stringLiteral("abc();\\n\"\n  + \"def();", "abc();\ndef();", " ");
-    stringLiteral("This is \\\"quoted\\\"!", "This is \"quoted\"!", " ");
+    stringLiteral("This is \\\"quoted\\\"!", "This is \"quoted\"!", "  ");
     stringLiteral("e^{i\\\\pi}+1=0", "e^{i\\pi}+1=0", " ");
   }
 

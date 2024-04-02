@@ -64,11 +64,12 @@ statement class or syntax tree nodes. Instead, JavaPoet uses strings for code bl
 
 ```java
 MethodSpec main = MethodSpec.methodBuilder("main")
-    .addCode(""
-        + "int total = 0;\n"
-        + "for (int i = 0; i < 10; i++) {\n"
-        + "  total += i;\n"
-        + "}\n")
+    .addCode("""
+            int total = 0;
+            for (int i = 0; i < 10; i++) {
+              total += i;
+            }
+            """)
     .build();
 ```
 

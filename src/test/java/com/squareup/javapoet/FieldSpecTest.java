@@ -18,6 +18,8 @@ package com.squareup.javapoet;
 import org.junit.Test;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.squareup.javapoet.FieldSpec.builder;
+import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
 
 import javax.lang.model.element.Modifier;
@@ -37,14 +39,9 @@ public class FieldSpecTest {
   }
 
   @Test public void nullAnnotationsAddition() {
-    try {
-      FieldSpec.builder(int.class, "foo").addAnnotations(null);
-      fail();
-    }
-    catch (IllegalArgumentException expected) {
-      assertThat(expected.getMessage())
-          .isEqualTo("annotationSpecs == null");
-    }
+    var expected = assertThrows(IllegalArgumentException.class, () -> builder(int.class, "foo").addAnnotations(null));
+    assertThat(expected.getMessage())
+            .isEqualTo("annotationSpecs == null");
   }
 
   @Test public void modifyAnnotations() {

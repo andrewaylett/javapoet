@@ -44,12 +44,12 @@ public final class JavaFileTest {
   }
 
   @Test public void importStaticReadmeExample() {
-    ClassName hoverboard = ClassName.get("com.mattel", "Hoverboard");
-    ClassName namedBoards = ClassName.get("com.mattel", "Hoverboard", "Boards");
-    ClassName list = ClassName.get("java.util", "List");
-    ClassName arrayList = ClassName.get("java.util", "ArrayList");
-    TypeName listOfHoverboards = ParameterizedTypeName.get(list, hoverboard);
-    MethodSpec beyond = MethodSpec.methodBuilder("beyond")
+    var hoverboard = ClassName.get("com.mattel", "Hoverboard");
+    var namedBoards = ClassName.get("com.mattel", "Hoverboard", "Boards");
+    var list = ClassName.get("java.util", "List");
+    var arrayList = ClassName.get("java.util", "ArrayList");
+    ObjectTypeName listOfHoverboards = ParameterizedTypeName.get(list, hoverboard);
+    var beyond = MethodSpec.methodBuilder("beyond")
         .returns(listOfHoverboards)
         .addStatement("$T result = new $T<>()", listOfHoverboards, arrayList)
         .addStatement("result.add($T.createNimbus(2000))", hoverboard)
@@ -58,39 +58,40 @@ public final class JavaFileTest {
         .addStatement("$T.sort(result)", Collections.class)
         .addStatement("return result.isEmpty() ? $T.emptyList() : result", Collections.class)
         .build();
-    TypeSpec hello = TypeSpec.classBuilder("HelloWorld")
+    var hello = TypeSpec.classBuilder("HelloWorld")
         .addMethod(beyond)
         .build();
-    JavaFile example = JavaFile.builder("com.example.helloworld", hello)
+    var example = JavaFile.builder("com.example.helloworld", hello)
         .addStaticImport(hoverboard, "createNimbus")
         .addStaticImport(namedBoards, "*")
         .addStaticImport(Collections.class, "*")
         .build();
-    assertThat(example.toString()).isEqualTo(""
-        + "package com.example.helloworld;\n"
-        + "\n"
-        + "import static com.mattel.Hoverboard.Boards.*;\n"
-        + "import static com.mattel.Hoverboard.createNimbus;\n"
-        + "import static java.util.Collections.*;\n"
-        + "\n"
-        + "import com.mattel.Hoverboard;\n"
-        + "import java.util.ArrayList;\n"
-        + "import java.util.List;\n"
-        + "\n"
-        + "class HelloWorld {\n"
-        + "  List<Hoverboard> beyond() {\n"
-        + "    List<Hoverboard> result = new ArrayList<>();\n"
-        + "    result.add(createNimbus(2000));\n"
-        + "    result.add(createNimbus(\"2001\"));\n"
-        + "    result.add(createNimbus(THUNDERBOLT));\n"
-        + "    sort(result);\n"
-        + "    return result.isEmpty() ? emptyList() : result;\n"
-        + "  }\n"
-        + "}\n");
+    assertThat(example.toString()).isEqualTo("""
+            package com.example.helloworld;
+
+            import static com.mattel.Hoverboard.Boards.*;
+            import static com.mattel.Hoverboard.createNimbus;
+            import static java.util.Collections.*;
+
+            import com.mattel.Hoverboard;
+            import java.util.ArrayList;
+            import java.util.List;
+
+            class HelloWorld {
+              List<Hoverboard> beyond() {
+                List<Hoverboard> result = new ArrayList<>();
+                result.add(createNimbus(2000));
+                result.add(createNimbus("2001"));
+                result.add(createNimbus(THUNDERBOLT));
+                sort(result);
+                return result.isEmpty() ? emptyList() : result;
+              }
+            }
+            """);
   }
   @Test public void importStaticForCrazyFormatsWorks() {
-    MethodSpec method = MethodSpec.methodBuilder("method").build();
-    JavaFile.builder("com.squareup.tacos",
+    var method = MethodSpec.methodBuilder("method").build();
+    var unused = JavaFile.builder("com.squareup.tacos",
         TypeSpec.classBuilder("Taco")
             .addStaticBlock(CodeBlock.builder()
                 .addStatement("$T", Runtime.class)
@@ -113,7 +114,7 @@ public final class JavaFileTest {
   }
 
   @Test public void importStaticMixed() {
-    JavaFile source = JavaFile.builder("com.squareup.tacos",
+    var source = JavaFile.builder("com.squareup.tacos",
         TypeSpec.classBuilder("Taco")
             .addStaticBlock(CodeBlock.builder()
                 .addStatement("assert $1T.valueOf(\"BLOCKED\") == $1T.BLOCKED", Thread.State.class)
@@ -129,30 +130,31 @@ public final class JavaFileTest {
         .addStaticImport(System.class, "*")
         .addStaticImport(Thread.State.class, "valueOf")
         .build();
-    assertThat(source.toString()).isEqualTo(""
-        + "package com.squareup.tacos;\n"
-        + "\n"
-        + "import static java.lang.System.*;\n"
-        + "import static java.lang.Thread.State.BLOCKED;\n"
-        + "import static java.lang.Thread.State.valueOf;\n"
-        + "\n"
-        + "import java.lang.Thread;\n"
-        + "\n"
-        + "class Taco {\n"
-        + "  static {\n"
-        + "    assert valueOf(\"BLOCKED\") == BLOCKED;\n"
-        + "    gc();\n"
-        + "    out.println(nanoTime());\n"
-        + "  }\n"
-        + "\n"
-        + "  Taco(Thread.State... states) {\n"
-        + "  }\n"
-        + "}\n");
+    assertThat(source.toString()).isEqualTo("""
+            package com.squareup.tacos;
+
+            import static java.lang.System.*;
+            import static java.lang.Thread.State.BLOCKED;
+            import static java.lang.Thread.State.valueOf;
+
+            import java.lang.Thread;
+
+            class Taco {
+              static {
+                assert valueOf("BLOCKED") == BLOCKED;
+                gc();
+                out.println(nanoTime());
+              }
+
+              Taco(Thread.State... states) {
+              }
+            }
+            """);
   }
 
   @Ignore("addStaticImport doesn't support members with $L")
   @Test public void importStaticDynamic() {
-    JavaFile source = JavaFile.builder("com.squareup.tacos",
+    var source = JavaFile.builder("com.squareup.tacos",
         TypeSpec.classBuilder("Taco")
             .addMethod(MethodSpec.methodBuilder("main")
                 .addStatement("$T.$L.println($S)", System.class, "out", "hello")
@@ -160,93 +162,98 @@ public final class JavaFileTest {
             .build())
         .addStaticImport(System.class, "out")
         .build();
-    assertThat(source.toString()).isEqualTo(""
-        + "package com.squareup.tacos;\n"
-        + "\n"
-        + "import static java.lang.System.out;\n"
-        + "\n"
-        + "class Taco {\n"
-        + "  void main() {\n"
-        + "    out.println(\"hello\");\n"
-        + "  }\n"
-        + "}\n");
+    assertThat(source.toString()).isEqualTo("""
+            package com.squareup.tacos;
+
+            import static java.lang.System.out;
+
+            class Taco {
+              void main() {
+                out.println("hello");
+              }
+            }
+            """);
   }
 
   @Test public void importStaticNone() {
     assertThat(JavaFile.builder("readme", importStaticTypeSpec("Util"))
-        .build().toString()).isEqualTo(""
-        + "package readme;\n"
-        + "\n"
-        + "import java.lang.System;\n"
-        + "import java.util.concurrent.TimeUnit;\n"
-        + "\n"
-        + "class Util {\n"
-        + "  public static long minutesToSeconds(long minutes) {\n"
-        + "    System.gc();\n"
-        + "    return TimeUnit.SECONDS.convert(minutes, TimeUnit.MINUTES);\n"
-        + "  }\n"
-        + "}\n");
+        .build().toString()).isEqualTo("""
+            package readme;
+
+            import java.lang.System;
+            import java.util.concurrent.TimeUnit;
+
+            class Util {
+              public static long minutesToSeconds(long minutes) {
+                System.gc();
+                return TimeUnit.SECONDS.convert(minutes, TimeUnit.MINUTES);
+              }
+            }
+            """);
   }
 
   @Test public void importStaticOnce() {
     assertThat(JavaFile.builder("readme", importStaticTypeSpec("Util"))
         .addStaticImport(TimeUnit.SECONDS)
-        .build().toString()).isEqualTo(""
-        + "package readme;\n"
-        + "\n"
-        + "import static java.util.concurrent.TimeUnit.SECONDS;\n"
-        + "\n"
-        + "import java.lang.System;\n"
-        + "import java.util.concurrent.TimeUnit;\n"
-        + "\n"
-        + "class Util {\n"
-        + "  public static long minutesToSeconds(long minutes) {\n"
-        + "    System.gc();\n"
-        + "    return SECONDS.convert(minutes, TimeUnit.MINUTES);\n"
-        + "  }\n"
-        + "}\n");
+        .build().toString()).isEqualTo("""
+            package readme;
+
+            import static java.util.concurrent.TimeUnit.SECONDS;
+
+            import java.lang.System;
+            import java.util.concurrent.TimeUnit;
+
+            class Util {
+              public static long minutesToSeconds(long minutes) {
+                System.gc();
+                return SECONDS.convert(minutes, TimeUnit.MINUTES);
+              }
+            }
+            """);
   }
 
   @Test public void importStaticTwice() {
     assertThat(JavaFile.builder("readme", importStaticTypeSpec("Util"))
         .addStaticImport(TimeUnit.SECONDS)
         .addStaticImport(TimeUnit.MINUTES)
-        .build().toString()).isEqualTo(""
-            + "package readme;\n"
-            + "\n"
-            + "import static java.util.concurrent.TimeUnit.MINUTES;\n"
-            + "import static java.util.concurrent.TimeUnit.SECONDS;\n"
-            + "\n"
-            + "import java.lang.System;\n"
-            + "\n"
-            + "class Util {\n"
-            + "  public static long minutesToSeconds(long minutes) {\n"
-            + "    System.gc();\n"
-            + "    return SECONDS.convert(minutes, MINUTES);\n"
-            + "  }\n"
-            + "}\n");
+        .build().toString()).isEqualTo("""
+            package readme;
+
+            import static java.util.concurrent.TimeUnit.MINUTES;
+            import static java.util.concurrent.TimeUnit.SECONDS;
+
+            import java.lang.System;
+
+            class Util {
+              public static long minutesToSeconds(long minutes) {
+                System.gc();
+                return SECONDS.convert(minutes, MINUTES);
+              }
+            }
+            """);
   }
 
   @Test public void importStaticUsingWildcards() {
     assertThat(JavaFile.builder("readme", importStaticTypeSpec("Util"))
         .addStaticImport(TimeUnit.class, "*")
         .addStaticImport(System.class, "*")
-        .build().toString()).isEqualTo(""
-            + "package readme;\n"
-            + "\n"
-            + "import static java.lang.System.*;\n"
-            + "import static java.util.concurrent.TimeUnit.*;\n"
-            + "\n"
-            + "class Util {\n"
-            + "  public static long minutesToSeconds(long minutes) {\n"
-            + "    gc();\n"
-            + "    return SECONDS.convert(minutes, MINUTES);\n"
-            + "  }\n"
-            + "}\n");
+        .build().toString()).isEqualTo("""
+            package readme;
+
+            import static java.lang.System.*;
+            import static java.util.concurrent.TimeUnit.*;
+
+            class Util {
+              public static long minutesToSeconds(long minutes) {
+                gc();
+                return SECONDS.convert(minutes, MINUTES);
+              }
+            }
+            """);
   }
 
   private TypeSpec importStaticTypeSpec(String name) {
-    MethodSpec method = MethodSpec.methodBuilder("minutesToSeconds")
+    var method = MethodSpec.methodBuilder("minutesToSeconds")
         .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
         .returns(long.class)
         .addParameter(long.class, "minutes")
@@ -257,56 +264,59 @@ public final class JavaFileTest {
 
   }
   @Test public void noImports() throws Exception {
-    String source = JavaFile.builder("com.squareup.tacos",
+    var source = JavaFile.builder("com.squareup.tacos",
         TypeSpec.classBuilder("Taco").build())
         .build()
         .toString();
-    assertThat(source).isEqualTo(""
-        + "package com.squareup.tacos;\n"
-        + "\n"
-        + "class Taco {\n"
-        + "}\n");
+    assertThat(source).isEqualTo("""
+            package com.squareup.tacos;
+
+            class Taco {
+            }
+            """);
   }
 
   @Test public void singleImport() throws Exception {
-    String source = JavaFile.builder("com.squareup.tacos",
+    var source = JavaFile.builder("com.squareup.tacos",
         TypeSpec.classBuilder("Taco")
             .addField(Date.class, "madeFreshDate")
             .build())
         .build()
         .toString();
-    assertThat(source).isEqualTo(""
-        + "package com.squareup.tacos;\n"
-        + "\n"
-        + "import java.util.Date;\n"
-        + "\n"
-        + "class Taco {\n"
-        + "  Date madeFreshDate;\n"
-        + "}\n");
+    assertThat(source).isEqualTo("""
+            package com.squareup.tacos;
+
+            import java.util.Date;
+
+            class Taco {
+              Date madeFreshDate;
+            }
+            """);
   }
 
   @Test public void conflictingImports() throws Exception {
-    String source = JavaFile.builder("com.squareup.tacos",
+    var source = JavaFile.builder("com.squareup.tacos",
         TypeSpec.classBuilder("Taco")
             .addField(Date.class, "madeFreshDate")
             .addField(ClassName.get("java.sql", "Date"), "madeFreshDatabaseDate")
             .build())
         .build()
         .toString();
-    assertThat(source).isEqualTo(""
-        + "package com.squareup.tacos;\n"
-        + "\n"
-        + "import java.util.Date;\n"
-        + "\n"
-        + "class Taco {\n"
-        + "  Date madeFreshDate;\n"
-        + "\n"
-        + "  java.sql.Date madeFreshDatabaseDate;\n"
-        + "}\n");
+    assertThat(source).isEqualTo("""
+            package com.squareup.tacos;
+
+            import java.util.Date;
+
+            class Taco {
+              Date madeFreshDate;
+
+              java.sql.Date madeFreshDatabaseDate;
+            }
+            """);
   }
 
   @Test public void annotatedTypeParam() throws Exception {
-    String source = JavaFile.builder("com.squareup.tacos",
+    var source = JavaFile.builder("com.squareup.tacos",
         TypeSpec.classBuilder("Taco")
             .addField(ParameterizedTypeName.get(ClassName.get(List.class),
                 ClassName.get("com.squareup.meat", "Chorizo")
@@ -315,20 +325,21 @@ public final class JavaFileTest {
             .build())
         .build()
         .toString();
-    assertThat(source).isEqualTo(""
-        + "package com.squareup.tacos;\n"
-        + "\n"
-        + "import com.squareup.meat.Chorizo;\n"
-        + "import java.util.List;\n"
-        + "\n"
-        + "class Taco {\n"
-        + "  List<@Spicy Chorizo> chorizo;\n"
-        + "}\n");
+    assertThat(source).isEqualTo("""
+            package com.squareup.tacos;
+
+            import com.squareup.meat.Chorizo;
+            import java.util.List;
+
+            class Taco {
+              List<@Spicy Chorizo> chorizo;
+            }
+            """);
   }
 
   @Test public void skipJavaLangImportsWithConflictingClassLast() throws Exception {
     // Whatever is used first wins! In this case the Float in java.lang is imported.
-    String source = JavaFile.builder("com.squareup.tacos",
+    var source = JavaFile.builder("com.squareup.tacos",
         TypeSpec.classBuilder("Taco")
             .addField(ClassName.get("java.lang", "Float"), "litres")
             .addField(ClassName.get("com.squareup.soda", "Float"), "beverage")
@@ -336,19 +347,20 @@ public final class JavaFileTest {
         .skipJavaLangImports(true)
         .build()
         .toString();
-    assertThat(source).isEqualTo(""
-        + "package com.squareup.tacos;\n"
-        + "\n"
-        + "class Taco {\n"
-        + "  Float litres;\n"
-        + "\n"
-        + "  com.squareup.soda.Float beverage;\n" // Second 'Float' is fully qualified.
-        + "}\n");
+    assertThat(source).isEqualTo("""
+            package com.squareup.tacos;
+
+            class Taco {
+              Float litres;
+
+              com.squareup.soda.Float beverage;
+            }
+            """);
   }
 
   @Test public void skipJavaLangImportsWithConflictingClassFirst() throws Exception {
     // Whatever is used first wins! In this case the Float in com.squareup.soda is imported.
-    String source = JavaFile.builder("com.squareup.tacos",
+    var source = JavaFile.builder("com.squareup.tacos",
         TypeSpec.classBuilder("Taco")
             .addField(ClassName.get("com.squareup.soda", "Float"), "beverage")
             .addField(ClassName.get("java.lang", "Float"), "litres")
@@ -356,8 +368,7 @@ public final class JavaFileTest {
         .skipJavaLangImports(true)
         .build()
         .toString();
-    assertThat(source).isEqualTo(""
-        + "package com.squareup.tacos;\n"
+    assertThat(source).isEqualTo("package com.squareup.tacos;\n"
         + "\n"
         + "import com.squareup.soda.Float;\n"
         + "\n"
@@ -369,7 +380,7 @@ public final class JavaFileTest {
   }
 
   @Test public void conflictingParentName() throws Exception {
-    String source = JavaFile.builder("com.squareup.tacos",
+    var source = JavaFile.builder("com.squareup.tacos",
         TypeSpec.classBuilder("A")
             .addType(TypeSpec.classBuilder("B")
                 .addType(TypeSpec.classBuilder("Twin").build())
@@ -384,28 +395,29 @@ public final class JavaFileTest {
             .build())
         .build()
         .toString();
-    assertThat(source).isEqualTo(""
-        + "package com.squareup.tacos;\n"
-        + "\n"
-        + "class A {\n"
-        + "  class B {\n"
-        + "    class Twin {\n"
-        + "    }\n"
-        + "\n"
-        + "    class C {\n"
-        + "      A.Twin.D d;\n"
-        + "    }\n"
-        + "  }\n"
-        + "\n"
-        + "  class Twin {\n"
-        + "    class D {\n"
-        + "    }\n"
-        + "  }\n"
-        + "}\n");
+    assertThat(source).isEqualTo("""
+            package com.squareup.tacos;
+
+            class A {
+              class B {
+                class Twin {
+                }
+
+                class C {
+                  A.Twin.D d;
+                }
+              }
+
+              class Twin {
+                class D {
+                }
+              }
+            }
+            """);
   }
 
   @Test public void conflictingChildName() throws Exception {
-    String source = JavaFile.builder("com.squareup.tacos",
+    var source = JavaFile.builder("com.squareup.tacos",
         TypeSpec.classBuilder("A")
             .addType(TypeSpec.classBuilder("B")
                 .addType(TypeSpec.classBuilder("C")
@@ -420,28 +432,29 @@ public final class JavaFileTest {
             .build())
         .build()
         .toString();
-    assertThat(source).isEqualTo(""
-        + "package com.squareup.tacos;\n"
-        + "\n"
-        + "class A {\n"
-        + "  class B {\n"
-        + "    class C {\n"
-        + "      A.Twin.D d;\n"
-        + "\n"
-        + "      class Twin {\n"
-        + "      }\n"
-        + "    }\n"
-        + "  }\n"
-        + "\n"
-        + "  class Twin {\n"
-        + "    class D {\n"
-        + "    }\n"
-        + "  }\n"
-        + "}\n");
+    assertThat(source).isEqualTo("""
+            package com.squareup.tacos;
+
+            class A {
+              class B {
+                class C {
+                  A.Twin.D d;
+
+                  class Twin {
+                  }
+                }
+              }
+
+              class Twin {
+                class D {
+                }
+              }
+            }
+            """);
   }
 
   @Test public void conflictingNameOutOfScope() throws Exception {
-    String source = JavaFile.builder("com.squareup.tacos",
+    var source = JavaFile.builder("com.squareup.tacos",
         TypeSpec.classBuilder("A")
             .addType(TypeSpec.classBuilder("B")
                 .addType(TypeSpec.classBuilder("C")
@@ -458,30 +471,31 @@ public final class JavaFileTest {
             .build())
         .build()
         .toString();
-    assertThat(source).isEqualTo(""
-        + "package com.squareup.tacos;\n"
-        + "\n"
-        + "class A {\n"
-        + "  class B {\n"
-        + "    class C {\n"
-        + "      Twin.D d;\n"
-        + "\n"
-        + "      class Nested {\n"
-        + "        class Twin {\n"
-        + "        }\n"
-        + "      }\n"
-        + "    }\n"
-        + "  }\n"
-        + "\n"
-        + "  class Twin {\n"
-        + "    class D {\n"
-        + "    }\n"
-        + "  }\n"
-        + "}\n");
+    assertThat(source).isEqualTo("""
+            package com.squareup.tacos;
+
+            class A {
+              class B {
+                class C {
+                  Twin.D d;
+
+                  class Nested {
+                    class Twin {
+                    }
+                  }
+                }
+              }
+
+              class Twin {
+                class D {
+                }
+              }
+            }
+            """);
   }
 
   @Test public void nestedClassAndSuperclassShareName() throws Exception {
-    String source = JavaFile.builder("com.squareup.tacos",
+    var source = JavaFile.builder("com.squareup.tacos",
         TypeSpec.classBuilder("Taco")
             .superclass(ClassName.get("com.squareup.wire", "Message"))
             .addType(TypeSpec.classBuilder("Builder")
@@ -490,48 +504,51 @@ public final class JavaFileTest {
             .build())
         .build()
         .toString();
-    assertThat(source).isEqualTo(""
-        + "package com.squareup.tacos;\n"
-        + "\n"
-        + "import com.squareup.wire.Message;\n"
-        + "\n"
-        + "class Taco extends Message {\n"
-        + "  class Builder extends Message.Builder {\n"
-        + "  }\n"
-        + "}\n");
+    assertThat(source).isEqualTo("""
+            package com.squareup.tacos;
+
+            import com.squareup.wire.Message;
+
+            class Taco extends Message {
+              class Builder extends Message.Builder {
+              }
+            }
+            """);
   }
 
   @Test public void classAndSuperclassShareName() throws Exception {
-    String source = JavaFile.builder("com.squareup.tacos",
+    var source = JavaFile.builder("com.squareup.tacos",
         TypeSpec.classBuilder("Taco")
             .superclass(ClassName.get("com.taco.bell", "Taco"))
             .build())
         .build()
         .toString();
-    assertThat(source).isEqualTo(""
-        + "package com.squareup.tacos;\n"
-        + "\n"
-        + "class Taco extends com.taco.bell.Taco {\n"
-        + "}\n");
+    assertThat(source).isEqualTo("""
+            package com.squareup.tacos;
+
+            class Taco extends com.taco.bell.Taco {
+            }
+            """);
   }
 
   @Test public void conflictingAnnotation() throws Exception {
-    String source = JavaFile.builder("com.squareup.tacos",
+    var source = JavaFile.builder("com.squareup.tacos",
         TypeSpec.classBuilder("Taco")
             .addAnnotation(ClassName.get("com.taco.bell", "Taco"))
             .build())
         .build()
         .toString();
-    assertThat(source).isEqualTo(""
-        + "package com.squareup.tacos;\n"
-        + "\n"
-        + "@com.taco.bell.Taco\n"
-        + "class Taco {\n"
-        + "}\n");
+    assertThat(source).isEqualTo("""
+            package com.squareup.tacos;
+
+            @com.taco.bell.Taco
+            class Taco {
+            }
+            """);
   }
 
   @Test public void conflictingAnnotationReferencedClass() throws Exception {
-    String source = JavaFile.builder("com.squareup.tacos",
+    var source = JavaFile.builder("com.squareup.tacos",
         TypeSpec.classBuilder("Taco")
             .addAnnotation(AnnotationSpec.builder(ClassName.get("com.squareup.tacos", "MyAnno"))
                 .addMember("value", "$T.class", ClassName.get("com.taco.bell", "Taco"))
@@ -539,49 +556,52 @@ public final class JavaFileTest {
             .build())
         .build()
         .toString();
-    assertThat(source).isEqualTo(""
-        + "package com.squareup.tacos;\n"
-        + "\n"
-        + "@MyAnno(com.taco.bell.Taco.class)\n"
-        + "class Taco {\n"
-        + "}\n");
+    assertThat(source).isEqualTo("""
+            package com.squareup.tacos;
+
+            @MyAnno(com.taco.bell.Taco.class)
+            class Taco {
+            }
+            """);
   }
 
   @Test public void conflictingTypeVariableBound() throws Exception {
-    String source = JavaFile.builder("com.squareup.tacos",
+    var source = JavaFile.builder("com.squareup.tacos",
         TypeSpec.classBuilder("Taco")
             .addTypeVariable(
                 TypeVariableName.get("T", ClassName.get("com.taco.bell", "Taco")))
             .build())
         .build()
         .toString();
-    assertThat(source).isEqualTo(""
-        + "package com.squareup.tacos;\n"
-        + "\n"
-        + "class Taco<T extends com.taco.bell.Taco> {\n"
-        + "}\n");
+    assertThat(source).isEqualTo("""
+            package com.squareup.tacos;
+
+            class Taco<T extends com.taco.bell.Taco> {
+            }
+            """);
   }
 
   @Test public void superclassReferencesSelf() throws Exception {
-    String source = JavaFile.builder("com.squareup.tacos",
+    var source = JavaFile.builder("com.squareup.tacos",
         TypeSpec.classBuilder("Taco")
             .superclass(ParameterizedTypeName.get(
                 ClassName.get(Comparable.class), ClassName.get("com.squareup.tacos", "Taco")))
             .build())
         .build()
         .toString();
-    assertThat(source).isEqualTo(""
-        + "package com.squareup.tacos;\n"
-        + "\n"
-        + "import java.lang.Comparable;\n"
-        + "\n"
-        + "class Taco extends Comparable<Taco> {\n"
-        + "}\n");
+    assertThat(source).isEqualTo("""
+            package com.squareup.tacos;
+
+            import java.lang.Comparable;
+
+            class Taco extends Comparable<Taco> {
+            }
+            """);
   }
 
   /** https://github.com/square/javapoet/issues/366 */
   @Test public void annotationIsNestedClass() throws Exception {
-    String source = JavaFile.builder("com.squareup.tacos",
+    var source = JavaFile.builder("com.squareup.tacos",
         TypeSpec.classBuilder("TestComponent")
             .addAnnotation(ClassName.get("dagger", "Component"))
             .addType(TypeSpec.classBuilder("Builder")
@@ -590,21 +610,22 @@ public final class JavaFileTest {
             .build())
         .build()
         .toString();
-    assertThat(source).isEqualTo(""
-        + "package com.squareup.tacos;\n"
-        + "\n"
-        + "import dagger.Component;\n"
-        + "\n"
-        + "@Component\n"
-        + "class TestComponent {\n"
-        + "  @Component.Builder\n"
-        + "  class Builder {\n"
-        + "  }\n"
-        + "}\n");
+    assertThat(source).isEqualTo("""
+            package com.squareup.tacos;
+
+            import dagger.Component;
+
+            @Component
+            class TestComponent {
+              @Component.Builder
+              class Builder {
+              }
+            }
+            """);
   }
 
   @Test public void defaultPackage() throws Exception {
-    String source = JavaFile.builder("",
+    var source = JavaFile.builder("",
         TypeSpec.classBuilder("HelloWorld")
             .addMethod(MethodSpec.methodBuilder("main")
                 .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
@@ -614,98 +635,104 @@ public final class JavaFileTest {
             .build())
         .build()
         .toString();
-    assertThat(source).isEqualTo(""
-        + "import java.lang.String;\n"
-        + "import java.lang.System;\n"
-        + "\n"
-        + "class HelloWorld {\n"
-        + "  public static void main(String[] args) {\n"
-        + "    System.out.println(\"Hello World!\");\n"
-        + "  }\n"
-        + "}\n");
+    assertThat(source).isEqualTo("""
+            import java.lang.String;
+            import java.lang.System;
+
+            class HelloWorld {
+              public static void main(String[] args) {
+                System.out.println("Hello World!");
+              }
+            }
+            """);
   }
 
   @Test public void defaultPackageTypesAreNotImported() throws Exception {
-    String source = JavaFile.builder("hello",
+    var source = JavaFile.builder("hello",
           TypeSpec.classBuilder("World").addSuperinterface(ClassName.get("", "Test")).build())
         .build()
         .toString();
-    assertThat(source).isEqualTo(""
-        + "package hello;\n"
-        + "\n"
-        + "class World implements Test {\n"
-        + "}\n");
+    assertThat(source).isEqualTo("""
+            package hello;
+
+            class World implements Test {
+            }
+            """);
   }
 
   @Test public void topOfFileComment() throws Exception {
-    String source = JavaFile.builder("com.squareup.tacos",
+    var source = JavaFile.builder("com.squareup.tacos",
         TypeSpec.classBuilder("Taco").build())
         .addFileComment("Generated $L by JavaPoet. DO NOT EDIT!", "2015-01-13")
         .build()
         .toString();
-    assertThat(source).isEqualTo(""
-        + "// Generated 2015-01-13 by JavaPoet. DO NOT EDIT!\n"
-        + "package com.squareup.tacos;\n"
-        + "\n"
-        + "class Taco {\n"
-        + "}\n");
+    assertThat(source).isEqualTo("""
+            // Generated 2015-01-13 by JavaPoet. DO NOT EDIT!
+            package com.squareup.tacos;
+
+            class Taco {
+            }
+            """);
   }
 
   @Test public void emptyLinesInTopOfFileComment() throws Exception {
-    String source = JavaFile.builder("com.squareup.tacos",
+    var source = JavaFile.builder("com.squareup.tacos",
         TypeSpec.classBuilder("Taco").build())
         .addFileComment("\nGENERATED FILE:\n\nDO NOT EDIT!\n")
         .build()
         .toString();
-    assertThat(source).isEqualTo(""
-        + "//\n"
-        + "// GENERATED FILE:\n"
-        + "//\n"
-        + "// DO NOT EDIT!\n"
-        + "//\n"
-        + "package com.squareup.tacos;\n"
-        + "\n"
-        + "class Taco {\n"
-        + "}\n");
+    assertThat(source).isEqualTo("""
+            //
+            // GENERATED FILE:
+            //
+            // DO NOT EDIT!
+            //
+            package com.squareup.tacos;
+
+            class Taco {
+            }
+            """);
   }
 
   @Test public void packageClassConflictsWithNestedClass() throws Exception {
-    String source = JavaFile.builder("com.squareup.tacos",
+    var source = JavaFile.builder("com.squareup.tacos",
         TypeSpec.classBuilder("Taco")
             .addField(ClassName.get("com.squareup.tacos", "A"), "a")
             .addType(TypeSpec.classBuilder("A").build())
             .build())
         .build()
         .toString();
-    assertThat(source).isEqualTo(""
-        + "package com.squareup.tacos;\n"
-        + "\n"
-        + "class Taco {\n"
-        + "  com.squareup.tacos.A a;\n"
-        + "\n"
-        + "  class A {\n"
-        + "  }\n"
-        + "}\n");
+    assertThat(source).isEqualTo("""
+            package com.squareup.tacos;
+
+            class Taco {
+              com.squareup.tacos.A a;
+
+              class A {
+              }
+            }
+            """);
   }
 
   @Test public void packageClassConflictsWithSuperlass() throws Exception {
-    String source = JavaFile.builder("com.squareup.tacos",
+    var source = JavaFile.builder("com.squareup.tacos",
         TypeSpec.classBuilder("Taco")
             .superclass(ClassName.get("com.taco.bell", "A"))
             .addField(ClassName.get("com.squareup.tacos", "A"), "a")
             .build())
         .build()
         .toString();
-    assertThat(source).isEqualTo(""
-        + "package com.squareup.tacos;\n"
-        + "\n"
-        + "class Taco extends com.taco.bell.A {\n"
-        + "  A a;\n"
-        + "}\n");
+    assertThat(source).isEqualTo("""
+            package com.squareup.tacos;
+
+            class Taco extends com.taco.bell.A {
+              A a;
+            }
+            """);
   }
 
   @Test public void modifyStaticImports() throws Exception {
-    JavaFile.Builder builder = JavaFile.builder("com.squareup.tacos",
+    var builder = JavaFile.builder("com.squareup.tacos",
         TypeSpec.classBuilder("Taco")
             .build())
             .addStaticImport(File.class, "separator");
@@ -713,35 +740,37 @@ public final class JavaFileTest {
     builder.staticImports.clear();
     builder.staticImports.add(File.class.getCanonicalName() + ".separatorChar");
 
-    String source = builder.build().toString();
+    var source = builder.build().toString();
 
-    assertThat(source).isEqualTo(""
-        + "package com.squareup.tacos;\n"
-        + "\n"
-        + "import static java.io.File.separatorChar;\n"
-        + "\n"
-        + "class Taco {\n"
-        + "}\n");
+    assertThat(source).isEqualTo("""
+            package com.squareup.tacos;
+
+            import static java.io.File.separatorChar;
+
+            class Taco {
+            }
+            """);
   }
 
   @Test public void alwaysQualifySimple() {
-    String source = JavaFile.builder("com.squareup.tacos",
+    var source = JavaFile.builder("com.squareup.tacos",
         TypeSpec.classBuilder("Taco")
             .addField(Thread.class, "thread")
             .alwaysQualify("Thread")
             .build())
         .build()
         .toString();
-    assertThat(source).isEqualTo(""
-        + "package com.squareup.tacos;\n"
-        + "\n"
-        + "class Taco {\n"
-        + "  java.lang.Thread thread;\n"
-        + "}\n");
+    assertThat(source).isEqualTo("""
+            package com.squareup.tacos;
+
+            class Taco {
+              java.lang.Thread thread;
+            }
+            """);
   }
 
   @Test public void alwaysQualifySupersedesJavaLangImports() {
-    String source = JavaFile.builder("com.squareup.tacos",
+    var source = JavaFile.builder("com.squareup.tacos",
         TypeSpec.classBuilder("Taco")
             .addField(Thread.class, "thread")
             .alwaysQualify("Thread")
@@ -749,16 +778,17 @@ public final class JavaFileTest {
         .skipJavaLangImports(true)
         .build()
         .toString();
-    assertThat(source).isEqualTo(""
-        + "package com.squareup.tacos;\n"
-        + "\n"
-        + "class Taco {\n"
-        + "  java.lang.Thread thread;\n"
-        + "}\n");
+    assertThat(source).isEqualTo("""
+            package com.squareup.tacos;
+
+            class Taco {
+              java.lang.Thread thread;
+            }
+            """);
   }
 
   @Test public void avoidClashesWithNestedClasses_viaClass() {
-    String source = JavaFile.builder("com.squareup.tacos",
+    var source = JavaFile.builder("com.squareup.tacos",
         TypeSpec.classBuilder("Taco")
             // These two should get qualified
             .addField(ClassName.get("other", "NestedTypeA"), "nestedA")
@@ -771,25 +801,26 @@ public final class JavaFileTest {
             .build())
         .build()
         .toString();
-    assertThat(source).isEqualTo(""
-        + "package com.squareup.tacos;\n"
-        + "\n"
-        + "import other.Foo;\n"
-        + "import other.NestedTypeC;\n"
-        + "\n"
-        + "class Taco {\n"
-        + "  other.NestedTypeA nestedA;\n"
-        + "\n"
-        + "  other.NestedTypeB nestedB;\n"
-        + "\n"
-        + "  NestedTypeC nestedC;\n"
-        + "\n"
-        + "  Foo foo;\n"
-        + "}\n");
+    assertThat(source).isEqualTo("""
+            package com.squareup.tacos;
+
+            import other.Foo;
+            import other.NestedTypeC;
+
+            class Taco {
+              other.NestedTypeA nestedA;
+
+              other.NestedTypeB nestedB;
+
+              NestedTypeC nestedC;
+
+              Foo foo;
+            }
+            """);
   }
 
   @Test public void avoidClashesWithNestedClasses_viaTypeElement() {
-    String source = JavaFile.builder("com.squareup.tacos",
+    var source = JavaFile.builder("com.squareup.tacos",
         TypeSpec.classBuilder("Taco")
             // These two should get qualified
             .addField(ClassName.get("other", "NestedTypeA"), "nestedA")
@@ -802,25 +833,26 @@ public final class JavaFileTest {
             .build())
         .build()
         .toString();
-    assertThat(source).isEqualTo(""
-        + "package com.squareup.tacos;\n"
-        + "\n"
-        + "import other.Foo;\n"
-        + "import other.NestedTypeC;\n"
-        + "\n"
-        + "class Taco {\n"
-        + "  other.NestedTypeA nestedA;\n"
-        + "\n"
-        + "  other.NestedTypeB nestedB;\n"
-        + "\n"
-        + "  NestedTypeC nestedC;\n"
-        + "\n"
-        + "  Foo foo;\n"
-        + "}\n");
+    assertThat(source).isEqualTo("""
+            package com.squareup.tacos;
+
+            import other.Foo;
+            import other.NestedTypeC;
+
+            class Taco {
+              other.NestedTypeA nestedA;
+
+              other.NestedTypeB nestedB;
+
+              NestedTypeC nestedC;
+
+              Foo foo;
+            }
+            """);
   }
 
   @Test public void avoidClashesWithNestedClasses_viaSuperinterfaceType() {
-    String source = JavaFile.builder("com.squareup.tacos",
+    var source = JavaFile.builder("com.squareup.tacos",
         TypeSpec.classBuilder("Taco")
             // These two should get qualified
             .addField(ClassName.get("other", "NestedTypeA"), "nestedA")
@@ -835,27 +867,29 @@ public final class JavaFileTest {
             .build())
         .build()
         .toString();
-    assertThat(source).isEqualTo("package com.squareup.tacos;\n"
-        + "\n"
-        + "import com.squareup.javapoet.JavaFileTest;\n"
-        + "import other.Foo;\n"
-        + "import other.NestedTypeC;\n"
-        + "\n"
-        + "class Taco implements JavaFileTest.FooInterface {\n"
-        + "  other.NestedTypeA nestedA;\n"
-        + "\n"
-        + "  other.NestedTypeB nestedB;\n"
-        + "\n"
-        + "  NestedTypeC nestedC;\n"
-        + "\n"
-        + "  Foo foo;\n"
-        + "\n"
-        + "  class NestedTypeA {\n"
-        + "  }\n"
-        + "\n"
-        + "  class NestedTypeB {\n"
-        + "  }\n"
-        + "}\n");
+    assertThat(source).isEqualTo("""
+            package com.squareup.tacos;
+
+            import com.squareup.javapoet.JavaFileTest;
+            import other.Foo;
+            import other.NestedTypeC;
+
+            class Taco implements JavaFileTest.FooInterface {
+              other.NestedTypeA nestedA;
+
+              other.NestedTypeB nestedB;
+
+              NestedTypeC nestedC;
+
+              Foo foo;
+
+              class NestedTypeA {
+              }
+
+              class NestedTypeB {
+              }
+            }
+            """);
   }
 
   static class Foo {
@@ -890,88 +924,96 @@ public final class JavaFileTest {
 
   @Test
   public void avoidClashes_parentChild_superclass_type() {
-    String source = JavaFile.builder("com.squareup.javapoet",
+    var source = JavaFile.builder("com.squareup.javapoet",
         childTypeBuilder().superclass(Parent.class).build())
         .build()
         .toString();
-    assertThat(source).isEqualTo("package com.squareup.javapoet;\n"
-        + "\n"
-        + "import java.lang.String;\n"
-        + "\n"
-        + "class Child extends JavaFileTest.Parent {\n"
-        + "  java.util.Optional<String> optionalString() {\n"
-        + "    return java.util.Optional.empty();\n"
-        + "  }\n"
-        + "\n"
-        + "  java.util.regex.Pattern pattern() {\n"
-        + "    return null;\n"
-        + "  }\n"
-        + "}\n");
+    assertThat(source).isEqualTo("""
+            package com.squareup.javapoet;
+
+            import java.lang.String;
+
+            class Child extends JavaFileTest.Parent {
+              java.util.Optional<String> optionalString() {
+                return java.util.Optional.empty();
+              }
+
+              java.util.regex.Pattern pattern() {
+                return null;
+              }
+            }
+            """);
   }
 
   @Test
   public void avoidClashes_parentChild_superclass_typeMirror() {
-    String source = JavaFile.builder("com.squareup.javapoet",
+    var source = JavaFile.builder("com.squareup.javapoet",
         childTypeBuilder().superclass(getElement(Parent.class).asType()).build())
         .build()
         .toString();
-    assertThat(source).isEqualTo("package com.squareup.javapoet;\n"
-        + "\n"
-        + "import java.lang.String;\n"
-        + "\n"
-        + "class Child extends JavaFileTest.Parent {\n"
-        + "  java.util.Optional<String> optionalString() {\n"
-        + "    return java.util.Optional.empty();\n"
-        + "  }\n"
-        + "\n"
-        + "  java.util.regex.Pattern pattern() {\n"
-        + "    return null;\n"
-        + "  }\n"
-        + "}\n");
+    assertThat(source).isEqualTo("""
+            package com.squareup.javapoet;
+
+            import java.lang.String;
+
+            class Child extends JavaFileTest.Parent {
+              java.util.Optional<String> optionalString() {
+                return java.util.Optional.empty();
+              }
+
+              java.util.regex.Pattern pattern() {
+                return null;
+              }
+            }
+            """);
   }
 
   @Test
   public void avoidClashes_parentChild_superinterface_type() {
-    String source = JavaFile.builder("com.squareup.javapoet",
+    var source = JavaFile.builder("com.squareup.javapoet",
         childTypeBuilder().addSuperinterface(ParentInterface.class).build())
         .build()
         .toString();
-    assertThat(source).isEqualTo("package com.squareup.javapoet;\n"
-        + "\n"
-        + "import java.lang.String;\n"
-        + "import java.util.regex.Pattern;\n"
-        + "\n"
-        + "class Child implements JavaFileTest.ParentInterface {\n"
-        + "  java.util.Optional<String> optionalString() {\n"
-        + "    return java.util.Optional.empty();\n"
-        + "  }\n"
-        + "\n"
-        + "  Pattern pattern() {\n"
-        + "    return null;\n"
-        + "  }\n"
-        + "}\n");
+    assertThat(source).isEqualTo("""
+            package com.squareup.javapoet;
+
+            import java.lang.String;
+            import java.util.regex.Pattern;
+
+            class Child implements JavaFileTest.ParentInterface {
+              java.util.Optional<String> optionalString() {
+                return java.util.Optional.empty();
+              }
+
+              Pattern pattern() {
+                return null;
+              }
+            }
+            """);
   }
 
   @Test
   public void avoidClashes_parentChild_superinterface_typeMirror() {
-    String source = JavaFile.builder("com.squareup.javapoet",
+    var source = JavaFile.builder("com.squareup.javapoet",
         childTypeBuilder().addSuperinterface(getElement(ParentInterface.class).asType()).build())
         .build()
         .toString();
-    assertThat(source).isEqualTo("package com.squareup.javapoet;\n"
-        + "\n"
-        + "import java.lang.String;\n"
-        + "import java.util.regex.Pattern;\n"
-        + "\n"
-        + "class Child implements JavaFileTest.ParentInterface {\n"
-        + "  java.util.Optional<String> optionalString() {\n"
-        + "    return java.util.Optional.empty();\n"
-        + "  }\n"
-        + "\n"
-        + "  Pattern pattern() {\n"
-        + "    return null;\n"
-        + "  }\n"
-        + "}\n");
+    assertThat(source).isEqualTo("""
+            package com.squareup.javapoet;
+
+            import java.lang.String;
+            import java.util.regex.Pattern;
+
+            class Child implements JavaFileTest.ParentInterface {
+              java.util.Optional<String> optionalString() {
+                return java.util.Optional.empty();
+              }
+
+              Pattern pattern() {
+                return null;
+              }
+            }
+            """);
   }
 
   // Regression test for https://github.com/square/javapoet/issues/77
@@ -991,7 +1033,7 @@ public final class JavaFileTest {
   // Regression test for case raised here: https://github.com/square/javapoet/issues/77#issuecomment-519972404
   @Test
   public void avoidClashes_mapEntry() {
-    String source = JavaFile.builder("com.squareup.javapoet",
+    var source = JavaFile.builder("com.squareup.javapoet",
         TypeSpec.classBuilder("MapType")
             .addMethod(MethodSpec.methodBuilder("optionalString")
                 .returns(ClassName.get("com.foo", "Entry"))
@@ -1001,14 +1043,16 @@ public final class JavaFileTest {
             .build())
         .build()
         .toString();
-    assertThat(source).isEqualTo("package com.squareup.javapoet;\n"
-        + "\n"
-        + "import java.util.Map;\n"
-        + "\n"
-        + "class MapType implements Map {\n"
-        + "  com.foo.Entry optionalString() {\n"
-        + "    return null;\n"
-        + "  }\n"
-        + "}\n");
+    assertThat(source).isEqualTo("""
+            package com.squareup.javapoet;
+
+            import java.util.Map;
+
+            class MapType implements Map {
+              com.foo.Entry optionalString() {
+                return null;
+              }
+            }
+            """);
   }
 }

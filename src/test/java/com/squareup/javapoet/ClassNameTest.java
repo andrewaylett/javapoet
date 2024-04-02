@@ -16,9 +16,16 @@
 package com.squareup.javapoet;
 
 import com.google.testing.compile.CompilationRule;
+
+import java.lang.annotation.Annotation;
+import java.util.List;
 import java.util.Map;
-import javax.lang.model.element.TypeElement;
+import java.util.Set;
+import javax.lang.model.element.*;
+import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.Elements;
+
+import org.jetbrains.annotations.NotNull;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -28,7 +35,7 @@ import org.mockito.Mockito;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 @RunWith(JUnit4.class)
 public final class ClassNameTest {
@@ -40,7 +47,7 @@ public final class ClassNameTest {
   }
 
   @Test public void bestGuessNonAscii() {
-    ClassName className = ClassName.bestGuess(
+    var className = ClassName.bestGuess(
         "com.\ud835\udc1andro\ud835\udc22d.\ud835\udc00ctiv\ud835\udc22ty");
     assertEquals("com.\ud835\udc1andro\ud835\udc22d", className.packageName());
     assertEquals("\ud835\udc00ctiv\ud835\udc22ty", className.simpleName());
@@ -91,10 +98,10 @@ public final class ClassNameTest {
   }
 
   @Test public void createNestedClass() {
-    ClassName foo = ClassName.get("com.example", "Foo");
-    ClassName bar = foo.nestedClass("Bar");
+    var foo = ClassName.get("com.example", "Foo");
+    var bar = foo.nestedClass("Bar");
     assertThat(bar).isEqualTo(ClassName.get("com.example", "Foo", "Bar"));
-    ClassName baz = bar.nestedClass("Baz");
+    var baz = bar.nestedClass("Baz");
     assertThat(baz).isEqualTo(ClassName.get("com.example", "Foo", "Bar", "Baz"));
   }
 
@@ -103,12 +110,12 @@ public final class ClassNameTest {
   }
 
   @Test public void classNameFromTypeElement() {
-    Elements elements = compilationRule.getElements();
-    TypeElement object = elements.getTypeElement(Object.class.getCanonicalName());
+    var elements = compilationRule.getElements();
+    var object = elements.getTypeElement(Object.class.getCanonicalName());
     assertThat(ClassName.get(object).toString()).isEqualTo("java.lang.Object");
-    TypeElement outer = elements.getTypeElement($Outer.class.getCanonicalName());
+    var outer = elements.getTypeElement($Outer.class.getCanonicalName());
     assertThat(ClassName.get(outer).toString()).isEqualTo("com.squareup.javapoet.ClassNameTest.$Outer");
-    TypeElement inner = elements.getTypeElement($Outer.$Inner.class.getCanonicalName());
+    var inner = elements.getTypeElement($Outer.$Inner.class.getCanonicalName());
     assertThat(ClassName.get(inner).toString()).isEqualTo("com.squareup.javapoet.ClassNameTest.$Outer.$Inner");
   }
 
@@ -117,29 +124,101 @@ public final class ClassNameTest {
    * {@link TypeElement#getKind()}. Test to confirm that we don't use that API.
    */
   @Test public void classNameFromTypeElementDoesntUseGetKind() {
-    Elements elements = compilationRule.getElements();
-    TypeElement object = elements.getTypeElement(Object.class.getCanonicalName());
-    assertThat(ClassName.get(preventGetKind(object)).toString())
+    var elements = compilationRule.getElements();
+    var object = elements.getTypeElement(Object.class.getCanonicalName());
+    var element = preventGetKind(object);
+    assertThat(ClassName.get(element).toString())
         .isEqualTo("java.lang.Object");
-    TypeElement outer = elements.getTypeElement($Outer.class.getCanonicalName());
+    var outer = elements.getTypeElement($Outer.class.getCanonicalName());
     assertThat(ClassName.get(preventGetKind(outer)).toString())
         .isEqualTo("com.squareup.javapoet.ClassNameTest.$Outer");
-    TypeElement inner = elements.getTypeElement($Outer.$Inner.class.getCanonicalName());
+    var inner = elements.getTypeElement($Outer.$Inner.class.getCanonicalName());
     assertThat(ClassName.get(preventGetKind(inner)).toString())
         .isEqualTo("com.squareup.javapoet.ClassNameTest.$Outer.$Inner");
   }
 
   /** Returns a new instance like {@code object} that throws on {@code getKind()}. */
-  private TypeElement preventGetKind(TypeElement object) {
-    TypeElement spy = Mockito.spy(object);
-    when(spy.getKind()).thenThrow(new AssertionError());
-    when(spy.getEnclosingElement()).thenAnswer(invocation -> {
-      Object enclosingElement = invocation.callRealMethod();
-      return enclosingElement instanceof TypeElement
-          ? preventGetKind((TypeElement) enclosingElement)
-          : enclosingElement;
-    });
-    return spy;
+  private @NotNull TypeElement preventGetKind(@NotNull TypeElement object) {
+    return new TypeElement() {
+      @Override
+      public TypeMirror asType() {
+        return object.asType();
+      }
+
+      @Override
+      public List<? extends Element> getEnclosedElements() {
+        return object.getEnclosedElements();
+      }
+
+      @Override
+      public NestingKind getNestingKind() {
+        return object.getNestingKind();
+      }
+
+      @Override
+      public Name getQualifiedName() {
+        return object.getQualifiedName();
+      }
+
+      @Override
+      public Name getSimpleName() {
+        return object.getSimpleName();
+      }
+
+      @Override
+      public TypeMirror getSuperclass() {
+        return object.getSuperclass();
+      }
+
+      @Override
+      public List<? extends TypeMirror> getInterfaces() {
+        return object.getInterfaces();
+      }
+
+      @Override
+      public List<? extends TypeParameterElement> getTypeParameters() {
+        return object.getTypeParameters();
+      }
+
+      @Override
+      public Element getEnclosingElement() {
+        var enclosingElement = object.getEnclosingElement();
+        if (enclosingElement instanceof TypeElement typeElement) {
+          return preventGetKind(typeElement);
+        }
+        return enclosingElement;
+      }
+
+      @Override
+      public ElementKind getKind() {
+        throw new RuntimeException("Should not have called getKind");
+      }
+
+      @Override
+      public Set<Modifier> getModifiers() {
+        return object.getModifiers();
+      }
+
+      @Override
+      public List<? extends AnnotationMirror> getAnnotationMirrors() {
+        return object.getAnnotationMirrors();
+      }
+
+      @Override
+      public <A extends Annotation> A getAnnotation(Class<A> annotationType) {
+        return object.getAnnotation(annotationType);
+      }
+
+      @Override
+      public <A extends Annotation> A[] getAnnotationsByType(Class<A> annotationType) {
+        return object.getAnnotationsByType(annotationType);
+      }
+
+      @Override
+      public <R, P> R accept(ElementVisitor<R, P> v, P p) {
+        return object.accept(v, p);
+      }
+    };
   }
 
   @Test public void classNameFromClass() {
@@ -148,9 +227,9 @@ public final class ClassNameTest {
     assertThat(ClassName.get(OuterClass.InnerClass.class).toString())
         .isEqualTo("com.squareup.javapoet.ClassNameTest.OuterClass.InnerClass");
     assertThat((ClassName.get(new Object() {}.getClass())).toString())
-        .isEqualTo("com.squareup.javapoet.ClassNameTest$1");
-    assertThat((ClassName.get(new Object() { Object inner = new Object() {}; }.inner.getClass())).toString())
-        .isEqualTo("com.squareup.javapoet.ClassNameTest$2$1");
+        .isEqualTo("com.squareup.javapoet.ClassNameTest$2");
+    assertThat((ClassName.get(new Object() { final Object inner = new Object() {}; }.inner.getClass())).toString())
+        .isEqualTo("com.squareup.javapoet.ClassNameTest$3$1");
     assertThat((ClassName.get($Outer.class)).toString())
         .isEqualTo("com.squareup.javapoet.ClassNameTest.$Outer");
     assertThat((ClassName.get($Outer.$Inner.class)).toString())
@@ -186,7 +265,7 @@ public final class ClassNameTest {
 
   @Test
   public void reflectionName() {
-    assertEquals("java.lang.Object", TypeName.OBJECT.reflectionName());
+    assertEquals("java.lang.Object", ClassName.OBJECT.reflectionName());
     assertEquals("java.lang.Thread$State", ClassName.get(Thread.State.class).reflectionName());
     assertEquals("java.util.Map$Entry", ClassName.get(Map.Entry.class).reflectionName());
     assertEquals("Foo", ClassName.get("", "Foo").reflectionName());
@@ -196,7 +275,7 @@ public final class ClassNameTest {
 
   @Test
   public void canonicalName() {
-    assertEquals("java.lang.Object", TypeName.OBJECT.canonicalName());
+    assertEquals("java.lang.Object", ClassName.OBJECT.canonicalName());
     assertEquals("java.lang.Thread.State", ClassName.get(Thread.State.class).canonicalName());
     assertEquals("java.util.Map.Entry", ClassName.get(Map.Entry.class).canonicalName());
     assertEquals("Foo", ClassName.get("", "Foo").canonicalName());

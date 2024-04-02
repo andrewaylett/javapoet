@@ -16,12 +16,12 @@
 package com.squareup.javapoet;
 
 import java.io.Serializable;
-import java.lang.reflect.Method;
-import java.lang.reflect.Type;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
+
+import com.google.common.testing.EqualsTester;
 import org.junit.Test;
 
 import static com.google.common.truth.Truth.assertThat;
@@ -66,10 +66,10 @@ public class TypeNameTest {
   }
 
   @Test public void genericType() throws Exception {
-    Method recursiveEnum = getClass().getDeclaredMethod("generic", Enum[].class);
+    var recursiveEnum = getClass().getDeclaredMethod("generic", Enum[].class);
     TypeName.get(recursiveEnum.getReturnType());
     TypeName.get(recursiveEnum.getGenericReturnType());
-    TypeName genericTypeName = TypeName.get(recursiveEnum.getParameterTypes()[0]);
+    var genericTypeName = TypeName.get(recursiveEnum.getParameterTypes()[0]);
     TypeName.get(recursiveEnum.getGenericParameterTypes()[0]);
 
     // Make sure the generic argument is present
@@ -77,9 +77,9 @@ public class TypeNameTest {
   }
 
   @Test public void innerClassInGenericType() throws Exception {
-    Method genericStringInner = getClass().getDeclaredMethod("testGenericStringInner");
+    var genericStringInner = getClass().getDeclaredMethod("testGenericStringInner");
     TypeName.get(genericStringInner.getReturnType());
-    TypeName genericTypeName = TypeName.get(genericStringInner.getGenericReturnType());
+    var genericTypeName = TypeName.get(genericStringInner.getGenericReturnType());
     assertNotEquals(TypeName.get(genericStringInner.getGenericReturnType()),
         TypeName.get(getClass().getDeclaredMethod("testGenericIntInner").getGenericReturnType()));
 
@@ -89,9 +89,9 @@ public class TypeNameTest {
   }
 
   @Test public void innerGenericInGenericType() throws Exception {
-    Method genericStringInner = getClass().getDeclaredMethod("testGenericInnerLong");
+    var genericStringInner = getClass().getDeclaredMethod("testGenericInnerLong");
     TypeName.get(genericStringInner.getReturnType());
-    TypeName genericTypeName = TypeName.get(genericStringInner.getGenericReturnType());
+    var genericTypeName = TypeName.get(genericStringInner.getGenericReturnType());
     assertNotEquals(TypeName.get(genericStringInner.getGenericReturnType()),
         TypeName.get(getClass().getDeclaredMethod("testGenericInnerInt").getGenericReturnType()));
 
@@ -101,9 +101,9 @@ public class TypeNameTest {
   }
 
   @Test public void innerStaticInGenericType() throws Exception {
-    Method staticInGeneric = getClass().getDeclaredMethod("testNestedNonGeneric");
+    var staticInGeneric = getClass().getDeclaredMethod("testNestedNonGeneric");
     TypeName.get(staticInGeneric.getReturnType());
-    TypeName typeName = TypeName.get(staticInGeneric.getGenericReturnType());
+    var typeName = TypeName.get(staticInGeneric.getGenericReturnType());
 
     // Make sure there are no generic arguments
     assertThat(typeName.toString()).isEqualTo(
@@ -111,89 +111,157 @@ public class TypeNameTest {
   }
 
   @Test public void equalsAndHashCodePrimitive() {
-    assertEqualsHashCodeAndToString(TypeName.BOOLEAN, TypeName.BOOLEAN);
-    assertEqualsHashCodeAndToString(TypeName.BYTE, TypeName.BYTE);
-    assertEqualsHashCodeAndToString(TypeName.CHAR, TypeName.CHAR);
-    assertEqualsHashCodeAndToString(TypeName.DOUBLE, TypeName.DOUBLE);
-    assertEqualsHashCodeAndToString(TypeName.FLOAT, TypeName.FLOAT);
-    assertEqualsHashCodeAndToString(TypeName.INT, TypeName.INT);
-    assertEqualsHashCodeAndToString(TypeName.LONG, TypeName.LONG);
-    assertEqualsHashCodeAndToString(TypeName.SHORT, TypeName.SHORT);
-    assertEqualsHashCodeAndToString(TypeName.VOID, TypeName.VOID);
+    new EqualsTester()
+      .addEqualityGroup(PrimitiveType.Boolean, PrimitiveType.Boolean)
+      .addEqualityGroup(((TypeName) PrimitiveType.Boolean).toString(), ((TypeName) PrimitiveType.Boolean).toString())
+      .testEquals();
+    new EqualsTester()
+      .addEqualityGroup(PrimitiveType.Byte, PrimitiveType.Byte)
+      .addEqualityGroup(((TypeName) PrimitiveType.Byte).toString(), ((TypeName) PrimitiveType.Byte).toString())
+      .testEquals();
+    new EqualsTester()
+      .addEqualityGroup(PrimitiveType.Character, PrimitiveType.Character)
+      .addEqualityGroup(((TypeName) PrimitiveType.Character).toString(), ((TypeName) PrimitiveType.Character).toString())
+      .testEquals();
+    new EqualsTester()
+      .addEqualityGroup(PrimitiveType.Double, PrimitiveType.Double)
+      .addEqualityGroup(((TypeName) PrimitiveType.Double).toString(), ((TypeName) PrimitiveType.Double).toString())
+      .testEquals();
+    new EqualsTester()
+      .addEqualityGroup(PrimitiveType.Float, PrimitiveType.Float)
+      .addEqualityGroup(((TypeName) PrimitiveType.Float).toString(), ((TypeName) PrimitiveType.Float).toString())
+      .testEquals();
+    new EqualsTester()
+      .addEqualityGroup(PrimitiveType.Integer, PrimitiveType.Integer)
+      .addEqualityGroup(((TypeName) PrimitiveType.Integer).toString(), ((TypeName) PrimitiveType.Integer).toString())
+      .testEquals();
+    new EqualsTester()
+      .addEqualityGroup(PrimitiveType.Long, PrimitiveType.Long)
+      .addEqualityGroup(((TypeName) PrimitiveType.Long).toString(), ((TypeName) PrimitiveType.Long).toString())
+      .testEquals();
+    new EqualsTester()
+      .addEqualityGroup(PrimitiveType.Short, PrimitiveType.Short)
+      .addEqualityGroup(((TypeName) PrimitiveType.Short).toString(), ((TypeName) PrimitiveType.Short).toString())
+      .testEquals();
+    new EqualsTester()
+      .addEqualityGroup(PrimitiveType.Void, PrimitiveType.Void)
+      .addEqualityGroup(((TypeName) PrimitiveType.Void).toString(), ((TypeName) PrimitiveType.Void).toString())
+      .testEquals();
   }
 
   @Test public void equalsAndHashCodeArrayTypeName() {
-    assertEqualsHashCodeAndToString(ArrayTypeName.of(Object.class),
-        ArrayTypeName.of(Object.class));
-    assertEqualsHashCodeAndToString(TypeName.get(Object[].class),
-        ArrayTypeName.of(Object.class));
+    TypeName a1 = ArrayTypeName.of(Object.class);
+    TypeName b1 = ArrayTypeName.of(Object.class);
+    new EqualsTester()
+      .addEqualityGroup(a1, b1)
+      .addEqualityGroup(a1.toString(), b1.toString())
+      .testEquals();
+    TypeName a = TypeName.get(Object[].class);
+    TypeName b = ArrayTypeName.of(Object.class);
+    new EqualsTester()
+      .addEqualityGroup(a, b)
+      .addEqualityGroup(a.toString(), b.toString())
+      .testEquals();
   }
 
   @Test public void equalsAndHashCodeClassName() {
-    assertEqualsHashCodeAndToString(ClassName.get(Object.class), ClassName.get(Object.class));
-    assertEqualsHashCodeAndToString(TypeName.get(Object.class), ClassName.get(Object.class));
-    assertEqualsHashCodeAndToString(ClassName.bestGuess("java.lang.Object"),
-        ClassName.get(Object.class));
+    TypeName a2 = ClassName.get(Object.class);
+    TypeName b2 = ClassName.get(Object.class);
+    new EqualsTester()
+      .addEqualityGroup(a2, b2)
+      .addEqualityGroup(a2.toString(), b2.toString())
+      .testEquals();
+    TypeName a1 = TypeName.get(Object.class);
+    TypeName b1 = ClassName.get(Object.class);
+    new EqualsTester()
+      .addEqualityGroup(a1, b1)
+      .addEqualityGroup(a1.toString(), b1.toString())
+      .testEquals();
+    TypeName a = ClassName.bestGuess("java.lang.Object");
+    TypeName b = ClassName.get(Object.class);
+    new EqualsTester()
+      .addEqualityGroup(a, b)
+      .addEqualityGroup(a.toString(), b.toString())
+      .testEquals();
   }
 
   @Test public void equalsAndHashCodeParameterizedTypeName() {
-    assertEqualsHashCodeAndToString(ParameterizedTypeName.get(Object.class),
-        ParameterizedTypeName.get(Object.class));
-    assertEqualsHashCodeAndToString(ParameterizedTypeName.get(Set.class, UUID.class),
-        ParameterizedTypeName.get(Set.class, UUID.class));
-    assertNotEquals(ClassName.get(List.class), ParameterizedTypeName.get(List.class,
-        String.class));
+    TypeName a = ParameterizedTypeName.get(Set.class, UUID.class);
+    TypeName b = ParameterizedTypeName.get(Set.class, UUID.class);
+    TypeName a1 = ClassName.get(Object.class);
+    TypeName b1 = ClassName.get(Object.class);
+    new EqualsTester()
+      .addEqualityGroup(a1, b1)
+      .addEqualityGroup(a1.toString(), b1.toString())
+      .addEqualityGroup(a, b)
+      .addEqualityGroup(a.toString(), b.toString())
+      .addEqualityGroup(ClassName.get(List.class))
+      .addEqualityGroup(ParameterizedTypeName.get(List.class, String.class))
+      .testEquals();
   }
 
   @Test public void equalsAndHashCodeTypeVariableName() {
-    assertEqualsHashCodeAndToString(TypeVariableName.get(Object.class),
-        TypeVariableName.get(Object.class));
-    TypeVariableName typeVar1 = TypeVariableName.get("T", Comparator.class, Serializable.class);
-    TypeVariableName typeVar2 = TypeVariableName.get("T", Comparator.class, Serializable.class);
-    assertEqualsHashCodeAndToString(typeVar1, typeVar2);
+    TypeName a = TypeName.get(Object.class);
+    TypeName b = TypeName.get(Object.class);
+    new EqualsTester()
+      .addEqualityGroup(a, b)
+      .addEqualityGroup(a.toString(), b.toString())
+      .testEquals();
+    var typeVar1 = TypeVariableName.get("T", Comparator.class, Serializable.class);
+    var typeVar2 = TypeVariableName.get("T", Comparator.class, Serializable.class);
+    new EqualsTester()
+      .addEqualityGroup(typeVar1, typeVar2)
+      .addEqualityGroup(((TypeName) typeVar1).toString(), ((TypeName) typeVar2).toString())
+      .testEquals();
   }
 
   @Test public void equalsAndHashCodeWildcardTypeName() {
-    assertEqualsHashCodeAndToString(WildcardTypeName.subtypeOf(Object.class),
-        WildcardTypeName.subtypeOf(Object.class));
-    assertEqualsHashCodeAndToString(WildcardTypeName.subtypeOf(Serializable.class),
-        WildcardTypeName.subtypeOf(Serializable.class));
-    assertEqualsHashCodeAndToString(WildcardTypeName.supertypeOf(String.class),
-        WildcardTypeName.supertypeOf(String.class));
+    TypeName a2 = WildcardTypeName.subtypeOf(Object.class);
+    TypeName b2 = WildcardTypeName.subtypeOf(Object.class);
+    new EqualsTester()
+      .addEqualityGroup(a2, b2)
+      .addEqualityGroup(a2.toString(), b2.toString())
+      .testEquals();
+    TypeName a1 = WildcardTypeName.subtypeOf(Serializable.class);
+    TypeName b1 = WildcardTypeName.subtypeOf(Serializable.class);
+    new EqualsTester()
+      .addEqualityGroup(a1, b1)
+      .addEqualityGroup(a1.toString(), b1.toString())
+      .testEquals();
+    TypeName a = WildcardTypeName.supertypeOf(String.class);
+    TypeName b = WildcardTypeName.supertypeOf(String.class);
+    new EqualsTester()
+      .addEqualityGroup(a, b)
+      .addEqualityGroup(a.toString(), b.toString())
+      .testEquals();
   }
 
   @Test public void isPrimitive() throws Exception {
-    assertThat(TypeName.INT.isPrimitive()).isTrue();
+    assertThat(PrimitiveType.Integer.isPrimitive()).isTrue();
     assertThat(ClassName.get("java.lang", "Integer").isPrimitive()).isFalse();
     assertThat(ClassName.get("java.lang", "String").isPrimitive()).isFalse();
-    assertThat(TypeName.VOID.isPrimitive()).isFalse();
+    assertThat(PrimitiveType.Void.isPrimitive()).isFalse();
     assertThat(ClassName.get("java.lang", "Void").isPrimitive()).isFalse();
   }
 
   @Test public void isBoxedPrimitive() throws Exception {
-    assertThat(TypeName.INT.isBoxedPrimitive()).isFalse();
+    assertThat(PrimitiveType.Integer.isBoxedPrimitive()).isFalse();
     assertThat(ClassName.get("java.lang", "Integer").isBoxedPrimitive()).isTrue();
     assertThat(ClassName.get("java.lang", "String").isBoxedPrimitive()).isFalse();
-    assertThat(TypeName.VOID.isBoxedPrimitive()).isFalse();
+    assertThat(PrimitiveType.Void.isBoxedPrimitive()).isFalse();
     assertThat(ClassName.get("java.lang", "Void").isBoxedPrimitive()).isFalse();
     assertThat(ClassName.get("java.lang", "Integer")
             .annotated(ANNOTATION_SPEC).isBoxedPrimitive()).isTrue();
   }
 
   @Test public void canBoxAnnotatedPrimitive() throws Exception {
-    assertThat(TypeName.BOOLEAN.annotated(ANNOTATION_SPEC).box()).isEqualTo(
+    assertThat(PrimitiveType.Boolean.annotated(ANNOTATION_SPEC).box()).isEqualTo(
             ClassName.get("java.lang", "Boolean").annotated(ANNOTATION_SPEC));
   }
 
   @Test public void canUnboxAnnotatedPrimitive() throws Exception {
     assertThat(ClassName.get("java.lang", "Boolean").annotated(ANNOTATION_SPEC)
-            .unbox()).isEqualTo(TypeName.BOOLEAN.annotated(ANNOTATION_SPEC));
+            .unbox()).isEqualTo(PrimitiveType.Boolean.annotated(ANNOTATION_SPEC));
   }
 
-  private void assertEqualsHashCodeAndToString(TypeName a, TypeName b) {
-    assertEquals(a.toString(), b.toString());
-    assertThat(a.equals(b)).isTrue();
-    assertThat(a.hashCode()).isEqualTo(b.hashCode());
-    assertFalse(a.equals(null));
-  }
 }

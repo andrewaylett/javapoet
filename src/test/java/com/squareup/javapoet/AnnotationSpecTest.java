@@ -21,6 +21,7 @@ import java.lang.annotation.Inherited;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.util.Arrays;
+import java.util.List;
 
 import javax.lang.model.element.TypeElement;
 import org.junit.Rule;
@@ -47,7 +48,7 @@ public final class AnnotationSpecTest {
 
   public enum Breakfast {
     WAFFLES, PANCAKES;
-    public String toString() { return name() + " with cherries!"; };
+    public String toString() { return name() + " with cherries!"; }
   }
 
   @Retention(RetentionPolicy.RUNTIME)
@@ -107,8 +108,8 @@ public final class AnnotationSpecTest {
   @Rule public final CompilationRule compilation = new CompilationRule();
 
   @Test public void equalsAndHashCode() {
-    AnnotationSpec a = AnnotationSpec.builder(AnnotationC.class).build();
-    AnnotationSpec b = AnnotationSpec.builder(AnnotationC.class).build();
+    var a = AnnotationSpec.builder(AnnotationC.class).build();
+    var b = AnnotationSpec.builder(AnnotationC.class).build();
     assertThat(a.equals(b)).isTrue();
     assertThat(a.hashCode()).isEqualTo(b.hashCode());
     a = AnnotationSpec.builder(AnnotationC.class).addMember("value", "$S", "123").build();
@@ -118,15 +119,14 @@ public final class AnnotationSpecTest {
   }
 
   @Test public void defaultAnnotation() {
-    String name = IsAnnotated.class.getCanonicalName();
-    TypeElement element = compilation.getElements().getTypeElement(name);
-    AnnotationSpec annotation = AnnotationSpec.get(element.getAnnotationMirrors().get(0));
+    var name = IsAnnotated.class.getCanonicalName();
+    var element = compilation.getElements().getTypeElement(name);
+    var annotation = AnnotationSpec.get(element.getAnnotationMirrors().get(0));
 
-    TypeSpec taco = TypeSpec.classBuilder("Taco")
+    var taco = TypeSpec.classBuilder("Taco")
         .addAnnotation(annotation)
         .build();
-    assertThat(toString(taco)).isEqualTo(""
-        + "package com.squareup.tacos;\n"
+    assertThat(toString(taco)).isEqualTo("package com.squareup.tacos;\n"
         + "\n"
         + "import com.squareup.javapoet.AnnotationSpecTest;\n"
         + "import java.lang.Double;\n"
@@ -155,12 +155,12 @@ public final class AnnotationSpecTest {
   }
 
   @Test public void defaultAnnotationWithImport() {
-    String name = IsAnnotated.class.getCanonicalName();
-    TypeElement element = compilation.getElements().getTypeElement(name);
-    AnnotationSpec annotation = AnnotationSpec.get(element.getAnnotationMirrors().get(0));
-    TypeSpec.Builder typeBuilder = TypeSpec.classBuilder(IsAnnotated.class.getSimpleName());
+    var name = IsAnnotated.class.getCanonicalName();
+    var element = compilation.getElements().getTypeElement(name);
+    var annotation = AnnotationSpec.get(element.getAnnotationMirrors().get(0));
+    var typeBuilder = TypeSpec.classBuilder(IsAnnotated.class.getSimpleName());
     typeBuilder.addAnnotation(annotation);
-    JavaFile file = JavaFile.builder("com.squareup.javapoet", typeBuilder.build()).build();
+    var file = JavaFile.builder("com.squareup.javapoet", typeBuilder.build()).build();
     assertThat(file.toString()).isEqualTo(
         "package com.squareup.javapoet;\n"
             + "\n"
@@ -191,7 +191,7 @@ public final class AnnotationSpecTest {
   }
 
   @Test public void emptyArray() {
-    AnnotationSpec.Builder builder = AnnotationSpec.builder(HasDefaultsAnnotation.class);
+    var builder = AnnotationSpec.builder(HasDefaultsAnnotation.class);
     builder.addMember("n", "$L", "{}");
     assertThat(builder.build().toString()).isEqualTo(
         "@com.squareup.javapoet.AnnotationSpecTest.HasDefaultsAnnotation(" + "n = {}" + ")");
@@ -204,7 +204,7 @@ public final class AnnotationSpecTest {
   }
 
   @Test public void dynamicArrayOfEnumConstants() {
-    AnnotationSpec.Builder builder = AnnotationSpec.builder(HasDefaultsAnnotation.class);
+    var builder = AnnotationSpec.builder(HasDefaultsAnnotation.class);
     builder.addMember("n", "$T.$L", Breakfast.class, Breakfast.PANCAKES.name());
     assertThat(builder.build().toString()).isEqualTo(
         "@com.squareup.javapoet.AnnotationSpecTest.HasDefaultsAnnotation("
@@ -243,9 +243,9 @@ public final class AnnotationSpecTest {
   }
 
   @Test public void defaultAnnotationToBuilder() {
-    String name = IsAnnotated.class.getCanonicalName();
-    TypeElement element = compilation.getElements().getTypeElement(name);
-    AnnotationSpec.Builder builder = AnnotationSpec.get(element.getAnnotationMirrors().get(0))
+    var name = IsAnnotated.class.getCanonicalName();
+    var element = compilation.getElements().getTypeElement(name);
+    var builder = AnnotationSpec.get(element.getAnnotationMirrors().get(0))
         .toBuilder();
     builder.addMember("m", "$L", 123);
     assertThat(builder.build().toString()).isEqualTo(
@@ -262,13 +262,12 @@ public final class AnnotationSpecTest {
   }
 
   @Test public void reflectAnnotation() {
-    HasDefaultsAnnotation annotation = IsAnnotated.class.getAnnotation(HasDefaultsAnnotation.class);
-    AnnotationSpec spec = AnnotationSpec.get(annotation);
-    TypeSpec taco = TypeSpec.classBuilder("Taco")
+    var annotation = IsAnnotated.class.getAnnotation(HasDefaultsAnnotation.class);
+    var spec = AnnotationSpec.get(annotation);
+    var taco = TypeSpec.classBuilder("Taco")
         .addAnnotation(spec)
         .build();
-    assertThat(toString(taco)).isEqualTo(""
-        + "package com.squareup.tacos;\n"
+    assertThat(toString(taco)).isEqualTo("package com.squareup.tacos;\n"
         + "\n"
         + "import com.squareup.javapoet.AnnotationSpecTest;\n"
         + "import java.lang.Double;\n"
@@ -296,13 +295,12 @@ public final class AnnotationSpecTest {
   }
 
   @Test public void reflectAnnotationWithDefaults() {
-    HasDefaultsAnnotation annotation = IsAnnotated.class.getAnnotation(HasDefaultsAnnotation.class);
-    AnnotationSpec spec = AnnotationSpec.get(annotation, true);
-    TypeSpec taco = TypeSpec.classBuilder("Taco")
+    var annotation = IsAnnotated.class.getAnnotation(HasDefaultsAnnotation.class);
+    var spec = AnnotationSpec.get(annotation, true);
+    var taco = TypeSpec.classBuilder("Taco")
         .addAnnotation(spec)
         .build();
-    assertThat(toString(taco)).isEqualTo(""
-        + "package com.squareup.tacos;\n"
+    assertThat(toString(taco)).isEqualTo("package com.squareup.tacos;\n"
         + "\n"
         + "import com.squareup.javapoet.AnnotationSpecTest;\n"
         + "import java.lang.Double;\n"
@@ -354,9 +352,9 @@ public final class AnnotationSpecTest {
   }
 
   @Test public void disallowsNullMemberName() {
-    AnnotationSpec.Builder builder = AnnotationSpec.builder(HasDefaultsAnnotation.class);
+    var builder = AnnotationSpec.builder(HasDefaultsAnnotation.class);
     try {
-      AnnotationSpec.Builder $L = builder.addMember(null, "$L", "");
+      var $L = builder.addMember(null, "$L", "");
       fail($L.build().toString());
     } catch (NullPointerException e) {
       assertThat(e).hasMessageThat().isEqualTo("name == null");
@@ -364,9 +362,9 @@ public final class AnnotationSpecTest {
   }
 
   @Test public void requiresValidMemberName() {
-    AnnotationSpec.Builder builder = AnnotationSpec.builder(HasDefaultsAnnotation.class);
+    var builder = AnnotationSpec.builder(HasDefaultsAnnotation.class);
     try {
-      AnnotationSpec.Builder $L = builder.addMember("@", "$L", "");
+      var $L = builder.addMember("@", "$L", "");
       fail($L.build().toString());
     } catch (IllegalArgumentException e) {
       assertThat(e).hasMessageThat().isEqualTo("not a valid name: @");
@@ -374,11 +372,11 @@ public final class AnnotationSpecTest {
   }
 
   @Test public void modifyMembers() {
-    AnnotationSpec.Builder builder = AnnotationSpec.builder(SuppressWarnings.class)
+    var builder = AnnotationSpec.builder(SuppressWarnings.class)
             .addMember("value", "$S", "Foo");
-    
+
     builder.members.clear();
-    builder.members.put("value", Arrays.asList(CodeBlock.of("$S", "Bar")));
+    builder.members.put("value", List.of(CodeBlock.of("$S", "Bar")));
 
     assertThat(builder.build().toString()).isEqualTo("@java.lang.SuppressWarnings(\"Bar\")");
   }

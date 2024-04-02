@@ -20,10 +20,11 @@
   <properties>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 
-    <java.version>1.8</java.version>
+    <java.version>17</java.version>
     <junit.version>4.13.2</junit.version>
     <truth.version>1.4.2</truth.version>
     <compile-testing.version>0.21.0</compile-testing.version>
+    <error-prone.version>2.26.1</error-prone.version>
   </properties>
 
   <scm>
@@ -51,6 +52,11 @@
   </organization>
 
   <dependencies>
+    <dependency>
+      <groupId>org.jetbrains</groupId>
+      <artifactId>annotations</artifactId>
+      <version>24.0.1</version>
+    </dependency>
     <dependency>
       <groupId>com.google.truth</groupId>
       <artifactId>truth</artifactId>
@@ -87,32 +93,72 @@
       <version>4.6.1</version>
       <scope>test</scope>
     </dependency>
+    <dependency>
+      <groupId>com.google.guava</groupId>
+      <artifactId>guava</artifactId>
+      <version>33.1.0-jre</version>
+    </dependency>
+    <dependency>
+      <groupId>com.google.guava</groupId>
+      <artifactId>guava-testlib</artifactId>
+      <version>33.1.0-jre</version>
+    </dependency>
   </dependencies>
 
   <build>
     <plugins>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-toolchains-plugin</artifactId>
+        <version>3.1.0</version>
+        <executions>
+          <execution>
+            <goals>
+              <goal>toolchain</goal>
+            </goals>
+          </execution>
+        </executions>
+        <configuration>
+          <toolchains>
+            <jdk>
+              <version>[1.17,)</version>
+            </jdk>
+          </toolchains>
+        </configuration>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-compiler-plugin</artifactId>
         <version>3.12.1</version>
         <configuration>
-          <compilerId>javac-with-errorprone</compilerId>
-          <forceJavacCompilerUse>true</forceJavacCompilerUse>
-          <source>${java.version}</source>
-          <target>${java.version}</target>
+          <release>${java.version}</release>
+          <compilerArgs>
+            <arg>-XDcompilePolicy=simple</arg>
+            <arg>-Xplugin:ErrorProne</arg>
+            <arg>-J--add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED</arg>
+            <arg>-J--add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED</arg>
+            <arg>-J--add-exports=jdk.compiler/com.sun.tools.javac.main=ALL-UNNAMED</arg>
+            <arg>-J--add-exports=jdk.compiler/com.sun.tools.javac.model=ALL-UNNAMED</arg>
+            <arg>-J--add-exports=jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED</arg>
+            <arg>-J--add-exports=jdk.compiler/com.sun.tools.javac.processing=ALL-UNNAMED</arg>
+            <arg>-J--add-exports=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED</arg>
+            <arg>-J--add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED</arg>
+            <arg>-J--add-opens=jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED</arg>
+            <arg>-J--add-opens=jdk.compiler/com.sun.tools.javac.comp=ALL-UNNAMED</arg>
+          </compilerArgs>
+          <annotationProcessorPaths>
+            <path>
+              <groupId>com.google.errorprone</groupId>
+              <artifactId>error_prone_core</artifactId>
+              <version>${error-prone.version}</version>
+            </path>
+            <!-- Other annotation processors go here.
+
+            If 'annotationProcessorPaths' is set, processors will no longer be
+            discovered on the regular -classpath; see also 'Using Error Prone
+            together with other annotation processors' below. -->
+          </annotationProcessorPaths>
         </configuration>
-        <dependencies>
-          <dependency>
-            <groupId>org.codehaus.plexus</groupId>
-            <artifactId>plexus-compiler-javac-errorprone</artifactId>
-            <version>2.8.2</version>
-          </dependency>
-          <dependency>
-            <groupId>com.google.errorprone</groupId>
-            <artifactId>error_prone_core</artifactId>
-            <version>2.3.1</version>
-          </dependency>
-        </dependencies>
       </plugin>
 
       <plugin>

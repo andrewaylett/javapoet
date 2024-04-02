@@ -29,9 +29,14 @@ import javax.lang.model.element.Modifier;
 import org.junit.Test;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.squareup.javapoet.ParameterSpec.builder;
+import static com.squareup.javapoet.ParameterSpec.get;
 import static com.squareup.javapoet.TestUtil.findFirst;
+import static javax.lang.model.element.Modifier.FINAL;
+import static javax.lang.model.element.Modifier.PUBLIC;
 import static javax.lang.model.util.ElementFilter.fieldsIn;
 import static javax.lang.model.util.ElementFilter.methodsIn;
+import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
 
 public class ParameterSpecTest {
@@ -48,8 +53,8 @@ public class ParameterSpecTest {
   }
 
   @Test public void equalsAndHashCode() {
-    ParameterSpec a = ParameterSpec.builder(int.class, "foo").build();
-    ParameterSpec b = ParameterSpec.builder(int.class, "foo").build();
+    var a = ParameterSpec.builder(int.class, "foo").build();
+    var b = ParameterSpec.builder(int.class, "foo").build();
     assertThat(a.equals(b)).isTrue();
     assertThat(a.hashCode()).isEqualTo(b.hashCode());
     assertThat(a.toString()).isEqualTo(b.toString());
@@ -61,32 +66,24 @@ public class ParameterSpecTest {
   }
 
   @Test public void receiverParameterInstanceMethod() {
-    ParameterSpec.Builder builder = ParameterSpec.builder(int.class, "this");
+    var builder = ParameterSpec.builder(int.class, "this");
     assertThat(builder.build().name).isEqualTo("this");
   }
 
   @Test public void receiverParameterNestedClass() {
-    ParameterSpec.Builder builder = ParameterSpec.builder(int.class, "Foo.this");
+    var builder = ParameterSpec.builder(int.class, "Foo.this");
     assertThat(builder.build().name).isEqualTo("Foo.this");
   }
 
   @Test public void keywordName() {
-    try {
-      ParameterSpec.builder(int.class, "super");
-      fail();
-    } catch (Exception e) {
-      assertThat(e.getMessage()).isEqualTo("not a valid name: super");
-    }
+    var e = assertThrows(Exception.class, () -> builder(int.class, "super"));
+    assertThat(e.getMessage()).isEqualTo("not a valid name: super");
   }
 
   @Test public void nullAnnotationsAddition() {
-    try {
-      ParameterSpec.builder(int.class, "foo").addAnnotations(null);
-      fail();
-    } catch (Exception e) {
-      assertThat(e.getMessage())
-          .isEqualTo("annotationSpecs == null");
-    }
+    var e = assertThrows(Exception.class, () -> builder(int.class, "foo").addAnnotations(null));
+    assertThat(e.getMessage())
+            .isEqualTo("annotationSpecs == null");
   }
 
   final class VariableElementFieldClass {
@@ -94,16 +91,12 @@ public class ParameterSpecTest {
   }
 
   @Test public void fieldVariableElement() {
-    TypeElement classElement = getElement(VariableElementFieldClass.class);
-    List<VariableElement> methods = fieldsIn(elements.getAllMembers(classElement));
-    VariableElement element = findFirst(methods, "name");
+    var classElement = getElement(VariableElementFieldClass.class);
+    var methods = fieldsIn(elements.getAllMembers(classElement));
+    var element = findFirst(methods, "name");
 
-    try {
-      ParameterSpec.get(element);
-      fail();
-    } catch (IllegalArgumentException exception) {
-      assertThat(exception).hasMessageThat().isEqualTo("element is not a parameter");
-    }
+    var exception = assertThrows(IllegalArgumentException.class, () -> get(element));
+    assertThat(exception).hasMessageThat().isEqualTo("element is not a parameter");
   }
 
   final class VariableElementParameterClass {
@@ -112,31 +105,27 @@ public class ParameterSpecTest {
   }
 
   @Test public void parameterVariableElement() {
-    TypeElement classElement = getElement(VariableElementParameterClass.class);
-    List<ExecutableElement> methods = methodsIn(elements.getAllMembers(classElement));
-    ExecutableElement element = findFirst(methods, "foo");
-    VariableElement parameterElement = element.getParameters().get(0);
+    var classElement = getElement(VariableElementParameterClass.class);
+    var methods = methodsIn(elements.getAllMembers(classElement));
+    var element = findFirst(methods, "foo");
+    var parameterElement = element.getParameters().get(0);
 
     assertThat(ParameterSpec.get(parameterElement).toString())
-        .isEqualTo("java.lang.String arg0");
+        .isEqualTo("java.lang.String bar");
   }
 
   @Test public void addNonFinalModifier() {
     List<Modifier> modifiers = new ArrayList<>();
-    modifiers.add(Modifier.FINAL);
-    modifiers.add(Modifier.PUBLIC);
+    modifiers.add(FINAL);
+    modifiers.add(PUBLIC);
 
-    try {
-      ParameterSpec.builder(int.class, "foo")
-          .addModifiers(modifiers);
-      fail();
-    } catch (Exception e) {
-      assertThat(e.getMessage()).isEqualTo("unexpected parameter modifier: public");
-    }
+    var e = assertThrows(Exception.class, () -> builder(int.class, "foo")
+            .addModifiers(modifiers));
+    assertThat(e.getMessage()).isEqualTo("unexpected parameter modifier: public");
   }
 
   @Test public void modifyAnnotations() {
-    ParameterSpec.Builder builder = ParameterSpec.builder(int.class, "foo")
+    var builder = ParameterSpec.builder(int.class, "foo")
             .addAnnotation(Override.class)
             .addAnnotation(SuppressWarnings.class);
 
@@ -145,7 +134,7 @@ public class ParameterSpecTest {
   }
 
   @Test public void modifyModifiers() {
-    ParameterSpec.Builder builder = ParameterSpec.builder(int.class, "foo")
+    var builder = ParameterSpec.builder(int.class, "foo")
             .addModifiers(Modifier.PUBLIC, Modifier.STATIC);
 
     builder.modifiers.remove(1);

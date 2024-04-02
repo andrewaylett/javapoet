@@ -15,91 +15,62 @@
  */
 package com.squareup.javapoet;
 
-import java.io.IOException;
-import java.lang.reflect.Type;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
+import org.jetbrains.annotations.NotNull;
 
 import javax.lang.model.element.TypeParameterElement;
-import javax.lang.model.type.TypeMirror;
 import javax.lang.model.type.TypeVariable;
+import java.io.IOException;
+import java.lang.reflect.Type;
+import java.util.*;
 
 import static com.squareup.javapoet.Util.checkArgument;
 import static com.squareup.javapoet.Util.checkNotNull;
 
-public final class TypeVariableName extends TypeName {
+public final class TypeVariableName extends ObjectTypeName {
   public final String name;
   public final List<TypeName> bounds;
 
   private TypeVariableName(String name, List<TypeName> bounds) {
-    this(name, bounds, new ArrayList<>());
-  }
-
-  private TypeVariableName(String name, List<TypeName> bounds, List<AnnotationSpec> annotations) {
-    super(annotations);
+    super();
     this.name = checkNotNull(name, "name == null");
     this.bounds = bounds;
 
-    for (TypeName bound : this.bounds) {
-      checkArgument(!bound.isPrimitive() && bound != VOID, "invalid bound: %s", bound);
+    for (var bound : this.bounds) {
+      checkArgument(!bound.isPrimitive() && bound != PrimitiveType.Void, "invalid bound: %s", bound);
     }
-  }
-
-  @Override public TypeVariableName annotated(List<AnnotationSpec> annotations) {
-    return new TypeVariableName(name, bounds, annotations);
-  }
-
-  @Override public TypeName withoutAnnotations() {
-    return new TypeVariableName(name, bounds);
-  }
-
-  public TypeVariableName withBounds(Type... bounds) {
-    return withBounds(TypeName.list(bounds));
-  }
-
-  public TypeVariableName withBounds(TypeName... bounds) {
-    return withBounds(Arrays.asList(bounds));
-  }
-
-  public TypeVariableName withBounds(List<? extends TypeName> bounds) {
-    ArrayList<TypeName> newBounds = new ArrayList<>();
-    newBounds.addAll(this.bounds);
-    newBounds.addAll(bounds);
-    return new TypeVariableName(name, newBounds, annotations);
   }
 
   private static TypeVariableName of(String name, List<TypeName> bounds) {
     // Strip java.lang.Object from bounds if it is present.
     List<TypeName> boundsNoObject = new ArrayList<>(bounds);
-    boundsNoObject.remove(OBJECT);
+    boundsNoObject.remove(ClassName.OBJECT);
     return new TypeVariableName(name, Collections.unmodifiableList(boundsNoObject));
   }
 
-  @Override CodeWriter emit(CodeWriter out) throws IOException {
-    emitAnnotations(out);
-    return out.emitAndIndent(name);
-  }
-
-  /** Returns type variable named {@code name} without bounds. */
+  /**
+   * Returns type variable named {@code name} without bounds.
+   */
   public static TypeVariableName get(String name) {
     return TypeVariableName.of(name, Collections.emptyList());
   }
 
-  /** Returns type variable named {@code name} with {@code bounds}. */
-  public static TypeVariableName get(String name, TypeName... bounds) {
+  /**
+   * Returns type variable named {@code name} with {@code bounds}.
+   */
+  public static TypeVariableName get(String name, ObjectTypeName... bounds) {
     return TypeVariableName.of(name, Arrays.asList(bounds));
   }
 
-  /** Returns type variable named {@code name} with {@code bounds}. */
+  /**
+   * Returns type variable named {@code name} with {@code bounds}.
+   */
   public static TypeVariableName get(String name, Type... bounds) {
     return TypeVariableName.of(name, TypeName.list(bounds));
   }
 
-  /** Returns type variable equivalent to {@code mirror}. */
+  /**
+   * Returns type variable equivalent to {@code mirror}.
+   */
   public static TypeVariableName get(TypeVariable mirror) {
     return get((TypeParameterElement) mirror.asElement());
   }
@@ -113,56 +84,106 @@ public final class TypeVariableName extends TypeName {
    * in {@code variables} will make sure that the bounds are filled in before returning.
    */
   static TypeVariableName get(
-      TypeVariable mirror, Map<TypeParameterElement, TypeVariableName> typeVariables) {
-    TypeParameterElement element = (TypeParameterElement) mirror.asElement();
-    TypeVariableName typeVariableName = typeVariables.get(element);
+          TypeVariable mirror, Map<TypeParameterElement, TypeVariableName> typeVariables) {
+    var element = (TypeParameterElement) mirror.asElement();
+    var typeVariableName = typeVariables.get(element);
     if (typeVariableName == null) {
       // Since the bounds field is public, we need to make it an unmodifiableList. But we control
       // the List that that wraps, which means we can change it before returning.
       List<TypeName> bounds = new ArrayList<>();
-      List<TypeName> visibleBounds = Collections.unmodifiableList(bounds);
+      var visibleBounds = Collections.unmodifiableList(bounds);
       typeVariableName = new TypeVariableName(element.getSimpleName().toString(), visibleBounds);
       typeVariables.put(element, typeVariableName);
-      for (TypeMirror typeMirror : element.getBounds()) {
+      for (var typeMirror : element.getBounds()) {
         bounds.add(TypeName.get(typeMirror, typeVariables));
       }
-      bounds.remove(OBJECT);
+      bounds.remove(ClassName.OBJECT);
     }
     return typeVariableName;
   }
 
-  /** Returns type variable equivalent to {@code element}. */
+  /**
+   * Returns type variable equivalent to {@code element}.
+   */
   public static TypeVariableName get(TypeParameterElement element) {
-    String name = element.getSimpleName().toString();
-    List<? extends TypeMirror> boundsMirrors = element.getBounds();
+    var name = element.getSimpleName().toString();
+    var boundsMirrors = element.getBounds();
 
     List<TypeName> boundsTypeNames = new ArrayList<>();
-    for (TypeMirror typeMirror : boundsMirrors) {
+    for (var typeMirror : boundsMirrors) {
       boundsTypeNames.add(TypeName.get(typeMirror));
     }
 
     return TypeVariableName.of(name, boundsTypeNames);
   }
 
-  /** Returns type variable equivalent to {@code type}. */
+  /**
+   * Returns type variable equivalent to {@code type}.
+   */
   public static TypeVariableName get(java.lang.reflect.TypeVariable<?> type) {
     return get(type, new LinkedHashMap<>());
   }
 
-  /** @see #get(java.lang.reflect.TypeVariable, Map) */
+  /**
+   * See {@link #get(java.lang.reflect.TypeVariable)}.
+   */
   static TypeVariableName get(java.lang.reflect.TypeVariable<?> type,
-      Map<Type, TypeVariableName> map) {
-    TypeVariableName result = map.get(type);
+                              Map<Type, TypeVariableName> map) {
+    var result = map.get(type);
     if (result == null) {
       List<TypeName> bounds = new ArrayList<>();
-      List<TypeName> visibleBounds = Collections.unmodifiableList(bounds);
+      var visibleBounds = Collections.unmodifiableList(bounds);
       result = new TypeVariableName(type.getName(), visibleBounds);
       map.put(type, result);
-      for (Type bound : type.getBounds()) {
+      for (var bound : type.getBounds()) {
         bounds.add(TypeName.get(bound, map));
       }
-      bounds.remove(OBJECT);
+      bounds.remove(ClassName.OBJECT);
     }
     return result;
+  }
+
+  @Override
+  public @NotNull TypeVariableName withoutAnnotations() {
+    return this;
+  }
+
+  @Override
+  public boolean isBoxedPrimitive() {
+    return false;
+  }
+
+  @Override
+  public @NotNull TypeName unbox() {
+    throw new UnsupportedOperationException("Cannot unbox " + this);
+  }
+
+  @Override
+  public TypeVariableName withBounds(Type... bounds) {
+    return withBounds(TypeName.list(bounds));
+  }
+
+  @Override
+  public TypeVariableName withBounds(TypeName... bounds) {
+    return withBounds(Arrays.asList(bounds));
+  }
+
+  @Override
+  public TypeVariableName withBounds(List<? extends TypeName> bounds) {
+    var newBounds = new ArrayList<TypeName>();
+    newBounds.addAll(this.bounds);
+    newBounds.addAll(bounds);
+    return new TypeVariableName(name, newBounds);
+  }
+
+  @Override
+  public TypeName nestedClass(String name) {
+    throw new UnsupportedOperationException("Cannot nest class inside type variable");
+  }
+
+  @Override
+  public @NotNull CodeWriter emit(@NotNull CodeWriter out) throws IOException {
+//    emitAnnotations(out);
+    return out.emitAndIndent(name);
   }
 }

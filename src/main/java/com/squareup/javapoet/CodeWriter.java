@@ -15,44 +15,26 @@
  */
 package com.squareup.javapoet;
 
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.EnumSet;
-import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.ListIterator;
-import java.util.Locale;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Set;
-import java.util.regex.Pattern;
+import org.jetbrains.annotations.Contract;
+
 import javax.lang.model.SourceVersion;
 import javax.lang.model.element.Modifier;
+import java.io.IOException;
+import java.util.*;
+import java.util.regex.Pattern;
 
-import static com.squareup.javapoet.Util.checkArgument;
-import static com.squareup.javapoet.Util.checkNotNull;
-import static com.squareup.javapoet.Util.checkState;
-import static com.squareup.javapoet.Util.stringLiteralWithDoubleQuotes;
+import static com.squareup.javapoet.Util.*;
 import static java.lang.String.join;
 
 /**
  * Converts a {@link JavaFile} to a string suitable to both human- and javac-consumption. This
  * honors imports, indentation, and deferred variable names.
  */
-final class CodeWriter {
-  /** Sentinel value that indicates that no user-provided package has been set. */
-  private static final String NO_PACKAGE = new String();
+public final class CodeWriter {
   private static final Pattern LINE_BREAKING_PATTERN = Pattern.compile("\\R");
 
   private final String indent;
   private final LineWrapper out;
-  private int indentLevel;
-
-  private boolean javadoc = false;
-  private boolean comment = false;
-  private String packageName = NO_PACKAGE;
   private final List<TypeSpec> typeSpecStack = new ArrayList<>();
   private final Set<String> staticImportClassNames;
   private final Set<String> staticImports;
@@ -61,14 +43,17 @@ final class CodeWriter {
   private final Map<String, ClassName> importableTypes = new LinkedHashMap<>();
   private final Set<String> referencedNames = new LinkedHashSet<>();
   private final Multiset<String> currentTypeVariables = new Multiset<>();
-  private boolean trailingNewline;
-
   /**
    * When emitting a statement, this is the line of the statement currently being written. The first
    * line of a statement is indented normally and subsequent wrapped lines are double-indented. This
    * is -1 when the currently-written line isn't part of a statement.
    */
   int statementLine = -1;
+  private int indentLevel;
+  private boolean javadoc = false;
+  private boolean comment = false;
+  private Optional<String> packageName = Optional.empty();
+  private boolean trailingNewline;
 
   CodeWriter(Appendable out) {
     this(out, "  ", Collections.emptySet(), Collections.emptySet());
@@ -79,61 +64,79 @@ final class CodeWriter {
   }
 
   CodeWriter(Appendable out,
-      String indent,
-      Map<String, ClassName> importedTypes,
-      Set<String> staticImports,
-      Set<String> alwaysQualify) {
+             String indent,
+             Map<String, ClassName> importedTypes,
+             Set<String> staticImports,
+             Set<String> alwaysQualify) {
     this.out = new LineWrapper(out, indent, 100);
     this.indent = checkNotNull(indent, "indent == null");
     this.importedTypes = checkNotNull(importedTypes, "importedTypes == null");
     this.staticImports = checkNotNull(staticImports, "staticImports == null");
     this.alwaysQualify = checkNotNull(alwaysQualify, "alwaysQualify == null");
     this.staticImportClassNames = new LinkedHashSet<>();
-    for (String signature : staticImports) {
+    for (var signature : staticImports) {
       staticImportClassNames.add(signature.substring(0, signature.lastIndexOf('.')));
     }
+  }
+
+  private static String extractMemberName(String part) {
+    checkArgument(Character.isJavaIdentifierStart(part.charAt(0)), "not an identifier: %s", part);
+    for (var i = 1; i <= part.length(); i++) {
+      if (!SourceVersion.isIdentifier(part.substring(0, i))) {
+        return part.substring(0, i - 1);
+      }
+    }
+    return part;
   }
 
   public Map<String, ClassName> importedTypes() {
     return importedTypes;
   }
 
+  @Contract("-> this")
   public CodeWriter indent() {
     return indent(1);
   }
 
+  @Contract("_ -> this")
   public CodeWriter indent(int levels) {
     indentLevel += levels;
     return this;
   }
 
+  @Contract("-> this")
   public CodeWriter unindent() {
     return unindent(1);
   }
 
+  @Contract("_ -> this")
   public CodeWriter unindent(int levels) {
     checkArgument(indentLevel - levels >= 0, "cannot unindent %s from %s", levels, indentLevel);
     indentLevel -= levels;
     return this;
   }
 
+  @Contract("_ -> this")
   public CodeWriter pushPackage(String packageName) {
-    checkState(this.packageName == NO_PACKAGE, "package already set: %s", this.packageName);
-    this.packageName = checkNotNull(packageName, "packageName == null");
+    checkState(this.packageName.isEmpty(), "package already set: %s", this.packageName);
+    this.packageName = Optional.of(packageName);
     return this;
   }
 
+  @Contract("-> this")
   public CodeWriter popPackage() {
-    checkState(this.packageName != NO_PACKAGE, "package not set");
-    this.packageName = NO_PACKAGE;
+    checkState(this.packageName.isPresent(), "package not set");
+    this.packageName = Optional.empty();
     return this;
   }
 
+  @Contract("_ -> this")
   public CodeWriter pushType(TypeSpec type) {
     this.typeSpecStack.add(type);
     return this;
   }
 
+  @Contract("-> this")
   public CodeWriter popType() {
     this.typeSpecStack.remove(typeSpecStack.size() - 1);
     return this;
@@ -164,7 +167,7 @@ final class CodeWriter {
   }
 
   public void emitAnnotations(List<AnnotationSpec> annotations, boolean inline) throws IOException {
-    for (AnnotationSpec annotationSpec : annotations) {
+    for (var annotationSpec : annotations) {
       annotationSpec.emit(this, inline);
       emit(inline ? " " : "\n");
     }
@@ -175,9 +178,9 @@ final class CodeWriter {
    * be emitted.
    */
   public void emitModifiers(Set<Modifier> modifiers, Set<Modifier> implicitModifiers)
-      throws IOException {
+          throws IOException {
     if (modifiers.isEmpty()) return;
-    for (Modifier modifier : EnumSet.copyOf(modifiers)) {
+    for (var modifier : EnumSet.copyOf(modifiers)) {
       if (implicitModifiers.contains(modifier)) continue;
       emitAndIndent(modifier.name().toLowerCase(Locale.US));
       emitAndIndent(" ");
@@ -192,19 +195,36 @@ final class CodeWriter {
    * Emit type variables with their bounds. This should only be used when declaring type variables;
    * everywhere else bounds are omitted.
    */
-  public void emitTypeVariables(List<TypeVariableName> typeVariables) throws IOException {
+  public void emitTypeVariables(List<? extends TypeName> typeVariables) throws IOException {
     if (typeVariables.isEmpty()) return;
 
-    typeVariables.forEach(typeVariable -> currentTypeVariables.add(typeVariable.name));
+    typeVariables.forEach(type -> {
+      if (type instanceof TypeVariableName typeVariable) {
+        currentTypeVariables.add(typeVariable.name);
+      } else if (type instanceof AnnotatedTypeName annotated) {
+        if (annotated.inner instanceof TypeVariableName typeVariable) {
+          currentTypeVariables.add(typeVariable.name);
+        }
+      } else {
+        throw new UnsupportedOperationException("Expected type variable, got " + type + " of class " + type.getClass());
+      }
+    });
 
     emit("<");
-    boolean firstTypeVariable = true;
-    for (TypeVariableName typeVariable : typeVariables) {
+    var firstTypeVariable = true;
+    for (var type : typeVariables) {
+      TypeVariableName typeVariable;
       if (!firstTypeVariable) emit(", ");
-      emitAnnotations(typeVariable.annotations, true);
+      if (type instanceof AnnotatedTypeName annotatedTypeName) {
+        emitAnnotations(annotatedTypeName.annotations, true);
+        typeVariable = (TypeVariableName) annotatedTypeName.inner;
+      } else {
+        // Would be picked up by the forEach if not the case
+        typeVariable = (TypeVariableName) type;
+      }
       emit("$L", typeVariable.name);
-      boolean firstBound = true;
-      for (TypeName bound : typeVariable.bounds) {
+      var firstBound = true;
+      for (var bound : typeVariable.bounds) {
         emit(firstBound ? " extends $T" : " & $T", bound);
         firstBound = false;
       }
@@ -213,28 +233,42 @@ final class CodeWriter {
     emit(">");
   }
 
-  public void popTypeVariables(List<TypeVariableName> typeVariables) throws IOException {
-    typeVariables.forEach(typeVariable -> currentTypeVariables.remove(typeVariable.name));
+  public void popTypeVariables(List<? extends TypeName> typeVariables) throws IOException {
+    typeVariables.forEach(type -> {
+      if (type instanceof TypeVariableName typeVariable) {
+        currentTypeVariables.remove(typeVariable.name);
+      } else if (type instanceof AnnotatedTypeName annotated) {
+        if (annotated.inner instanceof TypeVariableName typeVariable) {
+          currentTypeVariables.remove(typeVariable.name);
+        }
+      } else {
+        throw new UnsupportedOperationException("Expected type variable, got " + type);
+      }
+    });
   }
 
+  @Contract("_ -> this")
   public CodeWriter emit(String s) throws IOException {
     return emitAndIndent(s);
   }
 
+  @Contract("_, _ -> this")
   public CodeWriter emit(String format, Object... args) throws IOException {
     return emit(CodeBlock.of(format, args));
   }
 
+  @Contract("_ -> this")
   public CodeWriter emit(CodeBlock codeBlock) throws IOException {
     return emit(codeBlock, false);
   }
 
+  @Contract("_, _ -> this")
   public CodeWriter emit(CodeBlock codeBlock, boolean ensureTrailingNewline) throws IOException {
-    int a = 0;
+    var a = 0;
     ClassName deferredTypeName = null; // used by "import static" logic
-    ListIterator<String> partIterator = codeBlock.formatParts.listIterator();
+    var partIterator = codeBlock.formatParts.listIterator();
     while (partIterator.hasNext()) {
-      String part = partIterator.next();
+      var part = partIterator.next();
       switch (part) {
         case "$L":
           emitLiteral(codeBlock.args.get(a++));
@@ -245,19 +279,19 @@ final class CodeWriter {
           break;
 
         case "$S":
-          String string = (String) codeBlock.args.get(a++);
+          var string = (String) codeBlock.args.get(a++);
           // Emit null as a literal null: no quotes.
           emitAndIndent(string != null
-              ? stringLiteralWithDoubleQuotes(string, indent)
-              : "null");
+                  ? stringLiteralWithDoubleQuotes(string, indent)
+                  : "null");
           break;
 
         case "$T":
-          TypeName typeName = (TypeName) codeBlock.args.get(a++);
+          var typeName = (TypeName) codeBlock.args.get(a++);
           // defer "typeName.emit(this)" if next format part will be handled by the default case
           if (typeName instanceof ClassName && partIterator.hasNext()) {
             if (!codeBlock.formatParts.get(partIterator.nextIndex()).startsWith("$")) {
-              ClassName candidate = (ClassName) typeName;
+              var candidate = (ClassName) typeName;
               if (staticImportClassNames.contains(candidate.canonicalName)) {
                 checkState(deferredTypeName == null, "pending type for static import?!");
                 deferredTypeName = candidate;
@@ -324,28 +358,19 @@ final class CodeWriter {
     return this;
   }
 
+  @Contract("-> this")
   public CodeWriter emitWrappingSpace() throws IOException {
     out.wrappingSpace(indentLevel + 2);
     return this;
   }
 
-  private static String extractMemberName(String part) {
-    checkArgument(Character.isJavaIdentifierStart(part.charAt(0)), "not an identifier: %s", part);
-    for (int i = 1; i <= part.length(); i++) {
-      if (!SourceVersion.isIdentifier(part.substring(0, i))) {
-        return part.substring(0, i - 1);
-      }
-    }
-    return part;
-  }
-
   private boolean emitStaticImportMember(String canonical, String part) throws IOException {
-    String partWithoutLeadingDot = part.substring(1);
+    var partWithoutLeadingDot = part.substring(1);
     if (partWithoutLeadingDot.isEmpty()) return false;
-    char first = partWithoutLeadingDot.charAt(0);
+    var first = partWithoutLeadingDot.charAt(0);
     if (!Character.isJavaIdentifierStart(first)) return false;
-    String explicit = canonical + "." + extractMemberName(partWithoutLeadingDot);
-    String wildcard = canonical + ".*";
+    var explicit = canonical + "." + extractMemberName(partWithoutLeadingDot);
+    var wildcard = canonical + ".*";
     if (staticImports.contains(explicit) || staticImports.contains(wildcard)) {
       emitAndIndent(partWithoutLeadingDot);
       return true;
@@ -354,14 +379,11 @@ final class CodeWriter {
   }
 
   private void emitLiteral(Object o) throws IOException {
-    if (o instanceof TypeSpec) {
-      TypeSpec typeSpec = (TypeSpec) o;
+    if (o instanceof TypeSpec typeSpec) {
       typeSpec.emit(this, null, Collections.emptySet());
-    } else if (o instanceof AnnotationSpec) {
-      AnnotationSpec annotationSpec = (AnnotationSpec) o;
+    } else if (o instanceof AnnotationSpec annotationSpec) {
       annotationSpec.emit(this, true);
-    } else if (o instanceof CodeBlock) {
-      CodeBlock codeBlock = (CodeBlock) o;
+    } else if (o instanceof CodeBlock codeBlock) {
       emit(codeBlock);
     } else {
       emitAndIndent(String.valueOf(o));
@@ -375,22 +397,22 @@ final class CodeWriter {
    */
   String lookupName(ClassName className) {
     // If the top level simple name is masked by a current type variable, use the canonical name.
-    String topLevelSimpleName = className.topLevelClassName().simpleName();
+    var topLevelSimpleName = className.topLevelClassName().simpleName();
     if (currentTypeVariables.contains(topLevelSimpleName)) {
       return className.canonicalName;
     }
 
     // Find the shortest suffix of className that resolves to className. This uses both local type
     // names (so `Entry` in `Map` refers to `Map.Entry`). Also uses imports.
-    boolean nameResolved = false;
-    for (ClassName c = className; c != null; c = c.enclosingClassName()) {
-      ClassName resolved = resolve(c.simpleName());
+    var nameResolved = false;
+    for (var c = className; c != null; c = c.enclosingClassName()) {
+      var resolved = resolve(c.simpleName());
       nameResolved = resolved != null;
 
       if (resolved != null && Objects.equals(resolved.canonicalName, c.canonicalName)) {
-        int suffixOffset = c.simpleNames().size() - 1;
+        var suffixOffset = c.simpleNames().size() - 1;
         return join(".", className.simpleNames().subList(
-            suffixOffset, className.simpleNames().size()));
+                suffixOffset, className.simpleNames().size()));
       }
     }
 
@@ -400,7 +422,7 @@ final class CodeWriter {
     }
 
     // If the class is in the same package, we're done.
-    if (Objects.equals(packageName, className.packageName())) {
+    if (Objects.equals(packageName.orElse(""), className.packageName())) {
       referencedNames.add(topLevelSimpleName);
       return join(".", className.simpleNames());
     }
@@ -420,9 +442,9 @@ final class CodeWriter {
       // TODO what about nested types like java.util.Map.Entry?
       return;
     }
-    ClassName topLevelClassName = className.topLevelClassName();
-    String simpleName = topLevelClassName.simpleName();
-    ClassName replaced = importableTypes.put(simpleName, topLevelClassName);
+    var topLevelClassName = className.topLevelClassName();
+    var simpleName = topLevelClassName.simpleName();
+    var replaced = importableTypes.put(simpleName, topLevelClassName);
     if (replaced != null) {
       importableTypes.put(simpleName, replaced); // On collision, prefer the first inserted.
     }
@@ -435,30 +457,28 @@ final class CodeWriter {
   // TODO(jwilson): also honor superclass members when resolving names.
   private ClassName resolve(String simpleName) {
     // Match a child of the current (potentially nested) class.
-    for (int i = typeSpecStack.size() - 1; i >= 0; i--) {
-      TypeSpec typeSpec = typeSpecStack.get(i);
+    for (var i = typeSpecStack.size() - 1; i >= 0; i--) {
+      var typeSpec = typeSpecStack.get(i);
       if (typeSpec.nestedTypesSimpleNames.contains(simpleName)) {
         return stackClassName(i, simpleName);
       }
     }
 
     // Match the top-level class.
-    if (typeSpecStack.size() > 0 && Objects.equals(typeSpecStack.get(0).name, simpleName)) {
-      return ClassName.get(packageName, simpleName);
+    if (!typeSpecStack.isEmpty() && Objects.equals(typeSpecStack.get(0).name, simpleName)) {
+      return ClassName.get(packageName.orElse(""), simpleName);
     }
 
     // Match an imported type.
-    ClassName importedType = importedTypes.get(simpleName);
-    if (importedType != null) return importedType;
-
-    // No match.
-    return null;
+    return importedTypes.get(simpleName);
   }
 
-  /** Returns the class named {@code simpleName} when nested in the class at {@code stackDepth}. */
+  /**
+   * Returns the class named {@code simpleName} when nested in the class at {@code stackDepth}.
+   */
   private ClassName stackClassName(int stackDepth, String simpleName) {
-    ClassName className = ClassName.get(packageName, typeSpecStack.get(0).name);
-    for (int i = 1; i <= stackDepth; i++) {
+    var className = ClassName.get(packageName.orElse(""), typeSpecStack.get(0).name);
+    for (var i = 1; i <= stackDepth; i++) {
       className = className.nestedClass(typeSpecStack.get(i).name);
     }
     return className.nestedClass(simpleName);
@@ -470,8 +490,8 @@ final class CodeWriter {
    * unnecessary trailing whitespace.
    */
   CodeWriter emitAndIndent(String s) throws IOException {
-    boolean first = true;
-    for (String line : LINE_BREAKING_PATTERN.split(s, -1)) {
+    var first = true;
+    for (var line : LINE_BREAKING_PATTERN.split(s, -1)) {
       // Emit a newline character. Make sure blank lines in Javadoc & comments look good.
       if (!first) {
         if ((javadoc || comment) && trailingNewline) {
@@ -508,7 +528,7 @@ final class CodeWriter {
   }
 
   private void emitIndentation() throws IOException {
-    for (int j = 0; j < indentLevel; j++) {
+    for (var j = 0; j < indentLevel; j++) {
       out.append(indent);
     }
   }

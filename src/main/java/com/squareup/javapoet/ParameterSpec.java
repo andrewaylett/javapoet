@@ -15,22 +15,24 @@
  */
 package com.squareup.javapoet;
 
+import javax.lang.model.SourceVersion;
+import javax.lang.model.element.ElementKind;
+import javax.lang.model.element.ExecutableElement;
+import javax.lang.model.element.Modifier;
+import javax.lang.model.element.VariableElement;
 import java.io.IOException;
 import java.lang.reflect.Type;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Set;
-import javax.lang.model.SourceVersion;
-import javax.lang.model.element.ElementKind;
-import javax.lang.model.element.ExecutableElement;
-import javax.lang.model.element.Modifier;
-import javax.lang.model.element.VariableElement;
 
 import static com.squareup.javapoet.Util.checkArgument;
 import static com.squareup.javapoet.Util.checkNotNull;
 
-/** A generated parameter declaration. */
+/**
+ * A generated parameter declaration.
+ */
 public final class ParameterSpec {
   public final String name;
   public final List<AnnotationSpec> annotations;
@@ -46,58 +48,21 @@ public final class ParameterSpec {
     this.javadoc = builder.javadoc.build();
   }
 
-  public boolean hasModifier(Modifier modifier) {
-    return modifiers.contains(modifier);
-  }
-
-  void emit(CodeWriter codeWriter, boolean varargs) throws IOException {
-    codeWriter.emitAnnotations(annotations, true);
-    codeWriter.emitModifiers(modifiers);
-    if (varargs) {
-      TypeName.asArray(type).emit(codeWriter, true);
-    } else {
-      type.emit(codeWriter);
-    }
-    codeWriter.emit(" $L", name);
-  }
-
-  @Override public boolean equals(Object o) {
-    if (this == o) return true;
-    if (o == null) return false;
-    if (getClass() != o.getClass()) return false;
-    return toString().equals(o.toString());
-  }
-
-  @Override public int hashCode() {
-    return toString().hashCode();
-  }
-
-  @Override public String toString() {
-    StringBuilder out = new StringBuilder();
-    try {
-      CodeWriter codeWriter = new CodeWriter(out);
-      emit(codeWriter, false);
-      return out.toString();
-    } catch (IOException e) {
-      throw new AssertionError();
-    }
-  }
-
   public static ParameterSpec get(VariableElement element) {
     checkArgument(element.getKind().equals(ElementKind.PARAMETER), "element is not a parameter");
 
-    TypeName type = TypeName.get(element.asType());
-    String name = element.getSimpleName().toString();
+    var type = TypeName.get(element.asType());
+    var name = element.getSimpleName().toString();
     // Copying parameter annotations can be incorrect so we're deliberately not including them.
     // See https://github.com/square/javapoet/issues/482.
     return ParameterSpec.builder(type, name)
-        .addModifiers(element.getModifiers())
-        .build();
+            .addModifiers(element.getModifiers())
+            .build();
   }
 
   static List<ParameterSpec> parametersOf(ExecutableElement method) {
     List<ParameterSpec> result = new ArrayList<>();
-    for (VariableElement parameter : method.getParameters()) {
+    for (var parameter : method.getParameters()) {
       result.add(ParameterSpec.get(parameter));
     }
     return result;
@@ -116,11 +81,51 @@ public final class ParameterSpec {
     checkNotNull(type, "type == null");
     checkArgument(isValidParameterName(name), "not a valid name: %s", name);
     return new Builder(type, name)
-        .addModifiers(modifiers);
+            .addModifiers(modifiers);
   }
 
   public static Builder builder(Type type, String name, Modifier... modifiers) {
     return builder(TypeName.get(type), name, modifiers);
+  }
+
+  public boolean hasModifier(Modifier modifier) {
+    return modifiers.contains(modifier);
+  }
+
+  void emit(CodeWriter codeWriter, boolean varargs) throws IOException {
+    codeWriter.emitAnnotations(annotations, true);
+    codeWriter.emitModifiers(modifiers);
+    if (varargs) {
+      TypeName.asArray(type).emit(codeWriter, true);
+    } else {
+      type.emit(codeWriter);
+    }
+    codeWriter.emit(" $L", name);
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) return true;
+    if (o == null) return false;
+    if (getClass() != o.getClass()) return false;
+    return toString().equals(o.toString());
+  }
+
+  @Override
+  public int hashCode() {
+    return toString().hashCode();
+  }
+
+  @Override
+  public String toString() {
+    var out = new StringBuilder();
+    try {
+      var codeWriter = new CodeWriter(out);
+      emit(codeWriter, false);
+      return out.toString();
+    } catch (IOException e) {
+      throw new AssertionError();
+    }
   }
 
   public Builder toBuilder() {
@@ -128,19 +133,18 @@ public final class ParameterSpec {
   }
 
   Builder toBuilder(TypeName type, String name) {
-    Builder builder = new Builder(type, name);
+    var builder = new Builder(type, name);
     builder.annotations.addAll(annotations);
     builder.modifiers.addAll(modifiers);
     return builder;
   }
 
   public static final class Builder {
+    public final List<AnnotationSpec> annotations = new ArrayList<>();
+    public final List<Modifier> modifiers = new ArrayList<>();
     private final TypeName type;
     private final String name;
     private final CodeBlock.Builder javadoc = CodeBlock.builder();
-
-    public final List<AnnotationSpec> annotations = new ArrayList<>();
-    public final List<Modifier> modifiers = new ArrayList<>();
 
     private Builder(TypeName type, String name) {
       this.type = type;
@@ -159,7 +163,7 @@ public final class ParameterSpec {
 
     public Builder addAnnotations(Iterable<AnnotationSpec> annotationSpecs) {
       checkArgument(annotationSpecs != null, "annotationSpecs == null");
-      for (AnnotationSpec annotationSpec : annotationSpecs) {
+      for (var annotationSpec : annotationSpecs) {
         this.annotations.add(annotationSpec);
       }
       return this;
@@ -186,7 +190,7 @@ public final class ParameterSpec {
 
     public Builder addModifiers(Iterable<Modifier> modifiers) {
       checkNotNull(modifiers, "modifiers == null");
-      for (Modifier modifier : modifiers) {
+      for (var modifier : modifiers) {
         if (!modifier.equals(Modifier.FINAL)) {
           throw new IllegalStateException("unexpected parameter modifier: " + modifier);
         }

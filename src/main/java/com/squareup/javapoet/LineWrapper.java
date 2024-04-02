@@ -27,12 +27,14 @@ final class LineWrapper {
   private final RecordingAppendable out;
   private final String indent;
   private final int columnLimit;
-  private boolean closed;
-
-  /** Characters written since the last wrapping space that haven't yet been flushed. */
+  /**
+   * Characters written since the last wrapping space that haven't yet been flushed.
+   */
   private final StringBuilder buffer = new StringBuilder();
-
-  /** The number of characters since the most recent newline. Includes both out and the buffer. */
+  private boolean closed;
+  /**
+   * The number of characters since the most recent newline. Includes both out and the buffer.
+   */
   private int column = 0;
 
   /**
@@ -52,12 +54,16 @@ final class LineWrapper {
     this.columnLimit = columnLimit;
   }
 
-  /** @return the last emitted char or {@link Character#MIN_VALUE} if nothing emitted yet. */
+  /**
+   * @return the last emitted char or {@link Character#MIN_VALUE} if nothing emitted yet.
+   */
   char lastChar() {
     return out.lastChar;
   }
 
-  /** Emit {@code s}. This may be buffered to permit line wraps to be inserted. */
+  /**
+   * Emit {@code s}. This may be buffered to permit line wraps to be inserted.
+   */
   void append(String s) throws IOException {
     if (closed) throw new IllegalStateException("closed");
 
@@ -80,11 +86,13 @@ final class LineWrapper {
     out.append(s);
     int lastNewline = s.lastIndexOf('\n');
     column = lastNewline != -1
-        ? s.length() - lastNewline - 1
-        : column + s.length();
+            ? s.length() - lastNewline - 1
+            : column + s.length();
   }
 
-  /** Emit either a space or a newline character. */
+  /**
+   * Emit either a space or a newline character.
+   */
   void wrappingSpace(int indentLevel) throws IOException {
     if (closed) throw new IllegalStateException("closed");
 
@@ -94,7 +102,9 @@ final class LineWrapper {
     this.indentLevel = indentLevel;
   }
 
-  /** Emit a newline character if the line will exceed it's limit, otherwise do nothing. */
+  /**
+   * Emit a newline character if the line will exceed it's limit, otherwise do nothing.
+   */
   void zeroWidthSpace(int indentLevel) throws IOException {
     if (closed) throw new IllegalStateException("closed");
 
@@ -104,13 +114,17 @@ final class LineWrapper {
     this.indentLevel = indentLevel;
   }
 
-  /** Flush any outstanding text and forbid future writes to this line wrapper. */
+  /**
+   * Flush any outstanding text and forbid future writes to this line wrapper.
+   */
   void close() throws IOException {
     if (nextFlush != null) flush(nextFlush);
     closed = true;
   }
 
-  /** Write the space followed by any buffered text that follows it. */
+  /**
+   * Write the space followed by any buffered text that follows it.
+   */
   private void flush(FlushType flushType) throws IOException {
     switch (flushType) {
       case WRAP:
@@ -137,10 +151,12 @@ final class LineWrapper {
   }
 
   private enum FlushType {
-    WRAP, SPACE, EMPTY;
+    WRAP, SPACE, EMPTY
   }
 
-  /** A delegating {@link Appendable} that records info about the chars passing through it. */
+  /**
+   * A delegating {@link Appendable} that records info about the chars passing through it.
+   */
   static final class RecordingAppendable implements Appendable {
     private final Appendable delegate;
 
@@ -150,7 +166,8 @@ final class LineWrapper {
       this.delegate = delegate;
     }
 
-    @Override public Appendable append(CharSequence csq) throws IOException {
+    @Override
+    public Appendable append(CharSequence csq) throws IOException {
       int length = csq.length();
       if (length != 0) {
         lastChar = csq.charAt(length - 1);
@@ -158,12 +175,14 @@ final class LineWrapper {
       return delegate.append(csq);
     }
 
-    @Override public Appendable append(CharSequence csq, int start, int end) throws IOException {
+    @Override
+    public Appendable append(CharSequence csq, int start, int end) throws IOException {
       CharSequence sub = csq.subSequence(start, end);
       return append(sub);
     }
 
-    @Override public Appendable append(char c) throws IOException {
+    @Override
+    public Appendable append(char c) throws IOException {
       lastChar = c;
       return delegate.append(c);
     }
