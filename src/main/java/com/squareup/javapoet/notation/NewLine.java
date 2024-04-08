@@ -38,6 +38,9 @@ public class NewLine extends Notation {
   public @NotNull Printer.FlatResponse visit(
       @NotNull Printer.FlatVisitor flatVisitor, @NotNull Chunk chunk
   ) {
+    if (chunk.flat) {
+      return Printer.FlatResponse.TOO_LONG;
+    }
     return Printer.FlatResponse.FITS;
   }
 

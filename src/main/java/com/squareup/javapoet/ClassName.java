@@ -38,9 +38,22 @@ import static com.squareup.javapoet.Util.checkNotNull;
  */
 public final class ClassName extends ObjectTypeName
     implements Comparable<ClassName> {
-  public static final Comparator<? super ClassName> PACKAGE_COMPARATOR =
+  public static final Comparator<? super TypeName> PACKAGE_COMPARATOR =
       Comparator.comparing(
-          c -> c.canonicalName.split("\\."),
+          c -> c.canonicalName().split("\\."),
+          (a, b) -> {
+            for (var i = 0; i < Math.min(a.length, b.length); i++) {
+              var cmp = a[i].compareTo(b[i]);
+              if (cmp != 0) {
+                return cmp;
+              }
+            }
+            return -Integer.compare(a.length, b.length);
+          }
+      );
+  public static final Comparator<? super String> STRING_PACKAGE_COMPARATOR =
+      Comparator.comparing(
+          s -> s.split("\\."),
           (a, b) -> {
             for (var i = 0; i < Math.min(a.length, b.length); i++) {
               var cmp = a[i].compareTo(b[i]);

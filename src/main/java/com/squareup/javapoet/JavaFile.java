@@ -38,8 +38,10 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
+import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static com.squareup.javapoet.Util.checkArgument;
@@ -71,7 +73,8 @@ public final class JavaFile implements Emitable {
     }
   };
 
-  public static final ThreadLocal<Set<String>> CURRENT_STATIC_IMPORTS = ThreadLocal.withInitial(HashSet::new);
+  public static final ThreadLocal<Set<String>> CURRENT_STATIC_IMPORTS =
+      ThreadLocal.withInitial(HashSet::new);
 
   public final CodeBlock fileComment;
   public final String packageName;
@@ -101,8 +104,7 @@ public final class JavaFile implements Emitable {
   }
 
   private void fillAlwaysQualifiedNames(
-      TypeSpec spec,
-      Set<String> alwaysQualifiedNames
+      TypeSpec spec, Set<String> alwaysQualifiedNames
   ) {
     alwaysQualifiedNames.addAll(spec.alwaysQualifiedNames);
     for (var nested : spec.typeSpecs) {
@@ -116,16 +118,64 @@ public final class JavaFile implements Emitable {
       // First pass: emit the entire class, just to collect the types we'll need to import.
       var notation = toNotation();
 
-      var suggestedImports = notation.imports;
+      var suggestedImports = notation.imports
+          .stream()
+          .sorted(ClassName.PACKAGE_COMPARATOR)
+          .toList();
       var actualImports = new HashSet<ClassName>();
       var names = new HashMap<>(notation.names);
 
+      names.put(ClassName.get(packageName, typeSpec.name), typeSpec.name);
+
+      typeSpec.nestedTypesSimpleNames.forEach(n -> names.put(ClassName.get(packageName,
+          typeSpec.name,
+          n
+      ), n));
+
+      var inverseNames = names
+          .entrySet()
+          .stream()
+          .collect(Collectors.toMap(Map.Entry::getValue,
+              e -> Set.of(e.getKey()),
+              (a, b) -> Stream
+                  .concat(a.stream(), b.stream())
+                  .collect(Collectors.toSet())
+          ));
+
+      // Find package local names first
       for (var typeName : suggestedImports) {
-        names.put(typeName, typeName.nameWhenImported());
-        if (typeName instanceof ClassName className) {
-          if (!className.packageName.isEmpty() && !className.packageName.equals(
-              packageName)) {
-            actualImports.add(className.topLevelClassName());
+        var keys = inverseNames.get(typeName.nameWhenImported());
+        if ((keys == null || keys.equals(Set.of(typeName))) && typeName
+            .canonicalName()
+            .equals(packageName + "." + typeName.nameWhenImported())) {
+          names.put(typeName, typeName.nameWhenImported());
+          inverseNames.put(typeName.nameWhenImported(), Set.of(typeName));
+        }
+      }
+
+      for (var typeName : suggestedImports) {
+        if (!alwaysQualify.contains(typeName.nameWhenImported())
+            && !inverseNames.containsKey(typeName.nameWhenImported())) {
+          names.put(typeName, typeName.nameWhenImported());
+          inverseNames.put(typeName.nameWhenImported(), Set.of(typeName));
+          try {
+            var className = typeName.topLevelClassName();
+            if (!className.packageName.isEmpty()
+                && !className.packageName.equals(packageName)) {
+              actualImports.add(className);
+            }
+          } catch (UnsupportedOperationException ignored) {
+          }
+        } else {
+          var keys = inverseNames.get(typeName.nameWhenImported());
+          if (keys == null || keys.contains(typeName) && typeName
+              .canonicalName()
+              .equals(packageName + "." + typeName.nameWhenImported())) {
+            names.put(typeName, typeName.nameWhenImported());
+            inverseNames.put(typeName.nameWhenImported(), Set.of(typeName));
+          } else {
+            names.put(typeName, typeName.canonicalName());
+            inverseNames.put(typeName.canonicalName(), Set.of(typeName));
           }
         }
       }
@@ -133,16 +183,21 @@ public final class JavaFile implements Emitable {
       var comment = fileComment.isEmpty()
           ? empty()
           : txt("// ").then(fileComment.toNotation().indent("// "));
-      var pkg = txt("package " + packageName + ";");
+      var pkg =
+          packageName.isEmpty() ? empty() : txt("package " + packageName + ";");
 
       var imports = actualImports
           .stream()
+          .filter(imp -> !skipJavaLangImports || !imp.packageName.equals(
+              "java.lang"))
           .sorted(ClassName.PACKAGE_COMPARATOR)
           .map(c -> txt("import " + c.canonicalName() + ";"))
           .collect(Notation.asLines());
 
-      var statics = staticImports.stream().sorted().map(
-          c -> txt("import static " + c + ";"))
+      var statics = staticImports
+          .stream()
+          .sorted(ClassName.STRING_PACKAGE_COMPARATOR)
+          .map(c -> txt("import static " + c + ";"))
           .collect(Notation.asLines());
 
       var top = Stream
@@ -192,8 +247,10 @@ public final class JavaFile implements Emitable {
    * Returns the {@link Path} instance to which source is actually written.
    */
   public Path writeToPath(Path directory, Charset charset) throws IOException {
-    checkArgument(Files.notExists(directory) || Files.isDirectory(directory),
-        "path %s exists but is not a directory.", directory
+    checkArgument(
+        Files.notExists(directory) || Files.isDirectory(directory),
+        "path %s exists but is not a directory.",
+        directory
     );
     var outputDirectory = directory;
     if (!packageName.isEmpty()) {
@@ -204,8 +261,7 @@ public final class JavaFile implements Emitable {
     }
 
     var outputPath = outputDirectory.resolve(typeSpec.name + ".java");
-    try (Writer writer = new OutputStreamWriter(
-        Files.newOutputStream(outputPath),
+    try (Writer writer = new OutputStreamWriter(Files.newOutputStream(outputPath),
         charset
     )) {
       writeTo(writer);
@@ -238,8 +294,7 @@ public final class JavaFile implements Emitable {
         ? typeSpec.name
         : packageName + "." + typeSpec.name;
     var originatingElements = typeSpec.originatingElements;
-    var filerSourceFile = filer.createSourceFile(
-        fileName,
+    var filerSourceFile = filer.createSourceFile(fileName,
         originatingElements.toArray(new Element[0])
     );
     try (var writer = filerSourceFile.openWriter()) {
@@ -341,8 +396,7 @@ public final class JavaFile implements Emitable {
     }
 
     public Builder addStaticImport(Enum<?> constant) {
-      return addStaticImport(
-          ClassName.get(constant.getDeclaringClass()),
+      return addStaticImport(ClassName.get(constant.getDeclaringClass()),
           constant.name()
       );
     }
@@ -356,8 +410,7 @@ public final class JavaFile implements Emitable {
       checkArgument(names != null, "names == null");
       checkArgument(names.length > 0, "names array is empty");
       for (var name : names) {
-        checkArgument(
-            name != null,
+        checkArgument(name != null,
             "null entry in names array: %s",
             Arrays.toString(names)
         );

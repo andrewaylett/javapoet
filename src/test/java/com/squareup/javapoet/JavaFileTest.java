@@ -222,10 +222,10 @@ public final class JavaFileTest {
         .build().toString()).isEqualTo("""
         package readme;
 
-        import static java.util.concurrent.TimeUnit.SECONDS;
-
         import java.lang.System;
         import java.util.concurrent.TimeUnit;
+
+        import static java.util.concurrent.TimeUnit.SECONDS;
 
         class Util {
           public static long minutesToSeconds(long minutes) {
@@ -346,12 +346,11 @@ public final class JavaFileTest {
     assertThat(source).isEqualTo("""
         package com.squareup.tacos;
 
-        import java.util.Date;
+        import java.sql.Date;
 
         class Taco {
-          Date madeFreshDate;
-
-          java.sql.Date madeFreshDatabaseDate;
+          java.util.Date madeFreshDate;
+          Date madeFreshDatabaseDate;
         }
         """);
   }
@@ -391,7 +390,7 @@ public final class JavaFileTest {
             "com.squareup.tacos",
             TypeSpec.classBuilder("Taco")
                 .addField(ClassName.get("java.lang", "Float"), "litres")
-                .addField(ClassName.get("com.squareup.soda", "Float"), "beverage")
+                .addField(ClassName.get("org.squareup.soda", "Float"), "beverage")
                 .build()
         )
         .skipJavaLangImports(true)
@@ -402,8 +401,7 @@ public final class JavaFileTest {
 
         class Taco {
           Float litres;
-
-          com.squareup.soda.Float beverage;
+          org.squareup.soda.Float beverage;
         }
         """);
   }
@@ -421,15 +419,16 @@ public final class JavaFileTest {
         .skipJavaLangImports(true)
         .build()
         .toString();
-    assertThat(source).isEqualTo("package com.squareup.tacos;\n"
-        + "\n"
-        + "import com.squareup.soda.Float;\n"
-        + "\n"
-        + "class Taco {\n"
-        + "  Float beverage;\n"
-        + "\n"
-        + "  java.lang.Float litres;\n" // Second 'Float' is fully qualified.
-        + "}\n");
+    assertThat(source).isEqualTo("""
+        package com.squareup.tacos;
+
+        import com.squareup.soda.Float;
+
+        class Taco {
+          Float beverage;
+          java.lang.Float litres;
+        }
+        """);
   }
 
   @Test
@@ -1005,11 +1004,8 @@ public final class JavaFileTest {
 
         class Taco implements JavaFileTest.FooInterface {
           other.NestedTypeA nestedA;
-
           other.NestedTypeB nestedB;
-
           NestedTypeC nestedC;
-
           Foo foo;
 
           class NestedTypeA {}

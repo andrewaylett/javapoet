@@ -336,14 +336,13 @@ public final class TypeSpecTest {
         import java.util.Map;
 
         interface Service {
-          @Headers({
-              "Accept: application/json",
-              "User-Agent: foobar"
-          })
+          @Headers({ "Accept: application/json", "User-Agent: foobar" })
           @POST("/foo/bar")
-          Observable<FooBar> fooBar(@Body Things<Thing> things,
-              @QueryMap(encodeValues = false) Map<String, String> query,
-              @Header("Authorization") String authorization);
+          Observable<FooBar> fooBar(
+            @Body Things<Thing> things,
+            @QueryMap(encodeValues = false) Map<String, String> query,
+            @Header("Authorization") String authorization
+          );
         }
         """);
   }
@@ -479,7 +478,8 @@ public final class TypeSpecTest {
               return "paper airplane!";
             }
           },
-          SCISSORS("peace sign");
+          SCISSORS("peace sign"),
+          ;
 
           private final String handPosition;
 
@@ -910,37 +910,24 @@ public final class TypeSpecTest {
 
         class Combo {
           Taco taco;
-
           Chips chips;
 
           static class Taco {
             List<Topping> toppings;
-
             Sauce sauce;
 
             enum Topping {
-              SHREDDED_CHEESE,
-
-              LEAN_GROUND_BEEF
+              SHREDDED_CHEESE, LEAN_GROUND_BEEF
             }
           }
 
           static class Chips {
             Taco.Topping topping;
-
             Sauce dippingSauce;
           }
 
           enum Sauce {
-            SOUR_CREAM,
-
-            SALSA,
-
-            QUESO,
-
-            MILD,
-
-            FIRE
+            SOUR_CREAM, SALSA, QUESO, MILD, FIRE
           }
         }
         """);
@@ -1316,7 +1303,6 @@ public final class TypeSpecTest {
 
         class Gen<InPackage, OtherType> {
           com.squareup.tacos.InPackage inPackage;
-
           com.other.OtherType otherType;
 
           <MethodInPackage, MethodOtherType> void withTypeVariables() {
@@ -2468,7 +2454,8 @@ public final class TypeSpecTest {
           void addTopping(Topping topping) {
             try {
               /* do something tricky with the topping */
-            } catch (IllegalToppingException e) {}
+            } catch (IllegalToppingException e) {
+            }
           }
         }
         """);

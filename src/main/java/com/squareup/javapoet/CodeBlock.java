@@ -354,18 +354,14 @@ public final class CodeBlock implements Emitable {
       ArrayDeque<ArrayList<Notation>> stack,
       ArrayList<Notation> builder
   ) {
-    var addNL = false;
     while (!builder.isEmpty() && builder.get(
         builder.size() - 1) instanceof NewLine) {
       builder.remove(builder.size() - 1);
-      addNL = true;
     }
     var indented = builder.stream().collect(hoistChoice());
     builder = stack.pop();
     builder.add(indented.indent());
-    if (addNL) {
-      builder.add(nl());
-    }
+    builder.add(nl());
     return builder;
   }
 
