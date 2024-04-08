@@ -132,30 +132,6 @@ public final class ParameterizedTypeName extends ObjectTypeName {
     throw new UnsupportedOperationException("Cannot unbox " + this);
   }
 
-  @Override
-  public @NotNull CodeWriter emit(@NotNull CodeWriter out) throws IOException {
-    if (enclosingType != null) {
-      enclosingType.emit(out);
-      out.emit(".");
-      out.emit(rawType.nameWhenImported());
-    } else {
-      rawType.emit(out);
-    }
-    if (!typeArguments.isEmpty()) {
-      out.emitAndIndent("<");
-      var firstParameter = true;
-      for (var parameter : typeArguments) {
-        if (!firstParameter) {
-          out.emitAndIndent(", ");
-        }
-        parameter.emit(out);
-        firstParameter = false;
-      }
-      out.emitAndIndent(">");
-    }
-    return out;
-  }
-
   /**
    * Returns a new {@link ParameterizedTypeName} instance for the specified {@code name} as nested
    * inside this class.
@@ -216,6 +192,9 @@ public final class ParameterizedTypeName extends ObjectTypeName {
       @NotNull List<TypeName> typeArguments
   ) {
     checkNotNull(name, "name == null");
+    if (typeArguments.isEmpty()) {
+      return nestedClass(name);
+    }
     return new ParameterizedTypeName(this, nestedClass(name), typeArguments);
   }
 

@@ -62,7 +62,7 @@ public class Notate {
         .then(wrapped.flat())
         .then(after.flat())
         .or(before
-            .then(nl().then(wrapped).indent("  "))
+            .then(nl().then(wrapped).indent())
             .then(after.isEmpty() ? empty() : nl().then(after)));
   }
 
@@ -75,7 +75,7 @@ public class Notate {
       return before.then(after);
     }
     return before
-        .then(nl().then(wrapped).indent("  "))
+        .then(nl().then(wrapped).indent())
         .then(after.isEmpty() ? empty() : nl().then(after));
   }
 
@@ -92,7 +92,7 @@ public class Notate {
         .then(wrapped.flat())
         .then(after.isEmpty() ? empty() : txt(" ").then(after))
         .or(before
-            .then(nl().then(wrapped).indent("  "))
+            .then(nl().then(wrapped).indent())
             .then(after.isEmpty() ? empty() : nl().then(after)));
   }
 

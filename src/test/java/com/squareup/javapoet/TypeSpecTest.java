@@ -127,9 +127,7 @@ public final class TypeSpecTest {
 
         class Taco {
           List<?> extendsObject;
-
           List<? extends Serializable> extendsSerializable;
-
           List<? super String> superString;
         }
         """);
@@ -394,13 +392,8 @@ public final class TypeSpecTest {
     assertThat(toString(taco)).isEqualTo("""
         package com.squareup.tacos;
 
-        @Something(
-            hi = SomeType.FIELD,
-            hey = 12,
-            hello = "goodbye"
-        )
-        public class Foo {
-        }
+        @Something(hi = SomeType.FIELD, hey = 12, hello = "goodbye")
+        public class Foo {}
         """);
   }
 
@@ -480,14 +473,12 @@ public final class TypeSpecTest {
            * Avalanche!
            */
           ROCK,
-
           PAPER("flat") {
             @Override
             public String toString() {
               return "paper airplane!";
             }
           },
-
           SCISSORS("peace sign");
 
           private final String handPosition;
@@ -535,8 +526,7 @@ public final class TypeSpecTest {
         public enum Tortilla {
           CORN {
             @Override
-            public void fold() {
-            }
+            public void fold() {}
           };
 
           public abstract void fold();
@@ -557,6 +547,7 @@ public final class TypeSpecTest {
 
         enum Roshambo {
           ;
+
           static String NO_ENUM;
         }
         """);
@@ -671,11 +662,9 @@ public final class TypeSpecTest {
         import java.io.IOException;
 
         abstract class Taco {
-          void throwOne() throws IOException {
-          }
+          void throwOne() throws IOException {}
 
-          void throwTwo() throws IOException, SourCreamException {
-          }
+          void throwTwo() throws IOException, SourCreamException {}
 
           abstract void abstractThrow() throws IOException;
 
@@ -734,9 +723,7 @@ public final class TypeSpecTest {
 
         class Location<T, P extends Number> implements Comparable<P> {
           T label;
-
           P x;
-
           P y;
 
           @Override
@@ -803,8 +790,7 @@ public final class TypeSpecTest {
         import java.lang.Comparable;
         import java.util.AbstractSet;
 
-        abstract class Taco extends AbstractSet<Food> implements Serializable, Comparable<Taco> {
-        }
+        abstract class Taco extends AbstractSet<Food> implements Serializable, Comparable<Taco> {}
         """);
   }
 
@@ -828,8 +814,7 @@ public final class TypeSpecTest {
         import java.util.concurrent.Callable;
 
         class Outer extends Callable<Outer.Inner> {
-          static class Inner {
-          }
+          static class Inner {}
         }
         """);
   }
@@ -874,8 +859,7 @@ public final class TypeSpecTest {
         import java.io.Serializable;
         import java.lang.Comparable;
 
-        interface Taco extends Serializable, Comparable<Taco> {
-        }
+        interface Taco extends Serializable, Comparable<Taco> {}
         """);
   }
 
@@ -1239,29 +1223,20 @@ public final class TypeSpecTest {
 
         class Top {
           Top internalTop;
-
           Middle.Bottom internalBottom;
-
           com.squareup.donuts.Top externalTop;
-
           Bottom externalBottom;
 
           class Middle {
             Top internalTop;
-
             Bottom internalBottom;
-
             com.squareup.donuts.Top externalTop;
-
             com.squareup.donuts.Bottom externalBottom;
 
             class Bottom {
               Top internalTop;
-
               Bottom internalBottom;
-
               com.squareup.donuts.Top externalTop;
-
               com.squareup.donuts.Bottom externalBottom;
             }
           }
@@ -1287,7 +1262,6 @@ public final class TypeSpecTest {
 
         class Gen {
           Other internalOther;
-
           com.squareup.donuts.Other externalOther;
         }
         """);
@@ -1360,8 +1334,7 @@ public final class TypeSpecTest {
             com.other.MethodOtherType otherType = null;
           }
 
-          <InPackage> void masksEnclosingTypeVariable() {
-          }
+          <InPackage> void masksEnclosingTypeVariable() {}
 
           void hasSimpleNameThatWasPreviouslyMasked() {
             com.squareup.tacos.InPackage inPackage = null;
@@ -1438,11 +1411,11 @@ public final class TypeSpecTest {
             "{@link $T random} tex-mex stuff we could find in the pantry\n",
             Random.class
         )
-        .addJavadoc(CodeBlock.of("and some {@link $T} cheese.\n", String.class))
+        .addJavadoc(CodeBlock.of("and some {@link $T} cheese.", String.class))
         .addField(FieldSpec
             .builder(boolean.class, "soft")
             .addJavadoc(
-                "True for a soft flour tortilla; false for a crunchy corn tortilla.\n")
+                "True for a soft flour tortilla; false for a crunchy corn tortilla.")
             .build())
         .addMethod(MethodSpec.methodBuilder("refold").addJavadoc("""
             Folds the back of this taco to reduce sauce leakage.
@@ -1458,7 +1431,7 @@ public final class TypeSpecTest {
         import java.util.Locale;
 
         /**
-         * A hard or soft tortilla, loosely folded and filled with whatever {@link\s
+         * A hard or soft tortilla, loosely folded and filled with whatever {@link
          * {@link java.util.Random random} tex-mex stuff we could find in the pantry
          * and some {@link java.lang.String} cheese.
          */
@@ -1473,8 +1446,7 @@ public final class TypeSpecTest {
            *
            * <p>For {@link Locale#KOREAN}, the front may also be folded.
            */
-          void refold(Locale locale) {
-          }
+          void refold(Locale locale) {}
         }
         """);
   }
@@ -1520,8 +1492,7 @@ public final class TypeSpecTest {
                 @Option(name = "quesadilla", meat = Chicken.class)
             }
         )
-        class Menu {
-        }
+        class Menu {}
         """);
   }
 
@@ -1542,8 +1513,7 @@ public final class TypeSpecTest {
         import java.lang.Runnable;
 
         class Taqueria {
-          void prepare(int workers, Runnable... jobs) {
-          }
+          void prepare(int workers, Runnable... jobs) {}
         }
         """);
   }
@@ -1573,9 +1543,8 @@ public final class TypeSpecTest {
         .build();
     var fieldBlock = CodeBlock
         .builder()
-        .add("$>$>")
         .add(
-            "\n$T.<$T, $T>builder()$>$>",
+            "$T.<$T, $T>builder()$>$>",
             ImmutableMap.class,
             String.class,
             String.class
@@ -1584,8 +1553,7 @@ public final class TypeSpecTest {
         .add("\n.add($S, $S)", '&', "&amp;")
         .add("\n.add($S, $S)", '<', "&lt;")
         .add("\n.add($S, $S)", '>', "&gt;")
-        .add("\n.build()$<$<")
-        .add("$<$<")
+        .add("\n.build()")
         .build();
     var escapeHtml = FieldSpec
         .builder(ParameterizedTypeName.get(
@@ -1623,13 +1591,13 @@ public final class TypeSpecTest {
         import java.util.Map;
 
         class Util {
-          private static final Map<String, String> ESCAPE_HTML =\s
-              ImmutableMap.<String, String>builder()
-                  .add("'", "&#39;")
-                  .add("&", "&amp;")
-                  .add("<", "&lt;")
-                  .add(">", "&gt;")
-                  .build();
+          private static final Map<String, String> ESCAPE_HTML =
+            ImmutableMap.<String, String>builder()
+              .add("'", "&#39;")
+              .add("&", "&amp;")
+              .add("<", "&lt;")
+              .add(">", "&gt;")
+              .build();
 
           int commonPrefixLength(List<String> listA, List<String> listB) {
             int size = Math.min(listA.size(), listB.size());
@@ -1801,8 +1769,7 @@ public final class TypeSpecTest {
 
           void fold();
 
-          class Topping {
-          }
+          class Topping {}
         }
         """);
   }
@@ -1829,11 +1796,9 @@ public final class TypeSpecTest {
         package com.squareup.tacos;
 
         class Taco {
-          static class Meat {
-          }
+          static class Meat {}
 
-          interface Tortilla {
-          }
+          interface Tortilla {}
 
           enum Topping {
             SALSA
@@ -1887,29 +1852,21 @@ public final class TypeSpecTest {
 
           String U;
 
-          Members(int p) {
-          }
+          Members(int p) {}
 
-          Members(long o) {
-          }
+          Members(long o) {}
 
-          static void T() {
-          }
+          static void T() {}
 
-          void S() {
-          }
+          void S() {}
 
-          static void R() {
-          }
+          static void R() {}
 
-          void Q() {
-          }
+          void Q() {}
 
-          class Z {
-          }
+          class Z {}
 
-          class Y {
-          }
+          class Y {}
         }
         """);
   }
@@ -1930,11 +1887,11 @@ public final class TypeSpecTest {
             .addParameter(String.class, "msg")
             .addCode(CodeBlock
                 .builder()
-                .add(" /*-{\n")
+                .add(" /*-")
                 .indent()
                 .addStatement("$$wnd.alert(msg)")
-                .unindent()
-                .add("}-*/")
+                .unindent("{", "}")
+                .add("-*/")
                 .build())
             .build())
         .build();
@@ -2059,8 +2016,7 @@ public final class TypeSpecTest {
   public void classToString() {
     var type = TypeSpec.classBuilder("Taco").build();
     assertThat(type.toString()).isEqualTo("""
-        class Taco {
-        }
+        class Taco {}
         """);
   }
 
@@ -2078,8 +2034,7 @@ public final class TypeSpecTest {
     assertThat(type.toString()).isEqualTo("""
         new java.lang.Runnable() {
           @java.lang.Override
-          public void run() {
-          }
+          public void run() {}
         }""");
   }
 
@@ -2087,8 +2042,7 @@ public final class TypeSpecTest {
   public void interfaceClassToString() {
     var type = TypeSpec.interfaceBuilder("Taco").build();
     assertThat(type.toString()).isEqualTo("""
-        interface Taco {
-        }
+        interface Taco {}
         """);
   }
 
@@ -2096,8 +2050,7 @@ public final class TypeSpecTest {
   public void annotationDeclarationToString() {
     var type = TypeSpec.annotationBuilder("Taco").build();
     assertThat(type.toString()).isEqualTo("""
-        @interface Taco {
-        }
+        @interface Taco {}
         """);
   }
 
@@ -2289,8 +2242,7 @@ public final class TypeSpecTest {
 
         @SuppressWarnings("unchecked")
         @Deprecated
-        class Taco {
-        }
+        class Taco {}
         """);
   }
 
@@ -2421,8 +2373,7 @@ public final class TypeSpecTest {
         import java.io.Serializable;
         import java.util.EventListener;
 
-        class Taco implements Serializable, EventListener {
-        }
+        class Taco implements Serializable, EventListener {}
         """);
   }
 
@@ -2458,8 +2409,7 @@ public final class TypeSpecTest {
 
         import java.lang.Number;
 
-        class Location<T, P extends Number> {
-        }
+        class Location<T, P extends Number> {}
         """);
   }
 
@@ -2486,11 +2436,9 @@ public final class TypeSpecTest {
         package com.squareup.tacos;
 
         class Taco {
-          class Topping {
-          }
+          class Topping {}
 
-          class Sauce {
-          }
+          class Sauce {}
         }
         """);
   }
@@ -2521,8 +2469,7 @@ public final class TypeSpecTest {
           void addTopping(Topping topping) {
             try {
               /* do something tricky with the topping */
-            } catch (IllegalToppingException e) {
-            }
+            } catch (IllegalToppingException e) {}
           }
         }
         """);
@@ -2838,8 +2785,7 @@ public final class TypeSpecTest {
             foo = "FOO";
           }
 
-          Taco() {
-          }
+          Taco() {}
 
           @Override
           public String toString() {
@@ -2926,8 +2872,7 @@ public final class TypeSpecTest {
             foo = "instanceFoo";
           }
 
-          Taco() {
-          }
+          Taco() {}
 
           @Override
           public String toString() {
@@ -3151,8 +3096,7 @@ public final class TypeSpecTest {
         /**
          * Some doc with a newline
          */
-        class Taco {
-        }
+        class Taco {}
         """);
   }
 
@@ -3169,8 +3113,7 @@ public final class TypeSpecTest {
         /**
          * Some doc with a newline
          */
-        class Taco {
-        }
+        class Taco {}
         """);
   }
 }

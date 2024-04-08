@@ -190,73 +190,6 @@ public final class MethodSpec implements Emitable {
         && TypeName.asArray(parameters.get(parameters.size() - 1).type) != null;
   }
 
-  void emit(
-      CodeWriter codeWriter,
-      String enclosingName,
-      Set<Modifier> implicitModifiers
-  ) throws IOException {
-//    codeWriter.emitJavadoc(javadocWithParameters());
-    codeWriter.emitAnnotations(annotations, false);
-    codeWriter.emitModifiers(modifiers, implicitModifiers);
-
-    if (!typeVariables.isEmpty()) {
-      codeWriter.emitTypeVariables(typeVariables);
-      codeWriter.emit(" ");
-    }
-
-    if (isConstructor()) {
-      codeWriter.emit("$L($Z", enclosingName);
-    } else {
-      codeWriter.emit("$T $L($Z", returnType, name);
-    }
-
-    var firstParameter = true;
-    for (var i = parameters.iterator(); i.hasNext(); ) {
-      var parameter = i.next();
-      if (!firstParameter) {
-        codeWriter.emit(",").emitWrappingSpace();
-      }
-      parameter.emit(codeWriter, !i.hasNext() && varargs);
-      firstParameter = false;
-    }
-
-    codeWriter.emit(")");
-
-    if (defaultValue != null && !defaultValue.isEmpty()) {
-      codeWriter.emit(" default ");
-      codeWriter.emit(defaultValue);
-    }
-
-    if (!exceptions.isEmpty()) {
-      codeWriter.emitWrappingSpace().emit("throws");
-      var firstException = true;
-      for (var exception : exceptions) {
-        if (!firstException) {
-          codeWriter.emit(",");
-        }
-        codeWriter.emitWrappingSpace().emit("$T", exception);
-        firstException = false;
-      }
-    }
-
-    if (hasModifier(Modifier.ABSTRACT)) {
-      codeWriter.emit(";\n");
-    } else if (hasModifier(Modifier.NATIVE)) {
-      // Code is allowed to support stuff like GWT JSNI.
-      codeWriter.emit(code);
-      codeWriter.emit(";\n");
-    } else {
-      codeWriter.emit(" {\n");
-
-      codeWriter.indent();
-      codeWriter.emit(code, true);
-      codeWriter.unindent();
-
-      codeWriter.emit("}\n");
-    }
-    codeWriter.popTypeVariables(typeVariables);
-  }
-
   private Notation javadocWithParameters() {
     var methodJavadoc = javadoc.toNotation();
     var parameterJavadoc = parameters
@@ -268,7 +201,7 @@ public final class MethodSpec implements Emitable {
     return Stream
         .of(methodJavadoc, parameterJavadoc)
         .filter(n -> !n.isEmpty())
-        .collect(join(txt("\n\n")));
+        .collect(join(txt("\n\n"))).suppressImports();
   }
 
   public boolean hasModifier(Modifier modifier) {
@@ -331,8 +264,8 @@ public final class MethodSpec implements Emitable {
     components.add(Notate.javadoc(javadocNotation));
     components.addAll(annotations.stream().map(Emitable::toNotation).toList());
 
-    var declaration = new ArrayList<>(Stream
-        .concat(modifiers.stream(), implicitModifiers.stream())
+    var declaration = new ArrayList<>(modifiers.stream()
+        .filter(m -> !implicitModifiers.contains(m))
         .map(m -> txt(m.toString()))
         .toList());
 
@@ -341,7 +274,7 @@ public final class MethodSpec implements Emitable {
           txt("<"),
           typeVariables
               .stream()
-              .map(Emitable::toNotation)
+              .map(Emitable::toDeclaration)
               .collect(join(txt(", ").or(txt(",\n")))),
           txt(">")
       ));
@@ -364,7 +297,7 @@ public final class MethodSpec implements Emitable {
     }
 
     var partTwo =
-        params.stream().collect(join(txt(", ").or(txt(",").then(nl()))));
+        params.stream().collect(join(txt(", ").or(txt(",\n"))));
 
     var partThree = txt(")");
 

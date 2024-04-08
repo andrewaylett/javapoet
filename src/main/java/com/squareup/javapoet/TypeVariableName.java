@@ -256,12 +256,6 @@ public final class TypeVariableName extends ObjectTypeName {
   }
 
   @Override
-  public @NotNull CodeWriter emit(@NotNull CodeWriter out) throws IOException {
-//    emitAnnotations(out);
-    return out.emitAndIndent(name);
-  }
-
-  @Override
   public String toString() {
     return toNotation().toCode();
   }
@@ -296,12 +290,19 @@ public final class TypeVariableName extends ObjectTypeName {
 
   @Override
   public Notation toNotation() {
+    return Notation.typeRef(this);
+  }
+
+  public Notation toDeclaration() {
     var builder = Stream.<Notation>builder();
     builder.add(Notation.typeRef(this));
-    builder.add(bounds
-        .stream()
-        .map(b -> txt("extends ").then(typeRef(b)))
-        .collect(join(txt(" & "))));
+    if (!bounds.isEmpty()) {
+      builder.add(txt("extends"));
+      builder.add(bounds
+          .stream()
+          .map(Notation::typeRef)
+          .collect(join(txt(" & "))));
+    }
     return builder.build().filter(n -> !n.isEmpty()).collect(join(txt(" ")));
   }
 }

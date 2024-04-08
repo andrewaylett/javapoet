@@ -15,10 +15,11 @@ public class Printer {
   public Printer(
       @NotNull Notation notation,
       int width,
-      Map<Object, String> names
+      Map<Object, String> names,
+      String indent
   ) {
     this.width = width;
-    var chunk = new Chunk(notation, "", false, names);
+    var chunk = new Chunk(notation, "", false, names, indent);
     chunks.push(chunk);
   }
 
@@ -116,7 +117,7 @@ public class Printer {
 
   private static class NoTrailingSpaceAppendable implements Appendable {
     private final Appendable inner;
-    int spaceCount = 0;
+    final StringBuffer whitespace = new StringBuffer();
 
     NoTrailingSpaceAppendable(Appendable inner) {
       this.inner = inner;
@@ -141,17 +142,15 @@ public class Printer {
 
     @Override
     public Appendable append(char c) throws IOException {
-      if (c == ' ') {
-        spaceCount += 1;
-      } else if (c == '\n') {
+      if (c == '\n') {
         inner.append(c);
-        spaceCount = 0;
+        whitespace.setLength(0);
+      } else if (Character.isWhitespace(c)) {
+        whitespace.append(c);
       } else {
-        for (var i = 0; i < spaceCount; i++) {
-          inner.append(' ');
-        }
+        inner.append(whitespace);
         inner.append(c);
-        spaceCount = 0;
+        whitespace.setLength(0);
       }
       return this;
     }

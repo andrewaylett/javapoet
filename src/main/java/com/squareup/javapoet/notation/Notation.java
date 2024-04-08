@@ -1,6 +1,9 @@
 package com.squareup.javapoet.notation;
 
 import com.google.common.base.Splitter;
+import com.google.common.cache.CacheBuilder;
+import com.google.common.cache.CacheLoader;
+import com.google.common.cache.LoadingCache;
 import com.squareup.javapoet.Emitable;
 import com.squareup.javapoet.TypeName;
 import org.intellij.lang.annotations.PrintFormat;
@@ -10,11 +13,12 @@ import org.jetbrains.annotations.NotNull;
 import java.io.IOException;
 import java.io.StringWriter;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.ExecutionException;
 import java.util.function.Consumer;
 import java.util.regex.Pattern;
 import java.util.stream.Collector;
@@ -48,13 +52,25 @@ public abstract class Notation {
     return NewLine.INSTANCE;
   }
 
+  private static final LoadingCache<String, Notation>
+      txtCache = CacheBuilder.newBuilder().build(new CacheLoader<>() {
+    @Override
+    public @NotNull Notation load(@NotNull String key) {
+      var pieces = Splitter.on('\n').splitToStream(key);
+
+      return pieces
+          .map(t -> t.isEmpty() ? empty() : new Text(t))
+          .collect(asLines());
+    }
+  });
+
   @Contract(pure = true)
   public static @NotNull Notation txt(@NotNull String s) {
-    var pieces = Splitter.on('\n').splitToStream(s);
-
-    return pieces
-        .map(t -> t.isEmpty() ? empty() : new Text(t))
-        .collect(asLines());
+    try {
+      return txtCache.get(s);
+    } catch (ExecutionException e) {
+      throw new RuntimeException(e);
+    }
   }
 
   public static @NotNull Notation name(
@@ -164,7 +180,30 @@ public abstract class Notation {
 
   @Contract(value = "_ -> new", pure = true)
   public @NotNull Notation indent(String indent) {
+    return new Indent(Optional.of(indent), this);
+  }
+
+  @Contract(value = "_ -> new", pure = true)
+  public @NotNull Notation indent(Optional<String> indent) {
     return new Indent(indent, this);
+  }
+
+  @Contract(value = "-> new", pure = true)
+  public @NotNull Notation indent() {
+    return new Indent(Optional.empty(), this);
+  }
+
+  @Contract(value = "-> new", pure = true)
+  public @NotNull Notation suppressImports() {
+    return new NoImport(this);
+  }
+
+  @Contract(value = "_ -> new", pure = true)
+  public @NotNull Notation suppressImports(Set<String> suppressImports) {
+    if (suppressImports.isEmpty()) {
+      return this;
+    }
+    return new NoImport(this, suppressImports);
   }
 
   @Contract(pure = true)
@@ -199,7 +238,7 @@ public abstract class Notation {
       for (var ty : this.imports) {
         names.put(ty, ty.canonicalName());
       }
-      var printer = new Printer(toNotation(), 80, names);
+      var printer = new Printer(toNotation(), 80, names, "  ");
       printer.print(out);
       return out.toString();
     } catch (IOException e) {
@@ -216,7 +255,7 @@ public abstract class Notation {
       for (var ty : this.imports) {
         names.put(ty, ty.canonicalName());
       }
-      var printer = new Printer(this, 100, names);
+      var printer = new Printer(this, 100, names, "  ");
       printer.print(out);
       return out.toString();
     } catch (IOException e) {

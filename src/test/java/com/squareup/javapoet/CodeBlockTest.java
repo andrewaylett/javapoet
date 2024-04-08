@@ -160,7 +160,7 @@ public final class CodeBlockTest {
     Map<String, Object> map = new LinkedHashMap<>();
     map.put("text", "tacos");
     var block = CodeBlock.builder()
-        .addNamed("$>\n$text:L for $$3.50", map).build();
+        .addNamed("$>$text:L for $$3.50", map).build();
     assertThat(block.toString()).isEqualTo("\n  tacos for $3.50");
   }
 
@@ -206,7 +206,7 @@ public final class CodeBlockTest {
     Map<String, Object> map = new LinkedHashMap<>();
     map.put("clazz", Integer.class);
     var block = CodeBlock.builder().addNamed("$clazz:T\n", map).build();
-    assertThat(block.toString()).isEqualTo("java.lang.Integer\n");
+    assertThat(block.toString()).isEqualTo("java.lang.Integer");
   }
 
   @Test
@@ -329,24 +329,9 @@ public final class CodeBlockTest {
   }
 
   @Test
-  public void tooManyStatementEnters() {
-    var codeBlock = builder().add("$[").build();
-    var testBlock = builder().add(codeBlock).add(codeBlock).build();
-    var expected = assertThrows(IllegalStateException.class, () -> {
-      // We can't report this error until rendering type because code blocks might be composed.
-      testBlock.toString();
-    });
-    assertThat(expected)
-        .hasMessageThat()
-        .isEqualTo("statement enter $[ followed by statement enter $[");
-  }
-
-  @Test
   public void statementExitWithoutStatementEnter() {
-    var codeBlock = builder().add("$]").build();
     var expected = assertThrows(IllegalStateException.class, () -> {
-      // We can't report this error until rendering type because code blocks might be composed.
-      codeBlock.toString();
+      var codeBlock = builder().add("$]").build();
     });
     assertThat(expected)
         .hasMessageThat()

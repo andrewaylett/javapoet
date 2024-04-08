@@ -16,6 +16,7 @@
 package com.squareup.javapoet;
 
 import com.google.testing.compile.JavaFileObjects;
+import com.squareup.javapoet.notation.Notation;
 import org.junit.Test;
 
 import javax.annotation.processing.AbstractProcessor;
@@ -173,7 +174,7 @@ public abstract class AbstractTypesTest {
     } catch (UnsupportedOperationException expected) {
     }
 
-    assertThat(typeVariableName.toString()).isEqualTo("T");
+    assertThat(Notation.typeRef(typeVariableName).toCode()).isEqualTo("T");
     assertThat(typeVariableName.bounds.toString())
         .isEqualTo("[java.util.Map<java.util.List<T>, java.util.Set<T[]>>]");
   }
@@ -281,7 +282,7 @@ public abstract class AbstractTypesTest {
   @Test
   public void typeVariable() throws Exception {
     var type = TypeVariableName.get("T", CharSequence.class);
-    assertThat(type.toString()).isEqualTo("T"); // (Bounds are only emitted in declaration.)
+    assertThat(Notation.typeRef(type).toCode()).isEqualTo("T"); // (Bounds are only emitted in declaration.)
   }
 
   @Test
@@ -321,6 +322,7 @@ public abstract class AbstractTypesTest {
     }
   }
 
+  @SuppressWarnings("unused")
   static class Parameterized<
       Simple,
       ExtendsClass extends Number,
@@ -330,6 +332,7 @@ public abstract class AbstractTypesTest {
       IntersectionOfInterfaces extends Runnable & Serializable> {
   }
 
+  @SuppressWarnings("unused")
   static class Recursive<T extends Map<List<T>, Set<T[]>>> {
   }
 }

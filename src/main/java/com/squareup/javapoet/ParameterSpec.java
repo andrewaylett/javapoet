@@ -23,7 +23,6 @@ import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.VariableElement;
-import java.io.IOException;
 import java.lang.reflect.Type;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -63,7 +62,8 @@ public final class ParameterSpec implements Emitable {
     var name = element.getSimpleName().toString();
     // Copying parameter annotations can be incorrect so we're deliberately not including them.
     // See https://github.com/square/javapoet/issues/482.
-    return ParameterSpec.builder(type, name)
+    return ParameterSpec
+        .builder(type, name)
         .addModifiers(element.getModifiers())
         .build();
   }
@@ -80,8 +80,7 @@ public final class ParameterSpec implements Emitable {
     // Allow "this" for explicit receiver parameters
     // See https://docs.oracle.com/javase/specs/jls/se8/html/jls-8.html#jls-8.4.1.
     if (name.endsWith(".this")) {
-      return SourceVersion.isIdentifier(name.substring(
-          0,
+      return SourceVersion.isIdentifier(name.substring(0,
           name.length() - ".this".length()
       ));
     }
@@ -89,14 +88,11 @@ public final class ParameterSpec implements Emitable {
   }
 
   public static Builder builder(
-      TypeName type,
-      String name,
-      Modifier... modifiers
+      TypeName type, String name, Modifier... modifiers
   ) {
     checkNotNull(type, "type == null");
     checkArgument(isValidParameterName(name), "not a valid name: %s", name);
-    return new Builder(type, name)
-        .addModifiers(modifiers);
+    return new Builder(type, name).addModifiers(modifiers);
   }
 
   public static Builder builder(Type type, String name, Modifier... modifiers) {
@@ -107,17 +103,6 @@ public final class ParameterSpec implements Emitable {
     return modifiers.contains(modifier);
   }
 
-  void emit(CodeWriter codeWriter, boolean varargs) throws IOException {
-    codeWriter.emitAnnotations(annotations, true);
-    codeWriter.emitModifiers(modifiers);
-    if (varargs) {
-      TypeName.asArray(type).emit(codeWriter, true);
-    } else {
-      type.emit(codeWriter);
-    }
-    codeWriter.emit(" $L", name);
-  }
-
   @Override
   @Contract(value = "null -> false", pure = true)
   public boolean equals(Object o) {
@@ -125,16 +110,12 @@ public final class ParameterSpec implements Emitable {
       return true;
     }
     if (o instanceof ParameterSpec that) {
-      return Objects.equals(name, that.name) && Objects.equals(
-          annotations,
+      return Objects.equals(name, that.name) && Objects.equals(annotations,
           that.annotations
-      ) && Objects.equals(
-          modifiers,
-          that.modifiers
-      ) && Objects.equals(type, that.type) && Objects.equals(
-          javadoc,
-          that.javadoc
-      );
+      ) && Objects.equals(modifiers, that.modifiers) && Objects.equals(
+          type,
+          that.type
+      ) && Objects.equals(javadoc, that.javadoc);
     }
     return false;
   }
@@ -163,11 +144,16 @@ public final class ParameterSpec implements Emitable {
 
   @Override
   public Notation toNotation() {
-    return Stream
-        .concat(
-            annotations.stream().map(Emitable::toNotation),
-            Stream.of(type.toNotation(), Notation.name(this, name))
-        )
+    var builder = Stream.<Notation>builder();
+    annotations.stream().map(Emitable::toNotation).forEach(builder);
+    modifiers
+        .stream()
+        .map(Notation::literal)
+        .forEach(builder);
+    Stream.of(type.toNotation(), Notation.name(this, name)).forEach(builder);
+
+    return builder
+        .build()
         .collect(Notation.join(Notation.txt(" ").or(Notation.nl())));
   }
 
@@ -179,14 +165,18 @@ public final class ParameterSpec implements Emitable {
     if (componentType == null) {
       throw new IllegalStateException("Varargs but not an array type");
     }
-    return Stream
-        .concat(
-            annotations.stream().map(Emitable::toNotation),
-            Stream.of(
-                componentType.toNotation().then(Notation.txt("...")),
-                Notation.name(this, name)
-            )
-        )
+    var builder = Stream.<Notation>builder();
+    annotations.stream().map(Emitable::toNotation).forEach(builder);
+    modifiers
+        .stream()
+        .map(Notation::literal)
+        .forEach(builder);
+    Stream.of(componentType.toNotation().then(Notation.txt("...")),
+        Notation.name(this, name)
+    ).forEach(builder);
+
+    return builder
+        .build()
         .collect(Notation.join(Notation.txt(" ").or(Notation.nl())));
   }
 

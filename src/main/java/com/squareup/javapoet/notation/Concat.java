@@ -15,8 +15,8 @@ public class Concat extends Notation {
 
   public Concat(@NotNull List<Notation> content) {
     super(
-        content.stream().flatMap(n -> n.names.entrySet().stream())
-            .collect(Collectors.toUnmodifiableMap(
+        content.stream().unordered().flatMap(n -> n.names.entrySet().stream().unordered())
+            .collect(Collectors.toMap(
                 Map.Entry::getKey,
                 Map.Entry::getValue,
                 (a, b) -> {
@@ -28,7 +28,7 @@ public class Concat extends Notation {
                           + a + " and " + b);
                 }
             )),
-        content.stream().flatMap(n -> n.imports.stream())
+        content.stream().unordered().flatMap(n -> n.imports.stream().unordered())
             .collect(Collectors.toSet())
     );
     this.content = List.copyOf(content);

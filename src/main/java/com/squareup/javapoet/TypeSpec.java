@@ -28,7 +28,6 @@ import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.NoType;
 import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.ElementFilter;
-import java.io.IOException;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 import java.util.ArrayList;
@@ -253,11 +252,11 @@ public final class TypeSpec {
       );
     } else {
       var lines = Stream.<Notation>builder();
-      lines.add(javadoc.toNotation());
+      lines.add(Notate.javadoc(javadoc.toNotation().suppressImports()));
       annotations.stream().map(Emitable::toNotation).forEach(lines);
       var declaration = Stream.<Notation>builder();
-      Stream
-          .concat(implicitModifiers.stream(), modifiers.stream())
+      modifiers.stream()
+          .filter(m -> !implicitModifiers.contains(m))
           .map(String::valueOf)
           .map(Notation::txt)
           .forEach(declaration);
@@ -266,13 +265,14 @@ public final class TypeSpec {
       } else {
         declaration.add(txt(kind.name().toLowerCase(Locale.US)));
       }
-      declaration.add(txt(name));
-      if (!typeVariables.isEmpty()) {
+      if (typeVariables.isEmpty()) {
+        declaration.add(txt(name));
+      } else {
         declaration.add(Notate.wrapAndIndent(
-            txt("<"),
+            txt(name + "<"),
             typeVariables
                 .stream()
-                .map(Emitable::toNotation)
+                .map(Emitable::toDeclaration)
                 .collect(join(txt(", ").or(txt(",\n")))),
             txt(">")
         ));
@@ -365,30 +365,32 @@ public final class TypeSpec {
     var constructors = methodSpecs
         .stream()
         .filter(MethodSpec::isConstructor)
-        .map(m -> m.toNotation(name, kind.implicitFieldModifiers))
-        .collect(asLines());
+        .map(m -> m.toNotation(name, kind.implicitMethodModifiers))
+        .collect(join(txt("\n\n")));
     body.add(constructors);
 
     // Methods (static and non-static).
     var methods = methodSpecs
         .stream()
         .filter(m -> !m.isConstructor())
-        .map(m -> m.toNotation(name, kind.implicitFieldModifiers))
-        .collect(asLines());
-    body.add(constructors);
+        .map(m -> m.toNotation(name, kind.implicitMethodModifiers))
+        .collect(join(txt("\n\n")));
+    body.add(methods);
 
     // Types.
     var types = typeSpecs
         .stream()
-        .map(m -> m.toNotation(kind.implicitFieldModifiers))
-        .collect(asLines());
+        .map(m -> m.toNotation(kind.implicitTypeModifiers))
+        .collect(join(txt("\n\n")));
     body.add(types);
 
-    return Notate.wrapAndIndentUnlessEmpty(
+    var spec = Notate.wrapAndIndentUnlessEmpty(
         preamble,
         body.build().filter(n -> !n.isEmpty()).collect(join(nl().then(nl()))),
         txt("}")
     );
+
+    return spec.suppressImports(alwaysQualifiedNames);
   }
 
   private Notation notationForEnumConstant(String name) {
@@ -409,210 +411,6 @@ public final class TypeSpec {
       return collected; // Avoid unnecessary braces "{}".
     }
     return fromPreamble(collected.then(txt(" {")));
-  }
-
-  void emit(
-      @NotNull CodeWriter codeWriter,
-      @Nullable String enumName,
-      @NotNull Set<Modifier> implicitModifiers
-  )
-      throws IOException {
-    // Nested classes interrupt wrapped line indentation. Stash the current wrapping state and put
-    // it back afterwards when this type is complete.
-    var previousStatementLine = codeWriter.statementLine;
-    codeWriter.statementLine = -1;
-
-    try {
-      if (enumName != null) {
-        codeWriter.emitJavadoc(javadoc);
-        codeWriter.emitAnnotations(annotations, false);
-        codeWriter.emit("$L", enumName);
-        if (!anonymousTypeArguments.notation.isEmpty()) {
-          codeWriter.emit("(");
-          codeWriter.emit(anonymousTypeArguments);
-          codeWriter.emit(")");
-        }
-        if (fieldSpecs.isEmpty() && methodSpecs.isEmpty()
-            && typeSpecs.isEmpty()) {
-          return; // Avoid unnecessary braces "{}".
-        }
-        codeWriter.emit(" {\n");
-      } else if (anonymousTypeArguments != null) {
-        var supertype =
-            !superinterfaces.isEmpty() ? superinterfaces.get(0) : superclass;
-        codeWriter.emit("new $T(", supertype);
-        codeWriter.emit(anonymousTypeArguments);
-        codeWriter.emit(") {\n");
-      } else {
-        // Push an empty type (specifically without nested types) for type-resolution.
-        codeWriter.pushType(new TypeSpec(this));
-
-        codeWriter.emitJavadoc(javadoc);
-        codeWriter.emitAnnotations(annotations, false);
-        codeWriter.emitModifiers(
-            modifiers,
-            Util.union(implicitModifiers, kind.asMemberModifiers)
-        );
-        if (kind == Kind.ANNOTATION) {
-          codeWriter.emit("$L $L", "@interface", name);
-        } else {
-          codeWriter.emit("$L $L", kind.name().toLowerCase(Locale.US), name);
-        }
-        codeWriter.emitTypeVariables(typeVariables);
-
-        List<TypeName> extendsTypes;
-        List<TypeName> implementsTypes;
-        if (kind == Kind.INTERFACE) {
-          extendsTypes = superinterfaces;
-          implementsTypes = Collections.emptyList();
-        } else {
-          extendsTypes = superclass.equals(ClassName.OBJECT)
-              ? Collections.emptyList()
-              : Collections.singletonList(superclass);
-          implementsTypes = superinterfaces;
-        }
-
-        if (!extendsTypes.isEmpty()) {
-          codeWriter.emit(" extends");
-          var firstType = true;
-          for (var type : extendsTypes) {
-            if (!firstType) {
-              codeWriter.emit(",");
-            }
-            codeWriter.emit(" $T", type);
-            firstType = false;
-          }
-        }
-
-        if (!implementsTypes.isEmpty()) {
-          codeWriter.emit(" implements");
-          var firstType = true;
-          for (var type : implementsTypes) {
-            if (!firstType) {
-              codeWriter.emit(",");
-            }
-            codeWriter.emit(" $T", type);
-            firstType = false;
-          }
-        }
-
-        codeWriter.popType();
-
-        codeWriter.emit(" {\n");
-      }
-
-      codeWriter.pushType(this);
-      codeWriter.indent();
-      var firstMember = true;
-      var needsSeparator = kind == Kind.ENUM
-          && (!fieldSpecs.isEmpty() || !methodSpecs.isEmpty()
-          || !typeSpecs.isEmpty());
-      for (var i = enumConstants.entrySet().iterator();
-           i.hasNext(); ) {
-        var enumConstant = i.next();
-        if (!firstMember) {
-          codeWriter.emit("\n");
-        }
-        enumConstant
-            .getValue()
-            .emit(codeWriter, enumConstant.getKey(), Collections.emptySet());
-        firstMember = false;
-        if (i.hasNext()) {
-          codeWriter.emit(",\n");
-        } else if (!needsSeparator) {
-          codeWriter.emit("\n");
-        }
-      }
-
-      if (needsSeparator) {
-        codeWriter.emit(";\n");
-      }
-
-      // Static fields.
-      for (var fieldSpec : fieldSpecs) {
-        if (!fieldSpec.hasModifier(Modifier.STATIC)) {
-          continue;
-        }
-        if (!firstMember) {
-          codeWriter.emit("\n");
-        }
-        fieldSpec.emit(codeWriter, kind.implicitFieldModifiers);
-        firstMember = false;
-      }
-
-      if (!staticBlock.isEmpty()) {
-        if (!firstMember) {
-          codeWriter.emit("\n");
-        }
-        codeWriter.emit(staticBlock);
-        firstMember = false;
-      }
-
-      // Non-static fields.
-      for (var fieldSpec : fieldSpecs) {
-        if (fieldSpec.hasModifier(Modifier.STATIC)) {
-          continue;
-        }
-        if (!firstMember) {
-          codeWriter.emit("\n");
-        }
-        fieldSpec.emit(codeWriter, kind.implicitFieldModifiers);
-        firstMember = false;
-      }
-
-      // Initializer block.
-      if (!initializerBlock.isEmpty()) {
-        if (!firstMember) {
-          codeWriter.emit("\n");
-        }
-        codeWriter.emit(initializerBlock);
-        firstMember = false;
-      }
-
-      // Constructors.
-      for (var methodSpec : methodSpecs) {
-        if (!methodSpec.isConstructor()) {
-          continue;
-        }
-        if (!firstMember) {
-          codeWriter.emit("\n");
-        }
-        methodSpec.emit(codeWriter, name, kind.implicitMethodModifiers);
-        firstMember = false;
-      }
-
-      // Methods (static and non-static).
-      for (var methodSpec : methodSpecs) {
-        if (methodSpec.isConstructor()) {
-          continue;
-        }
-        if (!firstMember) {
-          codeWriter.emit("\n");
-        }
-        methodSpec.emit(codeWriter, name, kind.implicitMethodModifiers);
-        firstMember = false;
-      }
-
-      // Types.
-      for (var typeSpec : typeSpecs) {
-        if (!firstMember) {
-          codeWriter.emit("\n");
-        }
-        typeSpec.emit(codeWriter, null, kind.implicitTypeModifiers);
-        firstMember = false;
-      }
-
-      codeWriter.unindent();
-      codeWriter.popType();
-      codeWriter.popTypeVariables(typeVariables);
-
-      codeWriter.emit("}");
-      if (enumName == null && anonymousTypeArguments == null) {
-        codeWriter.emit("\n"); // If this type isn't also a value, include a trailing newline.
-      }
-    } finally {
-      codeWriter.statementLine = previousStatementLine;
-    }
   }
 
   @Override
@@ -636,7 +434,7 @@ public final class TypeSpec {
 
   @Override
   public String toString() {
-    return toNotation().toCode();
+    return toNotation().then(nl()).toCode();
   }
 
   public enum Kind {
@@ -964,11 +762,10 @@ public final class TypeSpec {
         throw new UnsupportedOperationException(
             kind + " can't have initializer blocks");
       }
-      initializerBlock.add("{\n")
+      initializerBlock
           .indent()
           .add(block)
-          .unindent()
-          .add("}\n");
+          .unindent("{", "}");
       return this;
     }
 

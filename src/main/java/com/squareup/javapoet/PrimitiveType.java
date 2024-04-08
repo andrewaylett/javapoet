@@ -54,13 +54,6 @@ public enum PrimitiveType implements TypeName {
     return false;
   }
 
-
-  @Override
-  public @NotNull CodeWriter emit(@NotNull CodeWriter out) throws IOException {
-    out.emit(keyword);
-    return out;
-  }
-
   @Override
   public @NotNull TypeName nestedClass(@NotNull String name) {
     throw new UnsupportedOperationException("Cannot nest class inside primitive");

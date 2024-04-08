@@ -33,7 +33,10 @@ import java.util.stream.Collector;
 import java.util.stream.StreamSupport;
 
 import static com.squareup.javapoet.Util.checkArgument;
+import static com.squareup.javapoet.notation.Notation.asLines;
+import static com.squareup.javapoet.notation.Notation.empty;
 import static com.squareup.javapoet.notation.Notation.nl;
+import static com.squareup.javapoet.notation.Notation.txt;
 
 /**
  * A fragment of a .java file, potentially containing declarations, statements, and documentation.
@@ -178,11 +181,13 @@ public final class CodeBlock implements Emitable {
   }
 
   public static final class Builder {
+    final ArrayList<Notation> lines;
     final Deque<Notation> notation;
     boolean inStatement = false;
 
     private Builder() {
       notation = new ArrayDeque<>();
+      lines = new ArrayList<>();
       notation.push(Notation.empty());
     }
 
@@ -273,6 +278,7 @@ public final class CodeBlock implements Emitable {
 
       var relativeParameterCount = 0;
       var indexedParameterCount = new int[args.length];
+      format = format.replace("\n", "$W");
 
       for (var p = 0; p < format.length(); ) {
         if (format.charAt(p) != '$') {
@@ -281,7 +287,7 @@ public final class CodeBlock implements Emitable {
             nextP = format.length();
           }
           var prev = notation.pop();
-          var next = Notation.txt(format.substring(p, nextP));
+          var next = txt(format.substring(p, nextP));
           notation.push(prev.then(next));
           p = nextP;
           continue;
@@ -310,13 +316,13 @@ public final class CodeBlock implements Emitable {
           );
           switch (c) {
             case '$':
-              notation.push(notation.pop().then(Notation.txt("$")));
+              notation.push(notation.pop().then(txt("$")));
               break;
             case '>':
               indent();
               break;
             case '<':
-              unindent();
+              unindent("", "");
               break;
             case '[':
               statement();
@@ -325,10 +331,12 @@ public final class CodeBlock implements Emitable {
               unstatement();
               break;
             case 'W':
-              notation.push(notation.pop().then(Notation.txt(" ").or(nl())));
+              lines.add(notation.pop().then(txt(" ")));
+              notation.push(empty());
               break;
             case 'Z':
-              notation.push(notation.pop().then(Notation.empty().or(nl())));
+              lines.add(notation.pop());
+              notation.push(empty());
               break;
             default:
               throw new IllegalArgumentException(
@@ -405,9 +413,9 @@ public final class CodeBlock implements Emitable {
 
     private Notation addArgument(String format, char c, Object arg) {
       return switch (c) {
-        case 'N' -> Notation.txt(argToName(arg));
+        case 'N' -> txt(argToName(arg));
         case 'L' -> Notation.literal(argToLiteral(arg));
-        case 'S' -> Notation.txt("\"" + argToString(arg) + "\"");
+        case 'S' -> txt(argToString(arg));
         case 'T' -> Notation.typeRef(argToType(arg));
         default -> throw new IllegalArgumentException(
             String.format("invalid format string: '%s'", format));
@@ -438,8 +446,8 @@ public final class CodeBlock implements Emitable {
     }
 
     @Contract(pure = true)
-    private @Nullable String argToString(Object o) {
-      return o != null ? String.valueOf(o) : "null";
+    private String argToString(Object o) {
+      return o != null ? "\"" + o + "\"" : "null";
     }
 
     @Contract("null -> fail")
@@ -465,7 +473,7 @@ public final class CodeBlock implements Emitable {
      *                    Shouldn't contain braces or newline characters.
      */
     public Builder beginControlFlow(String controlFlow, Object... args) {
-      add(controlFlow + " {", args);
+      add(controlFlow + " ", args);
       indent();
       return this;
     }
@@ -475,15 +483,14 @@ public final class CodeBlock implements Emitable {
      *                    Shouldn't contain braces or newline characters.
      */
     public Builder nextControlFlow(String controlFlow, Object... args) {
-      unindent();
-      add("\n} " + controlFlow + " {", args);
+      unindent("{", "}");
+      add(" " + controlFlow + " ", args);
       indent();
       return this;
     }
 
     public Builder endControlFlow() {
-      unindent();
-      add("\n}");
+      unindent("{", "}");
       return this;
     }
 
@@ -492,8 +499,8 @@ public final class CodeBlock implements Emitable {
      *                    "while(foo == 20)". Only used for "do/while" control flows.
      */
     public Builder endControlFlow(String controlFlow, Object... args) {
-      unindent();
-      add("\n} " + controlFlow + ";", args);
+      unindent("{", "}");
+      add(" " + controlFlow + ";", args);
       return this;
     }
 
@@ -513,15 +520,22 @@ public final class CodeBlock implements Emitable {
       return this;
     }
 
+    public Builder gatherLines() {
+      notation.push(lines.stream().collect(asLines()).then(notation.pop()));
+      lines.clear();
+      return this;
+    }
+
     public Builder indent() {
       notation.push(Notation.empty());
       return this;
     }
 
-    public Builder unindent() {
+    public Builder unindent(String before, String after) {
+      gatherLines();
       var indented = notation.pop();
       var surrounding = notation.pop();
-      notation.push(surrounding.then(indented.indent("  ")));
+      notation.push(surrounding.then(Notate.wrapAndIndentUnlessEmpty(txt(before), indented, txt(after))));
       return this;
     }
 
@@ -541,6 +555,7 @@ public final class CodeBlock implements Emitable {
             "statement exit $] has no matching statement enter $[");
       }
       inStatement = false;
+      gatherLines();
       var statement = notation.pop();
       var surrounding = notation.pop();
       if (surrounding.isEmpty()) {
@@ -564,8 +579,9 @@ public final class CodeBlock implements Emitable {
       if (inStatement) {
         unstatement();
       }
+      gatherLines();
       while (this.notation.size() > 1) {
-        unindent();
+        unindent("", "");
       }
       return new CodeBlock(this.notation.pop());
     }

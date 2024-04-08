@@ -22,7 +22,7 @@ public class Text extends Notation {
   @Override
   public @NotNull Notation then(@NotNull Notation next) {
     if (next instanceof Text t) {
-      return new Text(content + t.content);
+      return txt(content + t.content);
     }
     return super.then(next);
   }

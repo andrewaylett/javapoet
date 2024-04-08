@@ -166,8 +166,7 @@ public final class JavaFileTest {
             out.println(nanoTime());
           }
 
-          Taco(Thread.State... states) {
-          }
+          Taco(Thread.State... states) {}
         }
         """);
   }
@@ -305,8 +304,7 @@ public final class JavaFileTest {
     assertThat(source).isEqualTo("""
         package com.squareup.tacos;
 
-        class Taco {
-        }
+        class Taco {}
         """);
   }
 
@@ -511,14 +509,12 @@ public final class JavaFileTest {
             class C {
               A.Twin.D d;
 
-              class Twin {
-              }
+              class Twin {}
             }
           }
 
           class Twin {
-            class D {
-            }
+            class D {}
           }
         }
         """);

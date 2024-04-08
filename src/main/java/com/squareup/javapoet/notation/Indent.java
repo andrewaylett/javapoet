@@ -6,12 +6,13 @@ import org.jetbrains.annotations.NotNull;
 
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 
 public class Indent extends Notation {
-  public final String indent;
+  public final Optional<String> indent;
   public final Notation inner;
 
-  public Indent(String indent, Notation inner) {
+  public Indent(Optional<String> indent, Notation inner) {
     super(inner.names, inner.imports);
     this.indent = indent;
     this.inner = inner;
@@ -27,14 +28,14 @@ public class Indent extends Notation {
       @NotNull Printer.PrinterVisitor printer,
       @NotNull Chunk chunk
   ) {
-    printer.push(chunk.withNotation(inner).indented(indent));
+    printer.push(chunk.withNotation(inner).indented(indent.orElseGet(chunk::indentBy)));
   }
 
   @Override
   public @NotNull Printer.FlatResponse visit(
       @NotNull Printer.FlatVisitor flatVisitor, @NotNull Chunk chunk
   ) {
-    flatVisitor.push(chunk.withNotation(inner).indented(indent));
+    flatVisitor.push(chunk.withNotation(inner).indented(indent.orElseGet(chunk::indentBy)));
     return Printer.FlatResponse.INCONCLUSIVE;
   }
 

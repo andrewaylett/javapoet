@@ -17,12 +17,12 @@ package com.squareup.javapoet;
 
 import com.squareup.javapoet.notation.Notation;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import javax.lang.model.element.Element;
 import javax.lang.model.element.PackageElement;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.util.SimpleElementVisitor8;
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -64,7 +64,7 @@ public final class ClassName extends ObjectTypeName
   /**
    * The enclosing class, or null if this is not enclosed in another class.
    */
-  final TypeName enclosingClassName;
+  final @Nullable TypeName enclosingClassName;
 
   /**
    * This class name, like "Entry" for java.util.Map.Entry.
@@ -74,11 +74,10 @@ public final class ClassName extends ObjectTypeName
    * The full class name like "java.util.Map.Entry".
    */
   final String canonicalName;
-  private List<String> simpleNames;
 
   ClassName(
       String packageName,
-      TypeName enclosingClassName,
+      @Nullable TypeName enclosingClassName,
       String simpleName
   ) {
     super();
@@ -106,10 +105,10 @@ public final class ClassName extends ObjectTypeName
         "array types cannot be represented as a ClassName"
     );
 
-    var anonymousSuffix = "";
+    var anonymousSuffix = new StringBuilder();
     while (clazz.isAnonymousClass()) {
       var lastDollar = clazz.getName().lastIndexOf('$');
-      anonymousSuffix = clazz.getName().substring(lastDollar) + anonymousSuffix;
+      anonymousSuffix.insert(0, clazz.getName().substring(lastDollar));
       clazz = clazz.getEnclosingClass();
     }
     var name = clazz.getSimpleName() + anonymousSuffix;
@@ -133,7 +132,7 @@ public final class ClassName extends ObjectTypeName
    * {@link #get(Class)} should be preferred as they can correctly create {@link ClassName}
    * instances without such restrictions.
    */
-  public static ClassName bestGuess(String classNameString) {
+  public static @Nullable ClassName bestGuess(String classNameString) {
     // Add the package name, like "java.util.concurrent", or "" for no package.
     var p = 0;
     while (p < classNameString.length()
@@ -262,6 +261,7 @@ public final class ClassName extends ObjectTypeName
    * Returns the enclosing class, like {@link Map} for {@code Map.Entry}. Returns null if this class
    * is not nested in another class.
    */
+  @Override
   public TypeName enclosingClassName() {
     return enclosingClassName;
   }
@@ -270,6 +270,7 @@ public final class ClassName extends ObjectTypeName
    * Returns the top class in this nesting group. Equivalent to chained calls to {@link
    * #enclosingClassName()} until the result's enclosing class is null.
    */
+  @Override
   public @NotNull ClassName topLevelClassName() {
     return enclosingClassName != null
         ? enclosingClassName.topLevelClassName()
@@ -279,12 +280,14 @@ public final class ClassName extends ObjectTypeName
   /**
    * Return the binary name of a class.
    */
+  @Override
   public @NotNull String reflectionName() {
     return enclosingClassName != null
         ? (enclosingClassName.reflectionName() + '$' + simpleName)
         : (packageName.isEmpty() ? simpleName : packageName + '.' + simpleName);
   }
 
+  @Override
   public List<String> simpleNames() {
     if (enclosingClassName == null) {
       return Collections.singletonList(simpleName);
@@ -346,53 +349,6 @@ public final class ClassName extends ObjectTypeName
   @Override
   public int compareTo(ClassName o) {
     return canonicalName.compareTo(o.canonicalName);
-  }
-
-  @Override
-  public @NotNull CodeWriter emit(@NotNull CodeWriter out) throws IOException {
-    var charsEmitted = false;
-    for (var className : enclosingClasses()) {
-      String simpleName;
-      if (charsEmitted) {
-        // We've already emitted an enclosing class. Emit as we go.
-        out.emit(".");
-        simpleName = className.nameWhenImported();
-
-      } else if (className.isAnnotated() || className == this) {
-        // We encountered the first enclosing class that must be emitted.
-        var qualifiedName =
-            className.canonicalName(); //out.lookupName(className);
-        var dot = qualifiedName.lastIndexOf('.');
-        if (dot != -1) {
-          out.emitAndIndent(qualifiedName.substring(0, dot + 1));
-          simpleName = qualifiedName.substring(dot + 1);
-          charsEmitted = true;
-        } else {
-          simpleName = qualifiedName;
-        }
-
-      } else {
-        // Don't emit this enclosing type. Keep going so we can be more precise.
-        continue;
-      }
-
-      out.emit(simpleName);
-      charsEmitted = true;
-    }
-
-    return out;
-  }
-
-  /**
-   * Returns all enclosing classes in this, outermost first.
-   */
-  private List<TypeName> enclosingClasses() {
-    List<TypeName> result = new ArrayList<>();
-    for (TypeName c = this; c != null; c = c.enclosingClassName()) {
-      result.add(c);
-    }
-    Collections.reverse(result);
-    return result;
   }
 
   @Override

@@ -35,7 +35,6 @@ import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
@@ -45,6 +44,7 @@ import java.util.stream.Stream;
 
 import static com.squareup.javapoet.Util.checkArgument;
 import static com.squareup.javapoet.Util.checkNotNull;
+import static com.squareup.javapoet.notation.Notation.empty;
 import static com.squareup.javapoet.notation.Notation.join;
 import static com.squareup.javapoet.notation.Notation.nl;
 import static com.squareup.javapoet.notation.Notation.txt;
@@ -126,6 +126,7 @@ public final class JavaFile implements Emitable {
       }
     }
 
+    var comment = fileComment.isEmpty() ? empty() : txt("// ").then(fileComment.toNotation().indent("// "));
     var pkg = Notation.txt("package " + packageName + ";");
 
     var imports = actualImports
@@ -134,13 +135,18 @@ public final class JavaFile implements Emitable {
         .map(c -> Notation.txt("import " + c.canonicalName() + ";"))
         .collect(Notation.asLines());
 
+    var top = Stream
+        .of(comment, pkg)
+        .filter(n -> !n.isEmpty())
+        .collect(join(txt("\n")));
+
     var everything = Stream
-        .of(pkg, imports, notation)
+        .of(top, imports, notation)
         .filter(n -> !n.isEmpty())
         .collect(join(txt("\n\n")))
         .then(nl());
 
-    var printer = new Printer(everything, 100, names);
+    var printer = new Printer(everything, 100, names, indent);
     printer.print(out);
   }
 
@@ -233,46 +239,6 @@ public final class JavaFile implements Emitable {
       }
       throw e;
     }
-  }
-
-  private void emit(CodeWriter codeWriter) throws IOException {
-    codeWriter.pushPackage(packageName);
-
-    if (!fileComment.isEmpty()) {
-      codeWriter.emitComment(fileComment);
-    }
-
-    if (!packageName.isEmpty()) {
-      codeWriter.emit("package $L;\n", packageName);
-      codeWriter.emit("\n");
-    }
-
-    if (!staticImports.isEmpty()) {
-      for (var signature : staticImports) {
-        codeWriter.emit("import static $L;\n", signature);
-      }
-      codeWriter.emit("\n");
-    }
-
-    var importedTypesCount = 0;
-    for (var className : new TreeSet<>(codeWriter.importedTypes().values())) {
-      // TODO what about nested types like java.util.Map.Entry?
-      if (skipJavaLangImports
-          && className.packageName().equals("java.lang")
-          && !alwaysQualify.contains(className.simpleName)) {
-        continue;
-      }
-      codeWriter.emit("import $L;\n", className.withoutAnnotations());
-      importedTypesCount++;
-    }
-
-    if (importedTypesCount > 0) {
-      codeWriter.emit("\n");
-    }
-
-    typeSpec.emit(codeWriter, null, Collections.emptySet());
-
-    codeWriter.popPackage();
   }
 
   @Override

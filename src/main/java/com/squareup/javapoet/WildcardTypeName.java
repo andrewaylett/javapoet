@@ -31,6 +31,7 @@ import java.util.Objects;
 import java.util.stream.Stream;
 
 import static com.squareup.javapoet.Util.checkArgument;
+import static com.squareup.javapoet.notation.Notation.typeRef;
 
 public final class WildcardTypeName extends ObjectTypeName {
   public final List<TypeName> upperBounds;
@@ -143,16 +144,6 @@ public final class WildcardTypeName extends ObjectTypeName {
   @Override
   public @NotNull TypeName unbox() {
     throw new UnsupportedOperationException("Cannot unbox " + this);
-  }
-
-  @Override
-  public @NotNull CodeWriter emit(@NotNull CodeWriter out) throws IOException {
-    if (lowerBounds.size() == 1) {
-      return out.emit("? super $T", lowerBounds.get(0));
-    }
-    return upperBounds.get(0).equals(ClassName.OBJECT)
-        ? out.emit("?")
-        : out.emit("? extends $T", upperBounds.get(0));
   }
 
   @Override

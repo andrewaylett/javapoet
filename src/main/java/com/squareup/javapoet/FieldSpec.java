@@ -83,15 +83,15 @@ public final class FieldSpec implements Emitable {
 
   public Notation toNotation(Set<Modifier> implicitModifiers) {
     var context = Stream.<Notation>builder();
-    context.add(Notate.javadoc(javadoc.toNotation()));
-    annotations.stream().map(Notation::literal).forEach(context);
+    context.add(Notate.javadoc(javadoc.toNotation().suppressImports()));
+    annotations.stream().map(Emitable::toNotation).forEach(context);
 
     var decl = Stream.<Notation>builder();
-    Stream
-        .concat(implicitModifiers.stream(), modifiers.stream())
+    modifiers.stream()
+        .filter(m -> !implicitModifiers.contains(m))
         .map(Notation::literal)
         .forEach(decl);
-    decl.add(Notation.typeRef(type));
+    decl.add(type.toNotation());
     decl.add(Notation
         .literal(name)
         .then(initializer.isEmpty() ? txt(";") : empty()));

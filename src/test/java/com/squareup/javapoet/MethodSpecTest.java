@@ -112,11 +112,13 @@ public final class MethodSpecTest {
     var methodElement =
         getOnlyElement(methodsIn(classElement.getEnclosedElements()));
     var method = MethodSpec.overriding(methodElement).build();
-    assertThat(method.toString()).isEqualTo("@java.lang.Override\n"
-        + "protected <T extends java.lang.Runnable & java.io.Closeable> java.lang.Runnable "
-        + "everything(\n"
-        + "    java.lang.String arg0, java.util.List<? extends T> arg1) throws java.io.IOException,\n"
-        + "    java.lang.SecurityException {}\n");
+    assertThat(method.toString()).isEqualTo("""
+        @java.lang.Override
+        protected <T extends java.lang.Runnable & java.io.Closeable> java.lang.Runnable everything(
+          java.lang.String arg0, java.util.List<? extends T> arg1
+        )
+        throws java.io.IOException, java.lang.SecurityException {}
+        """);
   }
 
   @Test
@@ -432,11 +434,11 @@ public final class MethodSpecTest {
         .endControlFlow()
         .build();
 
-    assertThat(methodSpec.toString()).isEqualTo("void method() {\n"
-        + "  if (valueField > 5) {\n"
-        + "  } else if (valueField == 5) {\n"
-        + "  }\n"
-        + "}\n");
+    assertThat(methodSpec.toString()).isEqualTo("""
+        void method() {
+          if (valueField > 5) {} else if (valueField == 5) {}
+        }
+        """);
   }
 
   @Test

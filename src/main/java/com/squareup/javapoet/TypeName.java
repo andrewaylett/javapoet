@@ -294,16 +294,6 @@ public sealed interface TypeName extends Emitable
   @NotNull
   TypeName unbox();
 
-  @Contract("_ -> param1")
-  @NotNull
-  CodeWriter emit(@NotNull CodeWriter out) throws IOException;
-
-  @Contract("_, _ -> param1")
-  default @NotNull CodeWriter emit(@NotNull CodeWriter out, boolean varargs)
-      throws IOException {
-    return emit(out);
-  }
-
   @NotNull
   TypeName nestedClass(@NotNull String name);
 

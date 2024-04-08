@@ -95,21 +95,6 @@ public final class AnnotatedTypeName implements TypeName {
   }
 
   @Override
-  public @NotNull CodeWriter emit(@NotNull CodeWriter out) throws IOException {
-    return emit(out, false);
-  }
-
-  @Override
-  public @NotNull CodeWriter emit(@NotNull CodeWriter out, boolean varargs)
-      throws IOException {
-    for (var annotation : annotations) {
-      annotation.emit(out, true);
-      out.emit(" ");
-    }
-    return inner.emit(out, varargs);
-  }
-
-  @Override
   public @NotNull Notation toNotation() {
     return Stream.concat(
         annotations.stream().map(Emitable::toNotation),

@@ -21,7 +21,6 @@ import org.jetbrains.annotations.Nullable;
 
 import javax.lang.model.element.TypeParameterElement;
 import javax.lang.model.type.ArrayType;
-import java.io.IOException;
 import java.lang.reflect.GenericArrayType;
 import java.lang.reflect.Type;
 import java.util.LinkedHashMap;
@@ -92,36 +91,6 @@ public final class ArrayTypeName extends ObjectTypeName {
   @Override
   public @NotNull PrimitiveType unbox() {
     throw new UnsupportedOperationException("Cannot unbox an array");
-  }
-
-  @Override
-  public @NotNull CodeWriter emit(@NotNull CodeWriter out) throws IOException {
-    return emit(out, false);
-  }
-
-  @Override
-  public @NotNull CodeWriter emit(@NotNull CodeWriter out, boolean varargs)
-      throws IOException {
-    emitLeafType(out);
-    return emitBrackets(out, varargs);
-  }
-
-  private CodeWriter emitLeafType(CodeWriter out) throws IOException {
-    if (componentType instanceof ArrayTypeName arrayType) {
-      return arrayType.emitLeafType(out);
-    }
-    return componentType.emit(out);
-  }
-
-  private CodeWriter emitBrackets(CodeWriter out, boolean varargs)
-      throws IOException {
-    if (componentType instanceof ArrayTypeName arrayType) {
-      out.emit("[]");
-      return arrayType.emitBrackets(out, varargs);
-    } else {
-      // Last bracket.
-      return out.emit(varargs ? "..." : "[]");
-    }
   }
 
   @Override
