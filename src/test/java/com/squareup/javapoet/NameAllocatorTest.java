@@ -18,11 +18,12 @@ package com.squareup.javapoet;
 import org.junit.Test;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertThrows;
 
 public final class NameAllocatorTest {
 
-  @Test public void usage() throws Exception {
+  @Test
+  public void usage() throws Exception {
     var nameAllocator = new NameAllocator();
     assertThat(nameAllocator.newName("foo", 1)).isEqualTo("foo");
     assertThat(nameAllocator.newName("bar", 2)).isEqualTo("bar");
@@ -30,14 +31,16 @@ public final class NameAllocatorTest {
     assertThat(nameAllocator.get(2)).isEqualTo("bar");
   }
 
-  @Test public void nameCollision() throws Exception {
+  @Test
+  public void nameCollision() throws Exception {
     var nameAllocator = new NameAllocator();
     assertThat(nameAllocator.newName("foo")).isEqualTo("foo");
     assertThat(nameAllocator.newName("foo")).isEqualTo("foo_");
     assertThat(nameAllocator.newName("foo")).isEqualTo("foo__");
   }
 
-  @Test public void nameCollisionWithTag() throws Exception {
+  @Test
+  public void nameCollisionWithTag() throws Exception {
     var nameAllocator = new NameAllocator();
     assertThat(nameAllocator.newName("foo", 1)).isEqualTo("foo");
     assertThat(nameAllocator.newName("foo", 2)).isEqualTo("foo_");
@@ -47,47 +50,63 @@ public final class NameAllocatorTest {
     assertThat(nameAllocator.get(3)).isEqualTo("foo__");
   }
 
-  @Test public void characterMappingSubstitute() throws Exception {
+  @Test
+  public void characterMappingSubstitute() throws Exception {
     var nameAllocator = new NameAllocator();
     assertThat(nameAllocator.newName("a-b", 1)).isEqualTo("a_b");
   }
 
-  @Test public void characterMappingSurrogate() throws Exception {
+  @Test
+  public void characterMappingSurrogate() throws Exception {
     var nameAllocator = new NameAllocator();
     assertThat(nameAllocator.newName("a\uD83C\uDF7Ab", 1)).isEqualTo("a_b");
   }
 
-  @Test public void characterMappingInvalidStartButValidPart() throws Exception {
+  @Test
+  public void characterMappingInvalidStartButValidPart() throws Exception {
     var nameAllocator = new NameAllocator();
     assertThat(nameAllocator.newName("1ab", 1)).isEqualTo("_1ab");
     assertThat(nameAllocator.newName("a-1", 2)).isEqualTo("a_1");
   }
 
-  @Test public void characterMappingInvalidStartIsInvalidPart() throws Exception {
+  @Test
+  public void characterMappingInvalidStartIsInvalidPart() throws Exception {
     var nameAllocator = new NameAllocator();
     assertThat(nameAllocator.newName("&ab", 1)).isEqualTo("_ab");
   }
 
-  @Test public void javaKeyword() throws Exception {
+  @Test
+  public void javaKeyword() throws Exception {
     var nameAllocator = new NameAllocator();
     assertThat(nameAllocator.newName("public", 1)).isEqualTo("public_");
     assertThat(nameAllocator.get(1)).isEqualTo("public_");
   }
 
-  @Test public void tagReuseForbidden() throws Exception {
+  @Test
+  public void tagReuseForbidden() throws Exception {
     var nameAllocator = new NameAllocator();
     nameAllocator.newName("foo", 1);
-    var expected = assertThrows(IllegalArgumentException.class, () -> nameAllocator.newName("bar", 1));
-    assertThat(expected).hasMessageThat().isEqualTo("tag 1 cannot be used for both 'foo' and 'bar'");
+    var expected = assertThrows(
+        IllegalArgumentException.class,
+        () -> nameAllocator.newName("bar", 1)
+    );
+    assertThat(expected)
+        .hasMessageThat()
+        .isEqualTo("tag 1 cannot be used for both 'foo' and 'bar'");
   }
 
-  @Test public void useBeforeAllocateForbidden() throws Exception {
+  @Test
+  public void useBeforeAllocateForbidden() throws Exception {
     var nameAllocator = new NameAllocator();
-    var expected = assertThrows(IllegalArgumentException.class, () -> nameAllocator.get(1));
+    var expected = assertThrows(
+        IllegalArgumentException.class,
+        () -> nameAllocator.get(1)
+    );
     assertThat(expected).hasMessageThat().isEqualTo("unknown tag: 1");
   }
 
-  @Test public void cloneUsage() throws Exception {
+  @Test
+  public void cloneUsage() throws Exception {
     var outterAllocator = new NameAllocator();
     outterAllocator.newName("foo", 1);
 

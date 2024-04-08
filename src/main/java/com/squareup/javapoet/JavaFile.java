@@ -17,28 +17,43 @@ package com.squareup.javapoet;
 
 import com.google.common.base.Splitter;
 import com.squareup.javapoet.notation.Notation;
+import com.squareup.javapoet.notation.Printer;
 
 import javax.annotation.processing.Filer;
 import javax.lang.model.element.Element;
 import javax.tools.JavaFileObject;
 import javax.tools.JavaFileObject.Kind;
 import javax.tools.SimpleJavaFileObject;
-import java.io.*;
+import java.io.ByteArrayInputStream;
+import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStreamWriter;
+import java.io.Writer;
 import java.net.URI;
 import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.*;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedHashSet;
+import java.util.Set;
+import java.util.TreeSet;
 import java.util.stream.Stream;
 
 import static com.squareup.javapoet.Util.checkArgument;
 import static com.squareup.javapoet.Util.checkNotNull;
+import static com.squareup.javapoet.notation.Notation.join;
+import static com.squareup.javapoet.notation.Notation.nl;
+import static com.squareup.javapoet.notation.Notation.txt;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 /**
  * A Java file containing a single top level class.
  */
-public final class JavaFile {
+public final class JavaFile implements Emitable {
   private static final Appendable NULL_APPENDABLE = new Appendable() {
     @Override
     public Appendable append(CharSequence charSequence) {
@@ -83,7 +98,10 @@ public final class JavaFile {
     return new Builder(packageName, typeSpec);
   }
 
-  private void fillAlwaysQualifiedNames(TypeSpec spec, Set<String> alwaysQualifiedNames) {
+  private void fillAlwaysQualifiedNames(
+      TypeSpec spec,
+      Set<String> alwaysQualifiedNames
+  ) {
     alwaysQualifiedNames.addAll(spec.alwaysQualifiedNames);
     for (var nested : spec.typeSpecs) {
       fillAlwaysQualifiedNames(nested, alwaysQualifiedNames);
@@ -92,19 +110,38 @@ public final class JavaFile {
 
   public void writeTo(Appendable out) throws IOException {
     // First pass: emit the entire class, just to collect the types we'll need to import.
-    var importsCollector = new CodeWriter(
-            NULL_APPENDABLE,
-            indent,
-            staticImports,
-            alwaysQualify
-    );
-    emit(importsCollector);
-    var suggestedImports = importsCollector.suggestedImports();
+    var notation = toNotation();
 
-    // Second pass: write the code, taking advantage of the imports.
-    var codeWriter
-            = new CodeWriter(out, indent, suggestedImports, staticImports, alwaysQualify);
-    emit(codeWriter);
+    var suggestedImports = notation.imports;
+    var actualImports = new HashSet<ClassName>();
+    var names = new HashMap<>(notation.names);
+
+    for (var typeName : suggestedImports) {
+      names.put(typeName, typeName.nameWhenImported());
+      if (typeName instanceof ClassName className) {
+        if (!className.packageName.isEmpty() && !className.packageName.equals(
+            packageName)) {
+          actualImports.add(className.topLevelClassName());
+        }
+      }
+    }
+
+    var pkg = Notation.txt("package " + packageName + ";");
+
+    var imports = actualImports
+        .stream()
+        .sorted(ClassName.PACKAGE_COMPARATOR)
+        .map(c -> Notation.txt("import " + c.canonicalName() + ";"))
+        .collect(Notation.asLines());
+
+    var everything = Stream
+        .of(pkg, imports, notation)
+        .filter(n -> !n.isEmpty())
+        .collect(join(txt("\n\n")))
+        .then(nl());
+
+    var printer = new Printer(everything, 100, names);
+    printer.print(out);
   }
 
   /**
@@ -137,7 +174,8 @@ public final class JavaFile {
    */
   public Path writeToPath(Path directory, Charset charset) throws IOException {
     checkArgument(Files.notExists(directory) || Files.isDirectory(directory),
-            "path %s exists but is not a directory.", directory);
+        "path %s exists but is not a directory.", directory
+    );
     var outputDirectory = directory;
     if (!packageName.isEmpty()) {
       for (var packageComponent : Splitter.on('.').split(packageName)) {
@@ -147,7 +185,10 @@ public final class JavaFile {
     }
 
     var outputPath = outputDirectory.resolve(typeSpec.name + ".java");
-    try (Writer writer = new OutputStreamWriter(Files.newOutputStream(outputPath), charset)) {
+    try (Writer writer = new OutputStreamWriter(
+        Files.newOutputStream(outputPath),
+        charset
+    )) {
       writeTo(writer);
     }
 
@@ -175,11 +216,13 @@ public final class JavaFile {
    */
   public void writeTo(Filer filer) throws IOException {
     var fileName = packageName.isEmpty()
-            ? typeSpec.name
-            : packageName + "." + typeSpec.name;
+        ? typeSpec.name
+        : packageName + "." + typeSpec.name;
     var originatingElements = typeSpec.originatingElements;
-    var filerSourceFile = filer.createSourceFile(fileName,
-            originatingElements.toArray(new Element[0]));
+    var filerSourceFile = filer.createSourceFile(
+        fileName,
+        originatingElements.toArray(new Element[0])
+    );
     try (var writer = filerSourceFile.openWriter()) {
       writeTo(writer);
     } catch (Exception e) {
@@ -190,13 +233,6 @@ public final class JavaFile {
       }
       throw e;
     }
-  }
-
-  public Notation generateNotation() {
-    return Stream.of(
-            fileComment.generateNotation(),
-            Notation.format("package %s;", Notation.txt(packageName))
-    ).collect(Notation.asLines());
   }
 
   private void emit(CodeWriter codeWriter) throws IOException {
@@ -222,8 +258,8 @@ public final class JavaFile {
     for (var className : new TreeSet<>(codeWriter.importedTypes().values())) {
       // TODO what about nested types like java.util.Map.Entry?
       if (skipJavaLangImports
-              && className.packageName().equals("java.lang")
-              && !alwaysQualify.contains(className.simpleName)) {
+          && className.packageName().equals("java.lang")
+          && !alwaysQualify.contains(className.simpleName)) {
         continue;
       }
       codeWriter.emit("import $L;\n", className.withoutAnnotations());
@@ -241,9 +277,15 @@ public final class JavaFile {
 
   @Override
   public boolean equals(Object o) {
-    if (this == o) return true;
-    if (o == null) return false;
-    if (getClass() != o.getClass()) return false;
+    if (this == o) {
+      return true;
+    }
+    if (o == null) {
+      return false;
+    }
+    if (getClass() != o.getClass()) {
+      return false;
+    }
     return toString().equals(o.toString());
   }
 
@@ -265,9 +307,9 @@ public final class JavaFile {
 
   public JavaFileObject toJavaFileObject() {
     var uri = URI.create((packageName.isEmpty()
-            ? typeSpec.name
-            : packageName.replace('.', '/') + '/' + typeSpec.name)
-            + Kind.SOURCE.extension);
+        ? typeSpec.name
+        : packageName.replace('.', '/') + '/' + typeSpec.name)
+        + Kind.SOURCE.extension);
     return new SimpleJavaFileObject(uri, Kind.SOURCE) {
       private final long lastModified = System.currentTimeMillis();
 
@@ -296,6 +338,11 @@ public final class JavaFile {
     return builder;
   }
 
+  @Override
+  public Notation toNotation() {
+    return typeSpec.toNotation();
+  }
+
   public static final class Builder {
     public final Set<String> staticImports = new TreeSet<>();
     private final String packageName;
@@ -315,7 +362,10 @@ public final class JavaFile {
     }
 
     public Builder addStaticImport(Enum<?> constant) {
-      return addStaticImport(ClassName.get(constant.getDeclaringClass()), constant.name());
+      return addStaticImport(
+          ClassName.get(constant.getDeclaringClass()),
+          constant.name()
+      );
     }
 
     public Builder addStaticImport(Class<?> clazz, String... names) {
@@ -327,7 +377,11 @@ public final class JavaFile {
       checkArgument(names != null, "names == null");
       checkArgument(names.length > 0, "names array is empty");
       for (var name : names) {
-        checkArgument(name != null, "null entry in names array: %s", Arrays.toString(names));
+        checkArgument(
+            name != null,
+            "null entry in names array: %s",
+            Arrays.toString(names)
+        );
         staticImports.add(className.canonicalName + "." + name);
       }
       return this;

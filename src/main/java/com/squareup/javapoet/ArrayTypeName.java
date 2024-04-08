@@ -15,7 +15,9 @@
  */
 package com.squareup.javapoet;
 
+import com.squareup.javapoet.notation.Notation;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import javax.lang.model.element.TypeParameterElement;
 import javax.lang.model.type.ArrayType;
@@ -25,6 +27,7 @@ import java.lang.reflect.Type;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 import static com.squareup.javapoet.Util.checkNotNull;
 
@@ -58,8 +61,13 @@ public final class ArrayTypeName extends ObjectTypeName {
   }
 
   static ArrayTypeName get(
-          ArrayType mirror, Map<TypeParameterElement, TypeVariableName> typeVariables) {
-    return new ArrayTypeName(TypeName.get(mirror.getComponentType(), typeVariables));
+      ArrayType mirror,
+      Map<TypeParameterElement, TypeVariableName> typeVariables
+  ) {
+    return new ArrayTypeName(TypeName.get(
+        mirror.getComponentType(),
+        typeVariables
+    ));
   }
 
   /**
@@ -69,7 +77,10 @@ public final class ArrayTypeName extends ObjectTypeName {
     return get(type, new LinkedHashMap<>());
   }
 
-  static ArrayTypeName get(GenericArrayType type, Map<Type, TypeVariableName> map) {
+  static ArrayTypeName get(
+      GenericArrayType type,
+      Map<Type, TypeVariableName> map
+  ) {
     return ArrayTypeName.of(TypeName.get(type.getGenericComponentType(), map));
   }
 
@@ -89,7 +100,8 @@ public final class ArrayTypeName extends ObjectTypeName {
   }
 
   @Override
-  public @NotNull CodeWriter emit(@NotNull CodeWriter out, boolean varargs) throws IOException {
+  public @NotNull CodeWriter emit(@NotNull CodeWriter out, boolean varargs)
+      throws IOException {
     emitLeafType(out);
     return emitBrackets(out, varargs);
   }
@@ -101,7 +113,8 @@ public final class ArrayTypeName extends ObjectTypeName {
     return componentType.emit(out);
   }
 
-  private CodeWriter emitBrackets(CodeWriter out, boolean varargs) throws IOException {
+  private CodeWriter emitBrackets(CodeWriter out, boolean varargs)
+      throws IOException {
     if (componentType instanceof ArrayTypeName arrayType) {
       out.emit("[]");
       return arrayType.emitBrackets(out, varargs);
@@ -112,12 +125,77 @@ public final class ArrayTypeName extends ObjectTypeName {
   }
 
   @Override
-  public TypeName nestedClass(String name) {
+  public @NotNull TypeName nestedClass(@NotNull String name) {
+    throw new UnsupportedOperationException("Cannot nest class inside array");
+  }
+
+  @Override
+  public @NotNull TypeName nestedClass(
+      @NotNull String name,
+      @NotNull List<TypeName> typeArguments
+  ) {
     throw new UnsupportedOperationException("Cannot nest class inside array");
   }
 
   @Override
   public TypeName withBounds(List<? extends TypeName> bounds) {
     throw new UnsupportedOperationException("Cannot add bounds to array type");
+  }
+
+  @Override
+  public @NotNull String nameWhenImported() {
+    return componentType.nameWhenImported() + "[]";
+  }
+
+  @Override
+  public @NotNull String canonicalName() {
+    return componentType.canonicalName() + "[]";
+  }
+
+  @Override
+  public @NotNull ClassName topLevelClassName() {
+    return componentType.topLevelClassName();
+  }
+
+  @Override
+  public @NotNull String reflectionName() {
+    return componentType.reflectionName() + "[]";
+  }
+
+  @Override
+  public @Nullable TypeName enclosingClassName() {
+    return componentType.enclosingClassName();
+  }
+
+  @Override
+  public List<String> simpleNames() {
+    return componentType.simpleNames();
+  }
+
+  @Override
+  public @NotNull Notation toNotation() {
+    return componentType.toNotation().then(Notation.txt("[]"));
+  }
+
+  @Override
+  public String toString() {
+    return toNotation().toCode();
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) {
+      return true;
+    }
+    if (o == null || getClass() != o.getClass()) {
+      return false;
+    }
+    var that = (ArrayTypeName) o;
+    return Objects.equals(componentType, that.componentType);
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(componentType);
   }
 }

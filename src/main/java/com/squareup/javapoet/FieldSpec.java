@@ -15,6 +15,7 @@
  */
 package com.squareup.javapoet;
 
+import com.squareup.javapoet.notation.Notation;
 import org.jetbrains.annotations.Nullable;
 
 import javax.lang.model.SourceVersion;
@@ -25,13 +26,20 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Set;
+import java.util.stream.Stream;
 
-import static com.squareup.javapoet.Util.*;
+import static com.squareup.javapoet.Util.checkArgument;
+import static com.squareup.javapoet.Util.checkNotNull;
+import static com.squareup.javapoet.Util.checkState;
+import static com.squareup.javapoet.notation.Notation.empty;
+import static com.squareup.javapoet.notation.Notation.join;
+import static com.squareup.javapoet.notation.Notation.nl;
+import static com.squareup.javapoet.notation.Notation.txt;
 
 /**
  * A generated field declaration.
  */
-public final class FieldSpec {
+public final class FieldSpec implements Emitable {
   public final TypeName type;
   public final String name;
   public final CodeBlock javadoc;
@@ -46,15 +54,18 @@ public final class FieldSpec {
     this.annotations = Util.immutableList(builder.annotations);
     this.modifiers = Util.immutableSet(builder.modifiers);
     this.initializer = (builder.initializer == null)
-            ? CodeBlock.builder().build()
-            : builder.initializer;
+        ? CodeBlock.builder().build()
+        : builder.initializer;
   }
 
-  public static Builder builder(TypeName type, String name, Modifier... modifiers) {
+  public static Builder builder(
+      TypeName type,
+      String name,
+      Modifier... modifiers
+  ) {
     checkNotNull(type, "type == null");
     checkArgument(SourceVersion.isName(name), "not a valid name: %s", name);
-    return new Builder(type, name)
-            .addModifiers(modifiers);
+    return new Builder(type, name).addModifiers(modifiers);
   }
 
   public static Builder builder(Type type, String name, Modifier... modifiers) {
@@ -65,7 +76,44 @@ public final class FieldSpec {
     return modifiers.contains(modifier);
   }
 
-  void emit(CodeWriter codeWriter, Set<Modifier> implicitModifiers) throws IOException {
+  @Override
+  public Notation toNotation() {
+    return toNotation(Set.of());
+  }
+
+  public Notation toNotation(Set<Modifier> implicitModifiers) {
+    var context = Stream.<Notation>builder();
+    context.add(Notate.javadoc(javadoc.toNotation()));
+    annotations.stream().map(Notation::literal).forEach(context);
+
+    var decl = Stream.<Notation>builder();
+    Stream
+        .concat(implicitModifiers.stream(), modifiers.stream())
+        .map(Notation::literal)
+        .forEach(decl);
+    decl.add(Notation.typeRef(type));
+    decl.add(Notation
+        .literal(name)
+        .then(initializer.isEmpty() ? txt(";") : empty()));
+
+    Notation declaration = decl.build().collect(join(txt(" ").or(nl())));
+    if (!initializer.isEmpty()) {
+      declaration = declaration.then(txt(" =").or(txt("\n=")));
+      declaration = Notate.spacesOrWrapAndIndent(declaration,
+          initializer.toNotation().then(txt(";")),
+          empty()
+      );
+    }
+    context.add(declaration);
+
+    return context
+        .build()
+        .filter(n -> !n.isEmpty())
+        .collect(Notation.asLines());
+  }
+
+  void emit(CodeWriter codeWriter, Set<Modifier> implicitModifiers)
+      throws IOException {
     codeWriter.emitJavadoc(javadoc);
     codeWriter.emitAnnotations(annotations, false);
     codeWriter.emitModifiers(modifiers, implicitModifiers);
@@ -79,9 +127,15 @@ public final class FieldSpec {
 
   @Override
   public boolean equals(Object o) {
-    if (this == o) return true;
-    if (o == null) return false;
-    if (getClass() != o.getClass()) return false;
+    if (this == o) {
+      return true;
+    }
+    if (o == null) {
+      return false;
+    }
+    if (getClass() != o.getClass()) {
+      return false;
+    }
     return toString().equals(o.toString());
   }
 
@@ -92,14 +146,7 @@ public final class FieldSpec {
 
   @Override
   public String toString() {
-    var out = new StringBuilder();
-    try {
-      var codeWriter = new CodeWriter(out);
-      emit(codeWriter, Collections.emptySet());
-      return out.toString();
-    } catch (IOException e) {
-      throw new AssertionError();
-    }
+    return toNotation().toCode();
   }
 
   public Builder toBuilder() {

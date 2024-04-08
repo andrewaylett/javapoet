@@ -15,6 +15,7 @@
  */
 package com.squareup.javapoet;
 
+import com.squareup.javapoet.notation.Notation;
 import org.jetbrains.annotations.NotNull;
 
 import javax.lang.model.element.Element;
@@ -22,7 +23,12 @@ import javax.lang.model.element.PackageElement;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.util.SimpleElementVisitor8;
 import java.io.IOException;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 
 import static com.squareup.javapoet.Util.checkArgument;
 import static com.squareup.javapoet.Util.checkNotNull;
@@ -30,7 +36,21 @@ import static com.squareup.javapoet.Util.checkNotNull;
 /**
  * A fully-qualified class name for top-level and member classes.
  */
-public final class ClassName extends ObjectTypeName implements Comparable<ClassName> {
+public final class ClassName extends ObjectTypeName
+    implements Comparable<ClassName> {
+  public static final Comparator<? super ClassName> PACKAGE_COMPARATOR =
+      Comparator.comparing(
+          c -> c.canonicalName.split("\\."),
+          (a, b) -> {
+            for (var i = 0; i < Math.min(a.length, b.length); i++) {
+              var cmp = a[i].compareTo(b[i]);
+              if (cmp != 0) {
+                return cmp;
+              }
+            }
+            return -Integer.compare(a.length, b.length);
+          }
+      );
   /**
    * The name representing the default Java package.
    */
@@ -44,7 +64,7 @@ public final class ClassName extends ObjectTypeName implements Comparable<ClassN
   /**
    * The enclosing class, or null if this is not enclosed in another class.
    */
-  final ClassName enclosingClassName;
+  final TypeName enclosingClassName;
 
   /**
    * This class name, like "Entry" for java.util.Map.Entry.
@@ -56,21 +76,35 @@ public final class ClassName extends ObjectTypeName implements Comparable<ClassN
   final String canonicalName;
   private List<String> simpleNames;
 
-  private ClassName(String packageName, ClassName enclosingClassName, String simpleName) {
+  ClassName(
+      String packageName,
+      TypeName enclosingClassName,
+      String simpleName
+  ) {
     super();
-    this.packageName = Objects.requireNonNull(packageName, "packageName == null");
+    this.packageName =
+        Objects.requireNonNull(packageName, "packageName == null");
     this.enclosingClassName = enclosingClassName;
     this.simpleName = simpleName;
     this.canonicalName = enclosingClassName != null
-            ? (enclosingClassName.canonicalName + '.' + simpleName)
-            : (packageName.isEmpty() ? simpleName : packageName + '.' + simpleName);
+        ? (enclosingClassName.canonicalName() + '.' + simpleName)
+        : (packageName.isEmpty() ? simpleName : packageName + '.' + simpleName);
   }
 
   public static ClassName get(Class<?> clazz) {
     checkNotNull(clazz, "clazz == null");
-    checkArgument(!clazz.isPrimitive(), "primitive types cannot be represented as a ClassName");
-    checkArgument(!void.class.equals(clazz), "'void' type cannot be represented as a ClassName");
-    checkArgument(!clazz.isArray(), "array types cannot be represented as a ClassName");
+    checkArgument(
+        !clazz.isPrimitive(),
+        "primitive types cannot be represented as a ClassName"
+    );
+    checkArgument(
+        !void.class.equals(clazz),
+        "'void' type cannot be represented as a ClassName"
+    );
+    checkArgument(
+        !clazz.isArray(),
+        "array types cannot be represented as a ClassName"
+    );
 
     var anonymousSuffix = "";
     while (clazz.isAnonymousClass()) {
@@ -83,7 +117,8 @@ public final class ClassName extends ObjectTypeName implements Comparable<ClassN
     if (clazz.getEnclosingClass() == null) {
       // Avoid unreliable Class.getPackage(). https://github.com/square/javapoet/issues/295
       var lastDot = clazz.getName().lastIndexOf('.');
-      var packageName = (lastDot != -1) ? clazz.getName().substring(0, lastDot) : NO_PACKAGE;
+      var packageName =
+          (lastDot != -1) ? clazz.getName().substring(0, lastDot) : NO_PACKAGE;
       return new ClassName(packageName, null, name);
     }
 
@@ -101,7 +136,8 @@ public final class ClassName extends ObjectTypeName implements Comparable<ClassN
   public static ClassName bestGuess(String classNameString) {
     // Add the package name, like "java.util.concurrent", or "" for no package.
     var p = 0;
-    while (p < classNameString.length() && Character.isLowerCase(classNameString.codePointAt(p))) {
+    while (p < classNameString.length()
+        && Character.isLowerCase(classNameString.codePointAt(p))) {
       p = classNameString.indexOf('.', p) + 1;
       checkArgument(p != 0, "couldn't make a guess for %s", classNameString);
     }
@@ -110,8 +146,11 @@ public final class ClassName extends ObjectTypeName implements Comparable<ClassN
     // Add class names like "Map" and "Entry".
     ClassName className = null;
     for (var simpleName : classNameString.substring(p).split("\\.", -1)) {
-      checkArgument(!simpleName.isEmpty() && Character.isUpperCase(simpleName.codePointAt(0)),
-              "couldn't make a guess for %s", classNameString);
+      checkArgument(!simpleName.isEmpty() && Character.isUpperCase(simpleName.codePointAt(
+              0)),
+          "couldn't make a guess for %s",
+          classNameString
+      );
       className = new ClassName(packageName, className, simpleName);
     }
 
@@ -122,7 +161,11 @@ public final class ClassName extends ObjectTypeName implements Comparable<ClassN
    * Returns a class name created from the given parts. For example, calling this with package name
    * {@code "java.util"} and simple names {@code "Map"}, {@code "Entry"} yields {@link Map.Entry}.
    */
-  public static ClassName get(String packageName, String simpleName, String... simpleNames) {
+  public static ClassName get(
+      String packageName,
+      String simpleName,
+      String... simpleNames
+  ) {
     var className = new ClassName(packageName, null, simpleName);
     for (var name : simpleNames) {
       className = className.nestedClass(name);
@@ -137,27 +180,34 @@ public final class ClassName extends ObjectTypeName implements Comparable<ClassN
     checkNotNull(element, "element == null");
     var simpleName = element.getSimpleName().toString();
 
-    return element.getEnclosingElement().accept(new SimpleElementVisitor8<ClassName, Void>() {
-      @Override
-      public ClassName visitPackage(PackageElement packageElement, Void p) {
-        return new ClassName(packageElement.getQualifiedName().toString(), null, simpleName);
-      }
+    return element
+        .getEnclosingElement()
+        .accept(new SimpleElementVisitor8<ClassName, Void>() {
+          @Override
+          public ClassName visitPackage(PackageElement packageElement, Void p) {
+            return new ClassName(
+                packageElement.getQualifiedName().toString(),
+                null,
+                simpleName
+            );
+          }
 
-      @Override
-      public ClassName visitType(TypeElement enclosingClass, Void p) {
-        return ClassName.get(enclosingClass).nestedClass(simpleName);
-      }
+          @Override
+          public ClassName visitType(TypeElement enclosingClass, Void p) {
+            return ClassName.get(enclosingClass).nestedClass(simpleName);
+          }
 
-      @Override
-      public ClassName visitUnknown(Element unknown, Void p) {
-        return get("", simpleName);
-      }
+          @Override
+          public ClassName visitUnknown(Element unknown, Void p) {
+            return get("", simpleName);
+          }
 
-      @Override
-      public ClassName defaultAction(Element enclosingElement, Void p) {
-        throw new IllegalArgumentException("Unexpected type nesting: " + element);
-      }
-    }, null);
+          @Override
+          public ClassName defaultAction(Element enclosingElement, Void p) {
+            throw new IllegalArgumentException(
+                "Unexpected type nesting: " + element);
+          }
+        }, null);
   }
 
   @Override
@@ -196,7 +246,8 @@ public final class ClassName extends ObjectTypeName implements Comparable<ClassN
         }
       }
     }
-    throw new UnsupportedOperationException("Cannot unbox " + this.canonicalName);
+    throw new UnsupportedOperationException(
+        "Cannot unbox " + this.canonicalName);
   }
 
   /**
@@ -211,7 +262,7 @@ public final class ClassName extends ObjectTypeName implements Comparable<ClassN
    * Returns the enclosing class, like {@link Map} for {@code Map.Entry}. Returns null if this class
    * is not nested in another class.
    */
-  public ClassName enclosingClassName() {
+  public TypeName enclosingClassName() {
     return enclosingClassName;
   }
 
@@ -219,33 +270,30 @@ public final class ClassName extends ObjectTypeName implements Comparable<ClassN
    * Returns the top class in this nesting group. Equivalent to chained calls to {@link
    * #enclosingClassName()} until the result's enclosing class is null.
    */
-  public ClassName topLevelClassName() {
-    return enclosingClassName != null ? enclosingClassName.topLevelClassName() : this;
+  public @NotNull ClassName topLevelClassName() {
+    return enclosingClassName != null
+        ? enclosingClassName.topLevelClassName()
+        : this;
   }
 
   /**
    * Return the binary name of a class.
    */
-  public String reflectionName() {
+  public @NotNull String reflectionName() {
     return enclosingClassName != null
-            ? (enclosingClassName.reflectionName() + '$' + simpleName)
-            : (packageName.isEmpty() ? simpleName : packageName + '.' + simpleName);
+        ? (enclosingClassName.reflectionName() + '$' + simpleName)
+        : (packageName.isEmpty() ? simpleName : packageName + '.' + simpleName);
   }
 
   public List<String> simpleNames() {
-    if (simpleNames != null) {
-      return simpleNames;
-    }
-
     if (enclosingClassName == null) {
-      simpleNames = Collections.singletonList(simpleName);
+      return Collections.singletonList(simpleName);
     } else {
-      List<String> mutableNames = new ArrayList<>();
-      mutableNames.addAll(enclosingClassName().simpleNames());
+      List<String> mutableNames =
+          new ArrayList<>(enclosingClassName().simpleNames());
       mutableNames.add(simpleName);
-      simpleNames = Collections.unmodifiableList(mutableNames);
+      return Collections.unmodifiableList(mutableNames);
     }
-    return simpleNames;
   }
 
   /**
@@ -262,22 +310,36 @@ public final class ClassName extends ObjectTypeName implements Comparable<ClassN
    * class.
    */
   @Override
-  public ClassName nestedClass(String name) {
+  public @NotNull ClassName nestedClass(@NotNull String name) {
     return new ClassName(packageName, this, name);
+  }
+
+  @Override
+  public @NotNull TypeName nestedClass(
+      @NotNull String name,
+      @NotNull List<TypeName> typeArguments
+  ) {
+    return new ParameterizedTypeName(
+        this,
+        this.nestedClass(name),
+        typeArguments
+    );
   }
 
   /**
    * Returns the simple name of this class, like {@code "Entry"} for {@link Map.Entry}.
    */
-  public String simpleName() {
-    return simpleName;
+  @Override
+  public @NotNull String nameWhenImported() {
+    return String.join(".", simpleNames());
   }
 
   /**
    * Returns the full class name of this class.
    * Like {@code "java.util.Map.Entry"} for {@link Map.Entry}.
    */
-  public String canonicalName() {
+  @Override
+  public @NotNull String canonicalName() {
     return canonicalName;
   }
 
@@ -294,11 +356,12 @@ public final class ClassName extends ObjectTypeName implements Comparable<ClassN
       if (charsEmitted) {
         // We've already emitted an enclosing class. Emit as we go.
         out.emit(".");
-        simpleName = className.simpleName;
+        simpleName = className.nameWhenImported();
 
       } else if (className.isAnnotated() || className == this) {
         // We encountered the first enclosing class that must be emitted.
-        var qualifiedName = out.lookupName(className);
+        var qualifiedName =
+            className.canonicalName(); //out.lookupName(className);
         var dot = qualifiedName.lastIndexOf('.');
         if (dot != -1) {
           out.emitAndIndent(qualifiedName.substring(0, dot + 1));
@@ -323,12 +386,50 @@ public final class ClassName extends ObjectTypeName implements Comparable<ClassN
   /**
    * Returns all enclosing classes in this, outermost first.
    */
-  private List<ClassName> enclosingClasses() {
-    List<ClassName> result = new ArrayList<>();
-    for (var c = this; c != null; c = c.enclosingClassName) {
+  private List<TypeName> enclosingClasses() {
+    List<TypeName> result = new ArrayList<>();
+    for (TypeName c = this; c != null; c = c.enclosingClassName()) {
       result.add(c);
     }
     Collections.reverse(result);
     return result;
+  }
+
+  @Override
+  public String toString() {
+    return toNotation().toCode();
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) {
+      return true;
+    }
+    if (o == null || getClass() != o.getClass()) {
+      return false;
+    }
+    var className = (ClassName) o;
+    return Objects.equals(packageName, className.packageName) && Objects.equals(
+        enclosingClassName,
+        className.enclosingClassName
+    ) && Objects.equals(simpleName, className.simpleName) && Objects.equals(
+        canonicalName,
+        className.canonicalName
+    );
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(
+        packageName,
+        enclosingClassName,
+        simpleName,
+        canonicalName
+    );
+  }
+
+  @Override
+  public Notation toNotation() {
+    return Notation.typeRef(this);
   }
 }

@@ -3,24 +3,29 @@ package com.squareup.javapoet.notation;
 import org.jetbrains.annotations.NotNull;
 
 import java.io.IOException;
-import java.io.Writer;
 import java.util.ArrayDeque;
 import java.util.Deque;
+import java.util.Map;
 
 public class Printer {
   private final int width;
-  private int col = 0;
   private final Deque<Chunk> chunks = new ArrayDeque<>();
+  private int col = 0;
 
-  public Printer(@NotNull Notation notation, int width) {
+  public Printer(
+      @NotNull Notation notation,
+      int width,
+      Map<Object, String> names
+  ) {
     this.width = width;
-    Chunk chunk = new Chunk(notation, 0, false);
+    var chunk = new Chunk(notation, "", false, names);
     chunks.push(chunk);
   }
 
-  public void print(@NotNull Writer out) throws IOException {
+  public void print(@NotNull Appendable inner) throws IOException {
+    var out = new NoTrailingSpaceAppendable(inner);
     while (!chunks.isEmpty()) {
-      Chunk chunk = chunks.pop();
+      var chunk = chunks.pop();
       chunk.visit(new PrinterVisitor() {
         @Override
         public void append(@NotNull String s) throws IOException {
@@ -45,35 +50,36 @@ public class Printer {
             return false;
           }
 
-          final int[] remaining = {width - col};
-          Deque<Chunk> stack = new ArrayDeque<>();
+          Deque<Chunk> stack = new ArrayDeque<>(chunks);
+          stack.push(chunk);
+
+          var visitor = new FlatVisitor() {
+            int remaining = width - col;
+
+            @Override
+            public @NotNull FlatResponse fitText(@NotNull String content) {
+              if (content.length() > remaining) {
+                return FlatResponse.TOO_LONG;
+              }
+              remaining -= content.length();
+              return FlatResponse.INCONCLUSIVE;
+            }
+
+            @Override
+            public void push(@NotNull Chunk flat) {
+              stack.push(flat);
+            }
+          };
 
           while (true) {
             Chunk current;
             if (stack.isEmpty()) {
-              if (chunks.isEmpty()) {
-                return true;
-              }
-              current = chunks.pop();
+              return true;
             } else {
               current = stack.pop();
             }
 
-            switch (current.visit(new FlatVisitor() {
-              @Override
-              public @NotNull FlatResponse fitText(@NotNull String content) {
-                if (content.length() > remaining[0]) {
-                  return FlatResponse.TOO_LONG;
-                }
-                remaining[0] -= content.length();
-                return FlatResponse.INCONCLUSIVE;
-              }
-
-              @Override
-              public void push(@NotNull Chunk flat) {
-                stack.push(flat);
-              }
-            })) {
+            switch (current.visit(visitor)) {
               case INCONCLUSIVE:
                 break;
               case FITS:
@@ -87,6 +93,10 @@ public class Printer {
     }
   }
 
+  public enum FlatResponse {
+    INCONCLUSIVE, FITS, TOO_LONG,
+  }
+
   public interface PrinterVisitor {
     void append(@NotNull String s) throws IOException;
 
@@ -97,12 +107,53 @@ public class Printer {
     boolean fits(@NotNull Chunk chunk);
   }
 
-  public enum FlatResponse {
-    INCONCLUSIVE, FITS, TOO_LONG,
-  }
   public interface FlatVisitor {
-    @NotNull FlatResponse fitText(@NotNull String content);
+    @NotNull
+    FlatResponse fitText(@NotNull String content);
 
     void push(Chunk flat);
+  }
+
+  private static class NoTrailingSpaceAppendable implements Appendable {
+    private final Appendable inner;
+    int spaceCount = 0;
+
+    NoTrailingSpaceAppendable(Appendable inner) {
+      this.inner = inner;
+    }
+
+    @Override
+    public Appendable append(CharSequence csq) throws IOException {
+      if (csq == null) {
+        return append('n').append('u').append('l').append('l');
+      }
+      for (var i = 0; i < csq.length(); i++) {
+        append(csq.charAt(i));
+      }
+      return this;
+    }
+
+    @Override
+    public Appendable append(CharSequence csq, int start, int end)
+        throws IOException {
+      return append(csq.subSequence(start, end));
+    }
+
+    @Override
+    public Appendable append(char c) throws IOException {
+      if (c == ' ') {
+        spaceCount += 1;
+      } else if (c == '\n') {
+        inner.append(c);
+        spaceCount = 0;
+      } else {
+        for (var i = 0; i < spaceCount; i++) {
+          inner.append(' ');
+        }
+        inner.append(c);
+        spaceCount = 0;
+      }
+      return this;
+    }
   }
 }

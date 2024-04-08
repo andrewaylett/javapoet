@@ -15,6 +15,7 @@
  */
 package com.squareup.javapoet;
 
+import com.squareup.javapoet.notation.Notation;
 import org.jetbrains.annotations.Nullable;
 
 import javax.lang.model.SourceVersion;
@@ -26,14 +27,26 @@ import javax.lang.model.type.TypeVariable;
 import javax.lang.model.util.Types;
 import java.io.IOException;
 import java.lang.reflect.Type;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Stream;
 
-import static com.squareup.javapoet.Util.*;
+import static com.squareup.javapoet.Util.checkArgument;
+import static com.squareup.javapoet.Util.checkNotNull;
+import static com.squareup.javapoet.Util.checkState;
+import static com.squareup.javapoet.notation.Notation.asLines;
+import static com.squareup.javapoet.notation.Notation.join;
+import static com.squareup.javapoet.notation.Notation.nl;
+import static com.squareup.javapoet.notation.Notation.txt;
 
 /**
  * A generated constructor or method declaration.
  */
-public final class MethodSpec {
+public final class MethodSpec implements Emitable {
   static final String CONSTRUCTOR = "<init>";
 
   public final String name;
@@ -50,10 +63,16 @@ public final class MethodSpec {
 
   private MethodSpec(Builder builder) {
     var code = builder.code.build();
-    checkArgument(code.isEmpty() || !builder.modifiers.contains(Modifier.ABSTRACT),
-            "abstract method %s cannot have code", builder.name);
-    checkArgument(!builder.varargs || lastParameterIsArray(builder.parameters),
-            "last parameter of varargs method %s must be an array", builder.name);
+    checkArgument(
+        code.isEmpty() || !builder.modifiers.contains(Modifier.ABSTRACT),
+        "abstract method %s cannot have code",
+        builder.name
+    );
+    checkArgument(
+        !builder.varargs || lastParameterIsArray(builder.parameters),
+        "last parameter of varargs method %s must be an array",
+        builder.name
+    );
 
     this.name = checkNotNull(builder.name, "name == null");
     this.javadoc = builder.javadoc.build();
@@ -90,14 +109,16 @@ public final class MethodSpec {
 
     var enclosingClass = method.getEnclosingElement();
     if (enclosingClass.getModifiers().contains(Modifier.FINAL)) {
-      throw new IllegalArgumentException("Cannot override method on final class " + enclosingClass);
+      throw new IllegalArgumentException(
+          "Cannot override method on final class " + enclosingClass);
     }
 
     var modifiers = method.getModifiers();
     if (modifiers.contains(Modifier.PRIVATE)
-            || modifiers.contains(Modifier.FINAL)
-            || modifiers.contains(Modifier.STATIC)) {
-      throw new IllegalArgumentException("cannot override method with modifiers: " + modifiers);
+        || modifiers.contains(Modifier.FINAL)
+        || modifiers.contains(Modifier.STATIC)) {
+      throw new IllegalArgumentException(
+          "cannot override method with modifiers: " + modifiers);
     }
 
     var methodName = method.getSimpleName().toString();
@@ -139,7 +160,8 @@ public final class MethodSpec {
    * parameters of the overridden method. Since JavaPoet 1.8 annotations must be added separately.
    */
   public static Builder overriding(
-          ExecutableElement method, DeclaredType enclosing, Types types) {
+      ExecutableElement method, DeclaredType enclosing, Types types
+  ) {
     var executableType = (ExecutableType) types.asMemberOf(enclosing, method);
     var resolvedParameterTypes = executableType.getParameterTypes();
     var resolvedThrownTypes = executableType.getThrownTypes();
@@ -150,11 +172,14 @@ public final class MethodSpec {
     for (int i = 0, size = builder.parameters.size(); i < size; i++) {
       var parameter = builder.parameters.get(i);
       var type = TypeName.get(resolvedParameterTypes.get(i));
-      builder.parameters.set(i, parameter.toBuilder(type, parameter.name).build());
+      builder.parameters.set(
+          i,
+          parameter.toBuilder(type, parameter.name).build()
+      );
     }
     builder.exceptions.clear();
-    for (int i = 0, size = resolvedThrownTypes.size(); i < size; i++) {
-      builder.addException(TypeName.get(resolvedThrownTypes.get(i)));
+    for (var resolvedThrownType : resolvedThrownTypes) {
+      builder.addException(TypeName.get(resolvedThrownType));
     }
 
     return builder;
@@ -162,12 +187,15 @@ public final class MethodSpec {
 
   private boolean lastParameterIsArray(List<ParameterSpec> parameters) {
     return !parameters.isEmpty()
-            && TypeName.asArray(parameters.get(parameters.size() - 1).type) != null;
+        && TypeName.asArray(parameters.get(parameters.size() - 1).type) != null;
   }
 
-  void emit(CodeWriter codeWriter, String enclosingName, Set<Modifier> implicitModifiers)
-          throws IOException {
-    codeWriter.emitJavadoc(javadocWithParameters());
+  void emit(
+      CodeWriter codeWriter,
+      String enclosingName,
+      Set<Modifier> implicitModifiers
+  ) throws IOException {
+//    codeWriter.emitJavadoc(javadocWithParameters());
     codeWriter.emitAnnotations(annotations, false);
     codeWriter.emitModifiers(modifiers, implicitModifiers);
 
@@ -185,7 +213,9 @@ public final class MethodSpec {
     var firstParameter = true;
     for (var i = parameters.iterator(); i.hasNext(); ) {
       var parameter = i.next();
-      if (!firstParameter) codeWriter.emit(",").emitWrappingSpace();
+      if (!firstParameter) {
+        codeWriter.emit(",").emitWrappingSpace();
+      }
       parameter.emit(codeWriter, !i.hasNext() && varargs);
       firstParameter = false;
     }
@@ -201,7 +231,9 @@ public final class MethodSpec {
       codeWriter.emitWrappingSpace().emit("throws");
       var firstException = true;
       for (var exception : exceptions) {
-        if (!firstException) codeWriter.emit(",");
+        if (!firstException) {
+          codeWriter.emit(",");
+        }
         codeWriter.emitWrappingSpace().emit("$T", exception);
         firstException = false;
       }
@@ -225,18 +257,18 @@ public final class MethodSpec {
     codeWriter.popTypeVariables(typeVariables);
   }
 
-  private CodeBlock javadocWithParameters() {
-    var builder = javadoc.toBuilder();
-    var emitTagNewline = true;
-    for (var parameterSpec : parameters) {
-      if (!parameterSpec.javadoc.isEmpty()) {
-        // Emit a new line before @param section only if the method javadoc is present.
-        if (emitTagNewline && !javadoc.isEmpty()) builder.add("\n");
-        emitTagNewline = false;
-        builder.add("@param $L $L", parameterSpec.name, parameterSpec.javadoc);
-      }
-    }
-    return builder.build();
+  private Notation javadocWithParameters() {
+    var methodJavadoc = javadoc.toNotation();
+    var parameterJavadoc = parameters
+        .stream()
+        .filter(p -> !p.javadoc.isEmpty())
+        .map(p -> txt(("@param " + p.name + " " + p.javadoc).strip()))
+        .collect(asLines());
+
+    return Stream
+        .of(methodJavadoc, parameterJavadoc)
+        .filter(n -> !n.isEmpty())
+        .collect(join(txt("\n\n")));
   }
 
   public boolean hasModifier(Modifier modifier) {
@@ -249,9 +281,15 @@ public final class MethodSpec {
 
   @Override
   public boolean equals(Object o) {
-    if (this == o) return true;
-    if (o == null) return false;
-    if (getClass() != o.getClass()) return false;
+    if (this == o) {
+      return true;
+    }
+    if (o == null) {
+      return false;
+    }
+    if (getClass() != o.getClass()) {
+      return false;
+    }
     return toString().equals(o.toString());
   }
 
@@ -262,14 +300,7 @@ public final class MethodSpec {
 
   @Override
   public String toString() {
-    var out = new StringBuilder();
-    try {
-      var codeWriter = new CodeWriter(out);
-      emit(codeWriter, "Constructor", Collections.emptySet());
-      return out.toString();
-    } catch (IOException e) {
-      throw new AssertionError();
-    }
+    return toNotation().then(nl()).toCode();
   }
 
   public Builder toBuilder() {
@@ -285,6 +316,90 @@ public final class MethodSpec {
     builder.varargs = varargs;
     builder.defaultValue = defaultValue;
     return builder;
+  }
+
+  @Override
+  public Notation toNotation() {
+    return toNotation("ArbitraryClass", Set.of());
+  }
+
+  public Notation toNotation(
+      String enclosingName, Set<Modifier> implicitModifiers
+  ) {
+    var components = new ArrayList<Notation>();
+    var javadocNotation = javadocWithParameters();
+    components.add(Notate.javadoc(javadocNotation));
+    components.addAll(annotations.stream().map(Emitable::toNotation).toList());
+
+    var declaration = new ArrayList<>(Stream
+        .concat(modifiers.stream(), implicitModifiers.stream())
+        .map(m -> txt(m.toString()))
+        .toList());
+
+    if (!typeVariables.isEmpty()) {
+      declaration.add(Notate.wrapAndIndent(
+          txt("<"),
+          typeVariables
+              .stream()
+              .map(Emitable::toNotation)
+              .collect(join(txt(", ").or(txt(",\n")))),
+          txt(">")
+      ));
+    }
+
+    if (isConstructor()) {
+      declaration.add(Notation.literal(enclosingName).then(txt("(")));
+    } else {
+      declaration.add(returnType.toNotation());
+      declaration.add(Notation.literal(name).then(txt("(")));
+    }
+
+    var partOne = declaration.stream().collect(join(txt(" ").or(nl())));
+
+    var params = new ArrayList<Notation>();
+
+    for (var i = parameters.iterator(); i.hasNext(); ) {
+      var parameter = i.next();
+      params.add(parameter.toNotation(!i.hasNext() && varargs));
+    }
+
+    var partTwo =
+        params.stream().collect(join(txt(", ").or(txt(",").then(nl()))));
+
+    var partThree = txt(")");
+
+    var preamble = new ArrayList<Notation>();
+    preamble.add(Notate.wrapAndIndent(partOne, partTwo, partThree));
+
+    if (defaultValue != null && !defaultValue.isEmpty()) {
+      preamble.add(txt("default ").then(defaultValue.toNotation()));
+    }
+
+    if (!exceptions.isEmpty()) {
+      preamble.add(txt("throws ").then(exceptions
+          .stream()
+          .map(Notation::typeRef)
+          .collect(join(txt(", ").or(txt(",\n"))))));
+    }
+
+    var method = preamble.stream().collect(join(txt(" ").or(nl())));
+    if (hasModifier(Modifier.ABSTRACT)) {
+      components.add(method.then(txt(";")));
+    } else if (hasModifier(Modifier.NATIVE)) {
+      // Code is allowed to support stuff like GWT JSNI.
+      components.add(Notate.wrapAndIndentUnlessEmpty(
+          method,
+          code.toNotation(),
+          txt(";")
+      ));
+    } else {
+      components.add(Notate.wrapAndIndentUnlessEmpty(
+          method.then(txt(" {")),
+          code.toNotation(),
+          txt("}")
+      ));
+    }
+    return components.stream().filter(n -> !n.isEmpty()).collect(join(nl()));
   }
 
   public static final class Builder {
@@ -306,15 +421,18 @@ public final class MethodSpec {
 
     public Builder setName(String name) {
       checkNotNull(name, "name == null");
-      checkArgument(name.equals(CONSTRUCTOR) || SourceVersion.isName(name),
-              "not a valid name: %s", name);
+      checkArgument(
+          name.equals(CONSTRUCTOR) || SourceVersion.isName(name),
+          "not a valid name: %s",
+          name
+      );
       this.name = name;
       this.returnType = name.equals(CONSTRUCTOR) ? null : PrimitiveType.Void;
       return this;
     }
 
     public Builder addJavadoc(String format, Object... args) {
-      javadoc.add(format, args);
+      javadoc.add(format.strip(), args);
       return this;
     }
 
@@ -373,7 +491,10 @@ public final class MethodSpec {
     }
 
     public Builder returns(TypeName returnType) {
-      checkState(!name.equals(CONSTRUCTOR), "constructor cannot have return type.");
+      checkState(
+          !name.equals(CONSTRUCTOR),
+          "constructor cannot have return type."
+      );
       this.returnType = returnType;
       return this;
     }
@@ -395,7 +516,9 @@ public final class MethodSpec {
       return this;
     }
 
-    public Builder addParameter(TypeName type, String name, Modifier... modifiers) {
+    public Builder addParameter(
+        TypeName type, String name, Modifier... modifiers
+    ) {
       return addParameter(ParameterSpec.builder(type, name, modifiers).build());
     }
 
@@ -430,12 +553,12 @@ public final class MethodSpec {
     }
 
     public Builder addCode(String format, Object... args) {
-      code.add(format, args);
+      code.add(format.strip(), args);
       return this;
     }
 
     public Builder addNamedCode(String format, Map<String, ?> args) {
-      code.addNamed(format, args);
+      code.addNamed(format.strip(), args);
       return this;
     }
 
@@ -445,12 +568,12 @@ public final class MethodSpec {
     }
 
     public Builder addComment(String format, Object... args) {
-      code.add("// " + format + "\n", args);
+      code.add("\n// " + format.strip(), args);
       return this;
     }
 
     public Builder defaultValue(String format, Object... args) {
-      return defaultValue(CodeBlock.of(format, args));
+      return defaultValue(CodeBlock.of(format.strip(), args));
     }
 
     public Builder defaultValue(CodeBlock codeBlock) {
@@ -516,7 +639,7 @@ public final class MethodSpec {
     }
 
     public Builder addStatement(String format, Object... args) {
-      code.addStatement(format, args);
+      code.addStatement(format.strip(), args);
       return this;
     }
 

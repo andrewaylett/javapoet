@@ -15,7 +15,9 @@
  */
 package com.squareup.javapoet;
 
+import com.squareup.javapoet.notation.Notation;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import javax.lang.model.element.TypeParameterElement;
 import java.io.IOException;
@@ -25,6 +27,7 @@ import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.stream.Stream;
 
 import static com.squareup.javapoet.Util.checkArgument;
@@ -33,19 +36,30 @@ public final class WildcardTypeName extends ObjectTypeName {
   public final List<TypeName> upperBounds;
   public final List<TypeName> lowerBounds;
 
-  private WildcardTypeName(List<TypeName> upperBounds, List<TypeName> lowerBounds) {
+  private WildcardTypeName(
+      List<TypeName> upperBounds,
+      List<TypeName> lowerBounds
+  ) {
     super();
     this.upperBounds = Util.immutableList(upperBounds);
     this.lowerBounds = Util.immutableList(lowerBounds);
 
-    checkArgument(this.upperBounds.size() == 1, "unexpected extends bounds: %s", upperBounds);
+    checkArgument(
+        this.upperBounds.size() == 1,
+        "unexpected extends bounds: %s",
+        upperBounds
+    );
     for (var upperBound : this.upperBounds) {
       checkArgument(!upperBound.isPrimitive() && upperBound != PrimitiveType.Void,
-              "invalid upper bound: %s", upperBound);
+          "invalid upper bound: %s",
+          upperBound
+      );
     }
     for (var lowerBound : this.lowerBounds) {
       checkArgument(!lowerBound.isPrimitive() && lowerBound != PrimitiveType.Void,
-              "invalid lower bound: %s", lowerBound);
+          "invalid lower bound: %s",
+          lowerBound
+      );
     }
   }
 
@@ -56,7 +70,10 @@ public final class WildcardTypeName extends ObjectTypeName {
    * ? extends Object}.
    */
   public static WildcardTypeName subtypeOf(TypeName upperBound) {
-    return new WildcardTypeName(Collections.singletonList(upperBound), Collections.emptyList());
+    return new WildcardTypeName(
+        Collections.singletonList(upperBound),
+        Collections.emptyList()
+    );
   }
 
   public static WildcardTypeName subtypeOf(Type upperBound) {
@@ -68,8 +85,10 @@ public final class WildcardTypeName extends ObjectTypeName {
    * bound} is {@code String.class}, this returns {@code ? super String}.
    */
   public static WildcardTypeName supertypeOf(TypeName lowerBound) {
-    return new WildcardTypeName(Collections.singletonList(ClassName.OBJECT),
-            Collections.singletonList(lowerBound));
+    return new WildcardTypeName(
+        Collections.singletonList(ClassName.OBJECT),
+        Collections.singletonList(lowerBound)
+    );
   }
 
   public static WildcardTypeName supertypeOf(Type lowerBound) {
@@ -81,8 +100,9 @@ public final class WildcardTypeName extends ObjectTypeName {
   }
 
   static WildcardTypeName get(
-          javax.lang.model.type.WildcardType mirror,
-          Map<TypeParameterElement, TypeVariableName> typeVariables) {
+      javax.lang.model.type.WildcardType mirror,
+      Map<TypeParameterElement, TypeVariableName> typeVariables
+  ) {
     var extendsBound = mirror.getExtendsBound();
     if (extendsBound == null) {
       var superBound = mirror.getSuperBound();
@@ -100,10 +120,14 @@ public final class WildcardTypeName extends ObjectTypeName {
     return get(wildcardName, new LinkedHashMap<>());
   }
 
-  static WildcardTypeName get(WildcardType wildcardName, Map<Type, TypeVariableName> map) {
+  static WildcardTypeName get(
+      WildcardType wildcardName,
+      Map<Type, TypeVariableName> map
+  ) {
     return new WildcardTypeName(
-            TypeName.list(wildcardName.getUpperBounds(), map),
-            TypeName.list(wildcardName.getLowerBounds(), map));
+        TypeName.list(wildcardName.getUpperBounds(), map),
+        TypeName.list(wildcardName.getLowerBounds(), map)
+    );
   }
 
   @Override
@@ -127,17 +151,105 @@ public final class WildcardTypeName extends ObjectTypeName {
       return out.emit("? super $T", lowerBounds.get(0));
     }
     return upperBounds.get(0).equals(ClassName.OBJECT)
-            ? out.emit("?")
-            : out.emit("? extends $T", upperBounds.get(0));
+        ? out.emit("?")
+        : out.emit("? extends $T", upperBounds.get(0));
   }
 
   @Override
-  public TypeName nestedClass(String name) {
-    throw new UnsupportedOperationException("Cannot nest class inside type bound");
+  public @NotNull TypeName nestedClass(@NotNull String name) {
+    throw new UnsupportedOperationException(
+        "Cannot nest class inside type bound");
+  }
+
+  @Override
+  public @NotNull TypeName nestedClass(
+      @NotNull String name,
+      @NotNull List<TypeName> typeArguments
+  ) {
+    throw new UnsupportedOperationException(
+        "Cannot nest class inside type bound");
   }
 
   @Override
   public TypeName withBounds(List<? extends TypeName> bounds) {
-    return new WildcardTypeName(Stream.concat(upperBounds.stream(), bounds.stream()).toList(), lowerBounds);
+    return new WildcardTypeName(Stream
+        .concat(upperBounds.stream(), bounds.stream())
+        .toList(), lowerBounds);
+  }
+
+  @Override
+  public @NotNull String nameWhenImported() {
+    if (lowerBounds.size() == 1) {
+      return "? super " + lowerBounds.get(0).nameWhenImported();
+    }
+    return upperBounds.get(0).equals(ClassName.OBJECT)
+        ? "?"
+        : "? extends " + upperBounds.get(0).nameWhenImported();
+  }
+
+  @Override
+  public @NotNull String canonicalName() {
+    if (lowerBounds.size() == 1) {
+      return "? super " + lowerBounds.get(0).canonicalName();
+    }
+    return upperBounds.get(0).equals(ClassName.OBJECT)
+        ? "?"
+        : "? extends " + upperBounds.get(0).canonicalName();
+  }
+
+  @Override
+  public @NotNull ClassName topLevelClassName() {
+    throw new UnsupportedOperationException(
+        "Not a sensible concept for a wildcard");
+  }
+
+  @Override
+  public @NotNull String reflectionName() {
+    return canonicalName();
+  }
+
+  @Override
+  public @Nullable TypeName enclosingClassName() {
+    return null;
+  }
+
+  @Override
+  public List<String> simpleNames() {
+    throw new UnsupportedOperationException("A wildcard has no names");
+  }
+
+  @Override
+  public String toString() {
+    return toNotation().toCode();
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) {
+      return true;
+    }
+    if (o == null || getClass() != o.getClass()) {
+      return false;
+    }
+    var that = (WildcardTypeName) o;
+    return Objects.equals(upperBounds, that.upperBounds) && Objects.equals(
+        lowerBounds,
+        that.lowerBounds
+    );
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(upperBounds, lowerBounds);
+  }
+
+  @Override
+  public Notation toNotation() {
+    if (lowerBounds.size() == 1) {
+      return Notation.txt("? super ").then(lowerBounds.get(0).toNotation());
+    }
+    return upperBounds.get(0).equals(ClassName.OBJECT)
+        ? Notation.txt("?")
+        : Notation.txt("? extends ").then(upperBounds.get(0).toNotation());
   }
 }

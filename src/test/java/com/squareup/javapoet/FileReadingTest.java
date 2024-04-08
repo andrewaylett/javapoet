@@ -16,27 +16,23 @@
 package com.squareup.javapoet;
 
 import com.google.common.io.ByteStreams;
-import java.io.IOException;
-import java.net.URI;
-import java.util.Collections;
-import java.util.Locale;
-import java.util.concurrent.Callable;
-import javax.lang.model.element.Modifier;
-import javax.tools.DiagnosticCollector;
-import javax.tools.JavaCompiler;
-import javax.tools.JavaCompiler.CompilationTask;
-import javax.tools.JavaFileObject;
-import javax.tools.JavaFileObject.Kind;
-import javax.tools.StandardJavaFileManager;
-import javax.tools.StandardLocation;
-import javax.tools.ToolProvider;
-
-import com.google.common.testing.EqualsTester;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
+
+import javax.lang.model.element.Modifier;
+import javax.tools.DiagnosticCollector;
+import javax.tools.JavaFileObject;
+import javax.tools.JavaFileObject.Kind;
+import javax.tools.StandardLocation;
+import javax.tools.ToolProvider;
+import java.io.IOException;
+import java.net.URI;
+import java.util.Collections;
+import java.util.Locale;
+import java.util.concurrent.Callable;
 
 import static com.google.common.truth.Truth.assertThat;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -47,22 +43,30 @@ public class FileReadingTest {
   // Used for storing compilation output.
   @Rule public final TemporaryFolder temporaryFolder = new TemporaryFolder();
 
-  @Test public void javaFileObjectUri() {
+  @Test
+  public void javaFileObjectUri() {
     var type = TypeSpec.classBuilder("Test").build();
     assertThat(JavaFile.builder("", type).build().toJavaFileObject().toUri())
         .isEqualTo(URI.create("Test.java"));
     assertThat(JavaFile.builder("foo", type).build().toJavaFileObject().toUri())
         .isEqualTo(URI.create("foo/Test.java"));
-    assertThat(JavaFile.builder("com.example", type).build().toJavaFileObject().toUri())
+    assertThat(JavaFile
+        .builder("com.example", type)
+        .build()
+        .toJavaFileObject()
+        .toUri())
         .isEqualTo(URI.create("com/example/Test.java"));
   }
 
-  @Test public void javaFileObjectKind() {
-    var javaFile = JavaFile.builder("", TypeSpec.classBuilder("Test").build()).build();
+  @Test
+  public void javaFileObjectKind() {
+    var javaFile =
+        JavaFile.builder("", TypeSpec.classBuilder("Test").build()).build();
     assertThat(javaFile.toJavaFileObject().getKind()).isEqualTo(Kind.SOURCE);
   }
 
-  @Test public void javaFileObjectCharacterContent() throws IOException {
+  @Test
+  public void javaFileObjectCharacterContent() throws IOException {
     var type = TypeSpec.classBuilder("Test")
         .addJavadoc("Piñata¡")
         .addMethod(MethodSpec.methodBuilder("fooBar").build())
@@ -75,21 +79,28 @@ public class FileReadingTest {
     assertThat(javaFileObject.getCharContent(false)).isEqualTo(javaFile.toString());
   }
 
-  @Test public void javaFileObjectInputStreamIsUtf8() throws IOException {
-    var javaFile = JavaFile.builder("foo", TypeSpec.classBuilder("Test").build())
-        .addFileComment("Piñata¡")
-        .build();
-    var bytes = ByteStreams.toByteArray(javaFile.toJavaFileObject().openInputStream());
+  @Test
+  public void javaFileObjectInputStreamIsUtf8() throws IOException {
+    var javaFile =
+        JavaFile.builder("foo", TypeSpec.classBuilder("Test").build())
+            .addFileComment("Piñata¡")
+            .build();
+    var bytes =
+        ByteStreams.toByteArray(javaFile.toJavaFileObject().openInputStream());
 
     // JavaPoet always uses UTF-8.
     assertThat(bytes).isEqualTo(javaFile.toString().getBytes(UTF_8));
   }
 
-  @Test public void compileJavaFile() throws Exception {
+  @Test
+  public void compileJavaFile() throws Exception {
     final var value = "Hello World!";
     var type = TypeSpec.classBuilder("Test")
         .addModifiers(Modifier.PUBLIC)
-        .addSuperinterface(ParameterizedTypeName.get(Callable.class, String.class))
+        .addSuperinterface(ParameterizedTypeName.get(
+            Callable.class,
+            String.class
+        ))
         .addMethod(MethodSpec.methodBuilder("call")
             .returns(String.class)
             .addModifiers(Modifier.PUBLIC)
@@ -101,24 +112,29 @@ public class FileReadingTest {
     var compiler = ToolProvider.getSystemJavaCompiler();
     var diagnosticCollector = new DiagnosticCollector<JavaFileObject>();
     var fileManager = compiler.getStandardFileManager(diagnosticCollector,
-        Locale.getDefault(), UTF_8);
-    fileManager.setLocation(StandardLocation.CLASS_OUTPUT,
-        Collections.singleton(temporaryFolder.newFolder()));
-    var task = compiler.getTask(null,
+        Locale.getDefault(), UTF_8
+    );
+    fileManager.setLocation(
+        StandardLocation.CLASS_OUTPUT,
+        Collections.singleton(temporaryFolder.newFolder())
+    );
+    var task = compiler.getTask(
+        null,
         fileManager,
         diagnosticCollector,
         Collections.emptySet(),
         Collections.emptySet(),
-        Collections.singleton(javaFile.toJavaFileObject()));
+        Collections.singleton(javaFile.toJavaFileObject())
+    );
 
     assertThat(task.call()).isTrue();
     assertThat(diagnosticCollector.getDiagnostics()).isEmpty();
 
     var loader = fileManager.getClassLoader(StandardLocation.CLASS_OUTPUT);
     Callable<?> test = Class.forName("foo.Test", true, loader)
-            .asSubclass(Callable.class)
-            .getDeclaredConstructor()
-            .newInstance();
+        .asSubclass(Callable.class)
+        .getDeclaredConstructor()
+        .newInstance();
     assertThat(Callable.class.getMethod("call").invoke(test)).isEqualTo(value);
   }
 }

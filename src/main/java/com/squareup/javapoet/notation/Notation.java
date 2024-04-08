@@ -1,16 +1,43 @@
 package com.squareup.javapoet.notation;
 
+import com.google.common.base.Splitter;
+import com.squareup.javapoet.Emitable;
+import com.squareup.javapoet.TypeName;
 import org.intellij.lang.annotations.PrintFormat;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 
 import java.io.IOException;
-import java.util.function.BiConsumer;
-import java.util.regex.Matcher;
+import java.io.StringWriter;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.function.Consumer;
 import java.util.regex.Pattern;
 import java.util.stream.Collector;
+import java.util.stream.Stream;
 
 public abstract class Notation {
+  // From java.util.Formatter
+  // %[argument_index$][flags][width][.precision][t]conversion
+  private static final String formatSpecifier
+      = "%(?:\\d+\\$)?(?:[-#+ 0,(<]*)?(?:\\d+)?(?:\\.\\d+)?[tT]?[a-zA-Z%]";
+  private static final Pattern fsPattern = Pattern.compile(formatSpecifier);
+  public final Map<Object, String> names;
+  public final Set<TypeName> imports;
+
+  public Notation() {
+    this(Map.of(), Set.of());
+  }
+
+  public Notation(Map<Object, String> names, Set<TypeName> imports) {
+    this.names = Map.copyOf(names);
+    this.imports = Set.copyOf(imports);
+  }
+
   @Contract(pure = true)
   public static @NotNull Notation empty() {
     return Empty.INSTANCE;
@@ -23,23 +50,43 @@ public abstract class Notation {
 
   @Contract(pure = true)
   public static @NotNull Notation txt(@NotNull String s) {
-    if (s.isEmpty()) {
-      return Empty.INSTANCE;
-    }
-    return new Text(s);
+    var pieces = Splitter.on('\n').splitToStream(s);
+
+    return pieces
+        .map(t -> t.isEmpty() ? empty() : new Text(t))
+        .collect(asLines());
   }
 
-  // From java.util.Formatter
-  // %[argument_index$][flags][width][.precision][t]conversion
-  private static final String formatSpecifier
-          = "%(?:\\d+\\$)?(?:[-#+ 0,(<]*)?(?:\\d+)?(?:\\.\\d+)?[tT]?[a-zA-Z%]";
-  private static final Pattern fsPattern = Pattern.compile(formatSpecifier);
+  public static @NotNull Notation name(
+      @NotNull Object tag,
+      @NotNull String suggestion
+  ) {
+    return new Name(tag, suggestion);
+  }
+
+  public static @NotNull Notation typeRef(@NotNull TypeName ref) {
+    return new TypeRef(ref);
+  }
+
+  public static <T> @NotNull Notation literal(@NotNull T ref) {
+    if (ref instanceof Emitable e) {
+      return e.toNotation();
+    }
+    return new Literal<>(ref);
+  }
+
+  public static @NotNull Notation statement(@NotNull Notation ref) {
+    return new Statement(ref);
+  }
 
   @Contract(pure = true)
-  public static @NotNull Notation format(@PrintFormat String fmt, @NotNull Notation... args) {
-    String[] match = fsPattern.split(fmt);
-    Notation accum = Notation.empty();
-    for (int i = 0; i < Math.max(match.length, args.length); i++) {
+  public static @NotNull Notation format(
+      @PrintFormat String fmt,
+      @NotNull Notation... args
+  ) {
+    var match = fsPattern.split(fmt);
+    var accum = Notation.empty();
+    for (var i = 0; i < Math.max(match.length, args.length); i++) {
       if (match.length > i) {
         accum = accum.then(Notation.txt(match[i]));
       }
@@ -50,12 +97,64 @@ public abstract class Notation {
     return accum;
   }
 
-  public static Collector<Notation, Notation[], Notation> asLines() {
+  @Contract(value = "-> new", pure = true)
+  public static @NotNull Collector<Notation, List<Notation>, ? extends Notation> asLines() {
+    return join(nl());
+  }
+
+  @Contract(value = "-> new", pure = true)
+  public static @NotNull Collector<Notation, List<Notation>, ? extends Notation> commaSeparated() {
+    return join(txt(", ").or(txt(",\n")));
+  }
+
+  @Contract(value = "_ -> new", pure = true)
+  public static @NotNull Collector<Notation, List<Notation>, ? extends Notation> join(
+      Notation joiner
+  ) {
+    if (joiner instanceof Choice choice) {
+      return join(choice);
+    }
     return Collector.of(
-            () -> new Notation[] {Notation.empty()},
-            (Notation[] arr, Notation n) -> arr[0] = arr[0].then(n).then(Notation.nl()),
-            (Notation[] arr, Notation[] arr2) -> new Notation[] {arr[0].then(arr2[0])},
-            (Notation[] arr) -> arr[0]);
+        ArrayList::new,
+        List::add,
+        (List<Notation> arr, List<Notation> arr2) -> Stream
+            .concat(arr.stream(), arr2.stream())
+            .toList(),
+        (List<Notation> arr) -> {
+          if (arr.isEmpty()) {
+            return Notation.empty();
+          }
+          var res = arr.get(0);
+          if (arr.size() > 1) {
+            for (var next : arr.subList(1, arr.size())) {
+              if (next instanceof Indent indented) {
+                res = res.then(joiner
+                    .then(indented.inner)
+                    .indent(indented.indent));
+              } else {
+                res = res.then(joiner).then(next);
+              }
+            }
+          }
+          return res;
+        }
+    );
+  }
+
+  @Contract(value = "_ -> new", pure = true)
+  public static @NotNull Collector<Notation, List<Notation>, Choice> join(Choice joiner) {
+    return Collector.of(
+        ArrayList::new,
+        List::add,
+        (List<Notation> arr, List<Notation> arr2) -> Stream
+            .concat(arr.stream(), arr2.stream())
+            .toList(),
+        (List<Notation> arr) -> arr
+            .stream()
+            .collect(join(joiner.left))
+            .flat()
+            .or(arr.stream().collect(join(joiner.right)))
+    );
   }
 
   @Contract(value = "-> new", pure = true)
@@ -64,7 +163,7 @@ public abstract class Notation {
   }
 
   @Contract(value = "_ -> new", pure = true)
-  public @NotNull Notation indent(int indent) {
+  public @NotNull Notation indent(String indent) {
     return new Indent(indent, this);
   }
 
@@ -73,15 +172,79 @@ public abstract class Notation {
     if (next instanceof Empty) {
       return this;
     }
-    return new Concat(this, next);
+    var content = new ArrayList<Notation>();
+    if (this instanceof Concat concat) {
+      content.addAll(concat.content);
+    } else {
+      content.add(this);
+    }
+    if (next instanceof Concat concat) {
+      content.addAll(concat.content);
+    } else {
+      content.add(next);
+    }
+    return new Concat(content);
   }
 
   @Contract(value = "_ -> new", pure = true)
-  public @NotNull Notation or(@NotNull Notation choice) {
+  public @NotNull Choice or(@NotNull Notation choice) {
     return new Choice(this, choice);
   }
 
-  public abstract void visit(@NotNull Printer.PrinterVisitor printer, @NotNull Chunk chunk) throws IOException;
+  @Override
+  public String toString() {
+    var out = new StringWriter();
+    try {
+      var names = new HashMap<>(this.names);
+      for (var ty : this.imports) {
+        names.put(ty, ty.canonicalName());
+      }
+      var printer = new Printer(toNotation(), 80, names);
+      printer.print(out);
+      return out.toString();
+    } catch (IOException e) {
+      throw new AssertionError();
+    }
+  }
 
-  public abstract @NotNull Printer.FlatResponse visit(@NotNull Printer.FlatVisitor flatVisitor, @NotNull Chunk chunk);
+  public abstract Notation toNotation();
+
+  public String toCode() {
+    var out = new StringWriter();
+    try {
+      var names = new HashMap<>(this.names);
+      for (var ty : this.imports) {
+        names.put(ty, ty.canonicalName());
+      }
+      var printer = new Printer(this, 100, names);
+      printer.print(out);
+      return out.toString();
+    } catch (IOException e) {
+      throw new AssertionError();
+    }
+  }
+
+  public abstract boolean isEmpty();
+
+  public abstract void visit(
+      @NotNull Printer.PrinterVisitor printer,
+      @NotNull Chunk chunk
+  ) throws IOException;
+
+  public abstract @NotNull Printer.FlatResponse visit(
+      @NotNull Printer.FlatVisitor flatVisitor, @NotNull Chunk chunk
+  );
+
+  public abstract void visit(@NotNull Visitor visitor);
+
+  @Override
+  public abstract boolean equals(Object o);
+
+  @Override
+  public abstract int hashCode();
+
+  public interface Visitor extends Consumer<Notation> {
+    default void enter(Notation n) {}
+    default void exit(Notation n) {}
+  }
 }

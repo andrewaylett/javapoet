@@ -15,12 +15,12 @@
  */
 package com.squareup.javapoet;
 
+import javax.lang.model.SourceVersion;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
-import javax.lang.model.SourceVersion;
 
 import static com.squareup.javapoet.Util.checkNotNull;
 
@@ -35,7 +35,7 @@ import static com.squareup.javapoet.Util.checkNotNull;
  *   }
  *   nameAllocator.newName("sb", "string builder");
  * }</pre>
- *
+ * <p>
  * Pass a unique tag object to each allocation. The tag scopes the name, and can be used to look up
  * the allocated name later. Typically the tag is the object that is being named. In the above
  * example we use {@code property} for the user-supplied property names, and {@code "string
@@ -57,7 +57,7 @@ import static com.squareup.javapoet.Util.checkNotNull;
  *   builder.addStatement("return $N", nameAllocator.get("string builder"));
  *   return builder.build();
  * }</pre>
- *
+ * <p>
  * The above code generates unique names if presented with conflicts. Given user-supplied properties
  * with names {@code ab} and {@code sb} this generates the following:  <pre>   {@code
  *
@@ -69,7 +69,7 @@ import static com.squareup.javapoet.Util.checkNotNull;
  *     return sb_.toString();
  *   }
  * }</pre>
- *
+ * <p>
  * The underscore is appended to {@code sb} to avoid conflicting with the user-supplied {@code sb}
  * property. Underscores are also prefixed for names that start with a digit, and used to replace
  * name-unsafe characters like space or dash.
@@ -86,10 +86,30 @@ public final class NameAllocator implements Cloneable {
     this(new LinkedHashSet<>(), new LinkedHashMap<>());
   }
 
-  private NameAllocator(LinkedHashSet<String> allocatedNames,
-                        LinkedHashMap<Object, String> tagToName) {
+  private NameAllocator(
+      LinkedHashSet<String> allocatedNames,
+      LinkedHashMap<Object, String> tagToName
+  ) {
     this.allocatedNames = allocatedNames;
     this.tagToName = tagToName;
+  }
+
+  public static String toJavaIdentifier(String suggestion) {
+    var result = new StringBuilder();
+    for (var i = 0; i < suggestion.length(); ) {
+      var codePoint = suggestion.codePointAt(i);
+      if (i == 0
+          && !Character.isJavaIdentifierStart(codePoint)
+          && Character.isJavaIdentifierPart(codePoint)) {
+        result.append("_");
+      }
+
+      var validCodePoint =
+          Character.isJavaIdentifierPart(codePoint) ? codePoint : '_';
+      result.appendCodePoint(validCodePoint);
+      i += Character.charCount(codePoint);
+    }
+    return result.toString();
   }
 
   /**
@@ -111,38 +131,25 @@ public final class NameAllocator implements Cloneable {
 
     suggestion = toJavaIdentifier(suggestion);
 
-    while (SourceVersion.isKeyword(suggestion) || !allocatedNames.add(suggestion)) {
+    while (SourceVersion.isKeyword(suggestion)
+        || !allocatedNames.add(suggestion)) {
       suggestion = suggestion + "_";
     }
 
     var replaced = tagToName.put(tag, suggestion);
     if (replaced != null) {
       tagToName.put(tag, replaced); // Put things back as they were!
-      throw new IllegalArgumentException("tag " + tag + " cannot be used for both '" + replaced
-          + "' and '" + suggestion + "'");
+      throw new IllegalArgumentException(
+          "tag " + tag + " cannot be used for both '" + replaced
+              + "' and '" + suggestion + "'");
     }
 
     return suggestion;
   }
 
-  public static String toJavaIdentifier(String suggestion) {
-    var result = new StringBuilder();
-    for (var i = 0; i < suggestion.length(); ) {
-      var codePoint = suggestion.codePointAt(i);
-      if (i == 0
-          && !Character.isJavaIdentifierStart(codePoint)
-          && Character.isJavaIdentifierPart(codePoint)) {
-        result.append("_");
-      }
-
-      var validCodePoint = Character.isJavaIdentifierPart(codePoint) ? codePoint : '_';
-      result.appendCodePoint(validCodePoint);
-      i += Character.charCount(codePoint);
-    }
-    return result.toString();
-  }
-
-  /** Retrieve a name created with {@link #newName(String, Object)}. */
+  /**
+   * Retrieve a name created with {@link #newName(String, Object)}.
+   */
   public String get(Object tag) {
     var result = tagToName.get(tag);
     if (result == null) {
@@ -163,7 +170,8 @@ public final class NameAllocator implements Cloneable {
   public NameAllocator clone() {
     return new NameAllocator(
         new LinkedHashSet<>(this.allocatedNames),
-        new LinkedHashMap<>(this.tagToName));
+        new LinkedHashMap<>(this.tagToName)
+    );
   }
 
 }

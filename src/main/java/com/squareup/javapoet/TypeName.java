@@ -7,13 +7,23 @@ import org.jetbrains.annotations.Nullable;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.TypeParameterElement;
-import javax.lang.model.type.*;
+import javax.lang.model.type.ArrayType;
+import javax.lang.model.type.DeclaredType;
+import javax.lang.model.type.ErrorType;
+import javax.lang.model.type.NoType;
+import javax.lang.model.type.TypeKind;
+import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.SimpleTypeVisitor8;
 import java.io.IOException;
 import java.lang.reflect.GenericArrayType;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 
 
 /**
@@ -43,7 +53,8 @@ import java.util.*;
  * {@code Set<Long>}, use the factory methods on {@link ArrayTypeName}, {@link
  * ParameterizedTypeName}, {@link TypeVariableName}, and {@link WildcardTypeName}.
  */
-public sealed interface TypeName permits ObjectTypeName, PrimitiveType, AnnotatedTypeName {
+public sealed interface TypeName extends Emitable
+    permits ObjectTypeName, PrimitiveType, AnnotatedTypeName {
   /**
    * Returns a type name equivalent to {@code mirror}.
    */
@@ -51,11 +62,16 @@ public sealed interface TypeName permits ObjectTypeName, PrimitiveType, Annotate
     return get(mirror, new LinkedHashMap<>());
   }
 
-  static TypeName get(TypeMirror mirror,
-                      final Map<TypeParameterElement, TypeVariableName> typeVariables) {
+  static TypeName get(
+      TypeMirror mirror,
+      final Map<TypeParameterElement, TypeVariableName> typeVariables
+  ) {
     return mirror.accept(new SimpleTypeVisitor8<TypeName, Void>() {
       @Override
-      public TypeName visitPrimitive(javax.lang.model.type.PrimitiveType t, Void p) {
+      public TypeName visitPrimitive(
+          javax.lang.model.type.PrimitiveType t,
+          Void p
+      ) {
         return switch (t.getKind()) {
           case BOOLEAN -> PrimitiveType.Boolean;
           case BYTE -> PrimitiveType.Byte;
@@ -74,11 +90,12 @@ public sealed interface TypeName permits ObjectTypeName, PrimitiveType, Annotate
         var rawType = ClassName.get((TypeElement) t.asElement());
         var enclosingType = t.getEnclosingType();
         var enclosing =
-                (enclosingType.getKind() != TypeKind.NONE)
-                        && !t.asElement().getModifiers().contains(Modifier.STATIC)
-                        ? enclosingType.accept(this, null)
-                        : null;
-        if (t.getTypeArguments().isEmpty() && !(enclosing instanceof ParameterizedTypeName)) {
+            (enclosingType.getKind() != TypeKind.NONE)
+                && !t.asElement().getModifiers().contains(Modifier.STATIC)
+                ? enclosingType.accept(this, null)
+                : null;
+        if (t.getTypeArguments().isEmpty()
+            && !(enclosing instanceof ParameterizedTypeName)) {
           return rawType;
         }
 
@@ -87,9 +104,9 @@ public sealed interface TypeName permits ObjectTypeName, PrimitiveType, Annotate
           typeArgumentNames.add(get(mirror, typeVariables));
         }
         return enclosing instanceof ParameterizedTypeName
-                ? ((ParameterizedTypeName) enclosing).nestedClass(
-                rawType.simpleName(), typeArgumentNames)
-                : new ParameterizedTypeName(null, rawType, typeArgumentNames);
+            ? enclosing.nestedClass(
+            rawType.nameWhenImported(), typeArgumentNames)
+            : new ParameterizedTypeName(null, rawType, typeArgumentNames);
       }
 
       @Override
@@ -103,18 +120,26 @@ public sealed interface TypeName permits ObjectTypeName, PrimitiveType, Annotate
       }
 
       @Override
-      public TypeName visitTypeVariable(javax.lang.model.type.TypeVariable t, Void p) {
+      public TypeName visitTypeVariable(
+          javax.lang.model.type.TypeVariable t,
+          Void p
+      ) {
         return TypeVariableName.get(t, typeVariables);
       }
 
       @Override
-      public TypeName visitWildcard(javax.lang.model.type.WildcardType t, Void p) {
+      public TypeName visitWildcard(
+          javax.lang.model.type.WildcardType t,
+          Void p
+      ) {
         return WildcardTypeName.get(t, typeVariables);
       }
 
       @Override
       public TypeName visitNoType(NoType t, Void p) {
-        if (t.getKind() == TypeKind.VOID) return PrimitiveType.Void;
+        if (t.getKind() == TypeKind.VOID) {
+          return PrimitiveType.Void;
+        }
         return super.visitUnknown(t, p);
       }
 
@@ -134,16 +159,36 @@ public sealed interface TypeName permits ObjectTypeName, PrimitiveType, Annotate
 
   static TypeName get(Type type, Map<Type, TypeVariableName> map) {
     if (type instanceof Class<?> classType) {
-      if (type == void.class) return PrimitiveType.Void;
-      if (type == boolean.class) return PrimitiveType.Boolean;
-      if (type == byte.class) return PrimitiveType.Byte;
-      if (type == short.class) return PrimitiveType.Short;
-      if (type == int.class) return PrimitiveType.Integer;
-      if (type == long.class) return PrimitiveType.Long;
-      if (type == char.class) return PrimitiveType.Character;
-      if (type == float.class) return PrimitiveType.Float;
-      if (type == double.class) return PrimitiveType.Double;
-      if (classType.isArray()) return ArrayTypeName.of(get(classType.getComponentType(), map));
+      if (type == void.class) {
+        return PrimitiveType.Void;
+      }
+      if (type == boolean.class) {
+        return PrimitiveType.Boolean;
+      }
+      if (type == byte.class) {
+        return PrimitiveType.Byte;
+      }
+      if (type == short.class) {
+        return PrimitiveType.Short;
+      }
+      if (type == int.class) {
+        return PrimitiveType.Integer;
+      }
+      if (type == long.class) {
+        return PrimitiveType.Long;
+      }
+      if (type == char.class) {
+        return PrimitiveType.Character;
+      }
+      if (type == float.class) {
+        return PrimitiveType.Float;
+      }
+      if (type == double.class) {
+        return PrimitiveType.Double;
+      }
+      if (classType.isArray()) {
+        return ArrayTypeName.of(get(classType.getComponentType(), map));
+      }
       return ClassName.get(classType);
 
     } else if (type instanceof ParameterizedType) {
@@ -153,7 +198,10 @@ public sealed interface TypeName permits ObjectTypeName, PrimitiveType, Annotate
       return WildcardTypeName.get((java.lang.reflect.WildcardType) type, map);
 
     } else if (type instanceof java.lang.reflect.TypeVariable<?>) {
-      return TypeVariableName.get((java.lang.reflect.TypeVariable<?>) type, map);
+      return TypeVariableName.get(
+          (java.lang.reflect.TypeVariable<?>) type,
+          map
+      );
 
     } else if (type instanceof GenericArrayType) {
       return ArrayTypeName.get((GenericArrayType) type, map);
@@ -183,7 +231,10 @@ public sealed interface TypeName permits ObjectTypeName, PrimitiveType, Annotate
    */
   static @Nullable TypeName arrayComponent(TypeName type) {
     return type instanceof ArrayTypeName atn
-            ? atn.componentType
+        ? atn.componentType
+        : type instanceof AnnotatedTypeName annotated
+            && annotated.inner instanceof ArrayTypeName inner
+            ? inner.componentType.annotated(annotated.annotations)
             : null;
   }
 
@@ -192,21 +243,27 @@ public sealed interface TypeName permits ObjectTypeName, PrimitiveType, Annotate
    */
   static @Nullable TypeName asArray(TypeName type) {
     return type instanceof ArrayTypeName atn
-            ? atn
-            : type instanceof AnnotatedTypeName annotated && ((AnnotatedTypeName) type).inner instanceof ArrayTypeName
+        ? atn
+        : type instanceof AnnotatedTypeName annotated
+            && annotated.inner instanceof ArrayTypeName
             ? annotated
             : null;
   }
 
-  default @NotNull AnnotatedTypeName annotated(@NotNull Collection<AnnotationSpec> annotations) {
+  default @NotNull AnnotatedTypeName annotated(
+      @NotNull Collection<AnnotationSpec> annotations
+  ) {
     return new AnnotatedTypeName(this, annotations);
   }
 
-  default @NotNull AnnotatedTypeName annotated(@NotNull AnnotationSpec... annotations) {
+  default @NotNull AnnotatedTypeName annotated(
+      @NotNull AnnotationSpec... annotations
+  ) {
     return annotated(Arrays.asList(annotations));
   }
 
-  @NotNull TypeName withoutAnnotations();
+  @NotNull
+  TypeName withoutAnnotations();
 
   /**
    * Returns true if this is a primitive type like {@code int}.
@@ -234,17 +291,27 @@ public sealed interface TypeName permits ObjectTypeName, PrimitiveType, Annotate
    *
    * @throws UnsupportedOperationException if this type isn't eligible for unboxing.
    */
-  @NotNull TypeName unbox();
+  @NotNull
+  TypeName unbox();
 
   @Contract("_ -> param1")
-  @NotNull CodeWriter emit(@NotNull CodeWriter out) throws IOException;
+  @NotNull
+  CodeWriter emit(@NotNull CodeWriter out) throws IOException;
 
   @Contract("_, _ -> param1")
-  default @NotNull CodeWriter emit(@NotNull CodeWriter out, boolean varargs) throws IOException {
+  default @NotNull CodeWriter emit(@NotNull CodeWriter out, boolean varargs)
+      throws IOException {
     return emit(out);
   }
 
-  TypeName nestedClass(String name);
+  @NotNull
+  TypeName nestedClass(@NotNull String name);
+
+  @NotNull
+  TypeName nestedClass(
+      @NotNull String name,
+      @NotNull List<TypeName> typeArguments
+  );
 
   default boolean isAnnotated() {
     return this instanceof AnnotatedTypeName;
@@ -259,4 +326,21 @@ public sealed interface TypeName permits ObjectTypeName, PrimitiveType, Annotate
   }
 
   TypeName withBounds(List<? extends TypeName> bounds);
+
+  @NotNull
+  String nameWhenImported();
+
+  @NotNull
+  String canonicalName();
+
+  @NotNull
+  ClassName topLevelClassName();
+
+  @NotNull
+  String reflectionName();
+
+  @Nullable
+  TypeName enclosingClassName();
+
+  List<String> simpleNames();
 }

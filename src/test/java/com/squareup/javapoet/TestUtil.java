@@ -1,8 +1,6 @@
 package com.squareup.javapoet;
 
 import javax.lang.model.element.Element;
-import javax.lang.model.element.ExecutableElement;
-import javax.lang.model.element.VariableElement;
 import java.util.Collection;
 
 final class TestUtil {

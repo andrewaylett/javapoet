@@ -15,15 +15,30 @@
  */
 package com.squareup.javapoet;
 
+import com.squareup.javapoet.notation.Notation;
 import org.jetbrains.annotations.Contract;
 
 import javax.lang.model.SourceVersion;
 import javax.lang.model.element.Modifier;
 import java.io.IOException;
-import java.util.*;
+import java.util.ArrayDeque;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Deque;
+import java.util.EnumSet;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.Set;
 import java.util.regex.Pattern;
 
-import static com.squareup.javapoet.Util.*;
+import static com.squareup.javapoet.Util.checkArgument;
+import static com.squareup.javapoet.Util.checkNotNull;
+import static com.squareup.javapoet.Util.checkState;
 import static java.lang.String.join;
 
 /**
@@ -34,7 +49,7 @@ public final class CodeWriter {
   private static final Pattern LINE_BREAKING_PATTERN = Pattern.compile("\\R");
 
   private final String indent;
-  private final LineWrapper out;
+  private final Deque<Notation> notation;
   private final List<TypeSpec> typeSpecStack = new ArrayList<>();
   private final Set<String> staticImportClassNames;
   private final Set<String> staticImports;
@@ -55,32 +70,45 @@ public final class CodeWriter {
   private Optional<String> packageName = Optional.empty();
   private boolean trailingNewline;
 
-  CodeWriter(Appendable out) {
-    this(out, "  ", Collections.emptySet(), Collections.emptySet());
+  CodeWriter() {
+    this("  ", Collections.emptySet(), Collections.emptySet());
   }
 
-  CodeWriter(Appendable out, String indent, Set<String> staticImports, Set<String> alwaysQualify) {
-    this(out, indent, Collections.emptyMap(), staticImports, alwaysQualify);
+  CodeWriter(
+      String indent,
+      Set<String> staticImports,
+      Set<String> alwaysQualify
+  ) {
+    this(indent, Collections.emptyMap(), staticImports, alwaysQualify);
   }
 
-  CodeWriter(Appendable out,
-             String indent,
-             Map<String, ClassName> importedTypes,
-             Set<String> staticImports,
-             Set<String> alwaysQualify) {
-    this.out = new LineWrapper(out, indent, 100);
+  CodeWriter(
+      String indent,
+      Map<String, ClassName> importedTypes,
+      Set<String> staticImports,
+      Set<String> alwaysQualify
+  ) {
+    this.notation = new ArrayDeque<>();
+    notation.push(Notation.empty());
     this.indent = checkNotNull(indent, "indent == null");
     this.importedTypes = checkNotNull(importedTypes, "importedTypes == null");
     this.staticImports = checkNotNull(staticImports, "staticImports == null");
     this.alwaysQualify = checkNotNull(alwaysQualify, "alwaysQualify == null");
     this.staticImportClassNames = new LinkedHashSet<>();
     for (var signature : staticImports) {
-      staticImportClassNames.add(signature.substring(0, signature.lastIndexOf('.')));
+      staticImportClassNames.add(signature.substring(
+          0,
+          signature.lastIndexOf('.')
+      ));
     }
   }
 
   private static String extractMemberName(String part) {
-    checkArgument(Character.isJavaIdentifierStart(part.charAt(0)), "not an identifier: %s", part);
+    checkArgument(
+        Character.isJavaIdentifierStart(part.charAt(0)),
+        "not an identifier: %s",
+        part
+    );
     for (var i = 1; i <= part.length(); i++) {
       if (!SourceVersion.isIdentifier(part.substring(0, i))) {
         return part.substring(0, i - 1);
@@ -111,14 +139,23 @@ public final class CodeWriter {
 
   @Contract("_ -> this")
   public CodeWriter unindent(int levels) {
-    checkArgument(indentLevel - levels >= 0, "cannot unindent %s from %s", levels, indentLevel);
+    checkArgument(
+        indentLevel - levels >= 0,
+        "cannot unindent %s from %s",
+        levels,
+        indentLevel
+    );
     indentLevel -= levels;
     return this;
   }
 
   @Contract("_ -> this")
   public CodeWriter pushPackage(String packageName) {
-    checkState(this.packageName.isEmpty(), "package already set: %s", this.packageName);
+    checkState(
+        this.packageName.isEmpty(),
+        "package already set: %s",
+        this.packageName
+    );
     this.packageName = Optional.of(packageName);
     return this;
   }
@@ -154,7 +191,9 @@ public final class CodeWriter {
   }
 
   public void emitJavadoc(CodeBlock javadocCodeBlock) throws IOException {
-    if (javadocCodeBlock.isEmpty()) return;
+    if (javadocCodeBlock.isEmpty()) {
+      return;
+    }
 
     emit("/**\n");
     javadoc = true;
@@ -166,7 +205,8 @@ public final class CodeWriter {
     emit(" */\n");
   }
 
-  public void emitAnnotations(List<AnnotationSpec> annotations, boolean inline) throws IOException {
+  public void emitAnnotations(List<AnnotationSpec> annotations, boolean inline)
+      throws IOException {
     for (var annotationSpec : annotations) {
       annotationSpec.emit(this, inline);
       emit(inline ? " " : "\n");
@@ -177,11 +217,18 @@ public final class CodeWriter {
    * Emits {@code modifiers} in the standard order. Modifiers in {@code implicitModifiers} will not
    * be emitted.
    */
-  public void emitModifiers(Set<Modifier> modifiers, Set<Modifier> implicitModifiers)
-          throws IOException {
-    if (modifiers.isEmpty()) return;
+  public void emitModifiers(
+      Set<Modifier> modifiers,
+      Set<Modifier> implicitModifiers
+  )
+      throws IOException {
+    if (modifiers.isEmpty()) {
+      return;
+    }
     for (var modifier : EnumSet.copyOf(modifiers)) {
-      if (implicitModifiers.contains(modifier)) continue;
+      if (implicitModifiers.contains(modifier)) {
+        continue;
+      }
       emitAndIndent(modifier.name().toLowerCase(Locale.US));
       emitAndIndent(" ");
     }
@@ -195,8 +242,11 @@ public final class CodeWriter {
    * Emit type variables with their bounds. This should only be used when declaring type variables;
    * everywhere else bounds are omitted.
    */
-  public void emitTypeVariables(List<? extends TypeName> typeVariables) throws IOException {
-    if (typeVariables.isEmpty()) return;
+  public void emitTypeVariables(List<? extends TypeName> typeVariables)
+      throws IOException {
+    if (typeVariables.isEmpty()) {
+      return;
+    }
 
     typeVariables.forEach(type -> {
       if (type instanceof TypeVariableName typeVariable) {
@@ -206,7 +256,9 @@ public final class CodeWriter {
           currentTypeVariables.add(typeVariable.name);
         }
       } else {
-        throw new UnsupportedOperationException("Expected type variable, got " + type + " of class " + type.getClass());
+        throw new UnsupportedOperationException(
+            "Expected type variable, got " + type + " of class "
+                + type.getClass());
       }
     });
 
@@ -214,7 +266,9 @@ public final class CodeWriter {
     var firstTypeVariable = true;
     for (var type : typeVariables) {
       TypeVariableName typeVariable;
-      if (!firstTypeVariable) emit(", ");
+      if (!firstTypeVariable) {
+        emit(", ");
+      }
       if (type instanceof AnnotatedTypeName annotatedTypeName) {
         emitAnnotations(annotatedTypeName.annotations, true);
         typeVariable = (TypeVariableName) annotatedTypeName.inner;
@@ -233,7 +287,7 @@ public final class CodeWriter {
     emit(">");
   }
 
-  public void popTypeVariables(List<? extends TypeName> typeVariables) throws IOException {
+  public void popTypeVariables(List<? extends TypeName> typeVariables) {
     typeVariables.forEach(type -> {
       if (type instanceof TypeVariableName typeVariable) {
         currentTypeVariables.remove(typeVariable.name);
@@ -242,7 +296,8 @@ public final class CodeWriter {
           currentTypeVariables.remove(typeVariable.name);
         }
       } else {
-        throw new UnsupportedOperationException("Expected type variable, got " + type);
+        throw new UnsupportedOperationException(
+            "Expected type variable, got " + type);
       }
     });
   }
@@ -252,123 +307,38 @@ public final class CodeWriter {
     return emitAndIndent(s);
   }
 
-  @Contract("_, _ -> this")
+  @Contract("_, _ -> fail")
   public CodeWriter emit(String format, Object... args) throws IOException {
     return emit(CodeBlock.of(format, args));
   }
 
-  @Contract("_ -> this")
+  @Contract("_ -> fail")
   public CodeWriter emit(CodeBlock codeBlock) throws IOException {
     return emit(codeBlock, false);
   }
 
-  @Contract("_, _ -> this")
-  public CodeWriter emit(CodeBlock codeBlock, boolean ensureTrailingNewline) throws IOException {
-    var a = 0;
-    ClassName deferredTypeName = null; // used by "import static" logic
-    var partIterator = codeBlock.formatParts.listIterator();
-    while (partIterator.hasNext()) {
-      var part = partIterator.next();
-      switch (part) {
-        case "$L":
-          emitLiteral(codeBlock.args.get(a++));
-          break;
-
-        case "$N":
-          emitAndIndent((String) codeBlock.args.get(a++));
-          break;
-
-        case "$S":
-          var string = (String) codeBlock.args.get(a++);
-          // Emit null as a literal null: no quotes.
-          emitAndIndent(string != null
-                  ? stringLiteralWithDoubleQuotes(string, indent)
-                  : "null");
-          break;
-
-        case "$T":
-          var typeName = (TypeName) codeBlock.args.get(a++);
-          // defer "typeName.emit(this)" if next format part will be handled by the default case
-          if (typeName instanceof ClassName && partIterator.hasNext()) {
-            if (!codeBlock.formatParts.get(partIterator.nextIndex()).startsWith("$")) {
-              var candidate = (ClassName) typeName;
-              if (staticImportClassNames.contains(candidate.canonicalName)) {
-                checkState(deferredTypeName == null, "pending type for static import?!");
-                deferredTypeName = candidate;
-                break;
-              }
-            }
-          }
-          typeName.emit(this);
-          break;
-
-        case "$$":
-          emitAndIndent("$");
-          break;
-
-        case "$>":
-          indent();
-          break;
-
-        case "$<":
-          unindent();
-          break;
-
-        case "$[":
-          checkState(statementLine == -1, "statement enter $[ followed by statement enter $[");
-          statementLine = 0;
-          break;
-
-        case "$]":
-          checkState(statementLine != -1, "statement exit $] has no matching statement enter $[");
-          if (statementLine > 0) {
-            unindent(2); // End a multi-line statement. Decrease the indentation level.
-          }
-          statementLine = -1;
-          break;
-
-        case "$W":
-          out.wrappingSpace(indentLevel + 2);
-          break;
-
-        case "$Z":
-          out.zeroWidthSpace(indentLevel + 2);
-          break;
-
-        default:
-          // handle deferred type
-          if (deferredTypeName != null) {
-            if (part.startsWith(".")) {
-              if (emitStaticImportMember(deferredTypeName.canonicalName, part)) {
-                // okay, static import hit and all was emitted, so clean-up and jump to next part
-                deferredTypeName = null;
-                break;
-              }
-            }
-            deferredTypeName.emit(this);
-            deferredTypeName = null;
-          }
-          emitAndIndent(part);
-          break;
-      }
-    }
-    if (ensureTrailingNewline && out.lastChar() != '\n') {
-      emit("\n");
-    }
-    return this;
+  @Contract("_, _ -> fail")
+  public CodeWriter emit(CodeBlock codeBlock, boolean ensureTrailingNewline)
+      throws IOException {
+    throw new UnsupportedOperationException();
   }
 
   @Contract("-> this")
-  public CodeWriter emitWrappingSpace() throws IOException {
-    out.wrappingSpace(indentLevel + 2);
+  public CodeWriter emitWrappingSpace() {
+    notation.push(notation.pop().then(Notation.nl()));
     return this;
   }
 
-  private boolean emitStaticImportMember(String canonical, String part) throws IOException {
+  private boolean emitStaticImportMember(String canonical, String part)
+      throws IOException {
     var partWithoutLeadingDot = part.substring(1);
-    if (partWithoutLeadingDot.isEmpty()) return false;
+    if (partWithoutLeadingDot.isEmpty()) {
+      return false;
+    }
     var first = partWithoutLeadingDot.charAt(0);
-    if (!Character.isJavaIdentifierStart(first)) return false;
+    if (!Character.isJavaIdentifierStart(first)) {
+      return false;
+    }
     var explicit = canonical + "." + extractMemberName(partWithoutLeadingDot);
     var wildcard = canonical + ".*";
     if (staticImports.contains(explicit) || staticImports.contains(wildcard)) {
@@ -397,7 +367,7 @@ public final class CodeWriter {
    */
   String lookupName(ClassName className) {
     // If the top level simple name is masked by a current type variable, use the canonical name.
-    var topLevelSimpleName = className.topLevelClassName().simpleName();
+    var topLevelSimpleName = className.topLevelClassName().nameWhenImported();
     if (currentTypeVariables.contains(topLevelSimpleName)) {
       return className.canonicalName;
     }
@@ -405,14 +375,17 @@ public final class CodeWriter {
     // Find the shortest suffix of className that resolves to className. This uses both local type
     // names (so `Entry` in `Map` refers to `Map.Entry`). Also uses imports.
     var nameResolved = false;
-    for (var c = className; c != null; c = c.enclosingClassName()) {
-      var resolved = resolve(c.simpleName());
+    for (TypeName c = className; c != null; c = c.enclosingClassName()) {
+      var resolved = resolve(c.nameWhenImported());
       nameResolved = resolved != null;
 
-      if (resolved != null && Objects.equals(resolved.canonicalName, c.canonicalName)) {
+      if (resolved != null && Objects.equals(
+          resolved.canonicalName,
+          c.canonicalName()
+      )) {
         var suffixOffset = c.simpleNames().size() - 1;
         return join(".", className.simpleNames().subList(
-                suffixOffset, className.simpleNames().size()));
+            suffixOffset, className.simpleNames().size()));
       }
     }
 
@@ -443,11 +416,11 @@ public final class CodeWriter {
       return;
     }
     var topLevelClassName = className.topLevelClassName();
-    var simpleName = topLevelClassName.simpleName();
-    var replaced = importableTypes.put(simpleName, topLevelClassName);
-    if (replaced != null) {
-      importableTypes.put(simpleName, replaced); // On collision, prefer the first inserted.
-    }
+    var simpleName = topLevelClassName.nameWhenImported();
+//    var replaced = importableTypes.put(simpleName, topLevelClassName);
+//    if (replaced != null) {
+//      importableTypes.put(simpleName, replaced); // On collision, prefer the first inserted.
+//    }
   }
 
   /**
@@ -465,7 +438,10 @@ public final class CodeWriter {
     }
 
     // Match the top-level class.
-    if (!typeSpecStack.isEmpty() && Objects.equals(typeSpecStack.get(0).name, simpleName)) {
+    if (!typeSpecStack.isEmpty() && Objects.equals(
+        typeSpecStack.get(0).name,
+        simpleName
+    )) {
       return ClassName.get(packageName.orElse(""), simpleName);
     }
 
@@ -477,60 +453,16 @@ public final class CodeWriter {
    * Returns the class named {@code simpleName} when nested in the class at {@code stackDepth}.
    */
   private ClassName stackClassName(int stackDepth, String simpleName) {
-    var className = ClassName.get(packageName.orElse(""), typeSpecStack.get(0).name);
+    var className =
+        ClassName.get(packageName.orElse(""), typeSpecStack.get(0).name);
     for (var i = 1; i <= stackDepth; i++) {
       className = className.nestedClass(typeSpecStack.get(i).name);
     }
     return className.nestedClass(simpleName);
   }
 
-  /**
-   * Emits {@code s} with indentation as required. It's important that all code that writes to
-   * {@link #out} does it through here, since we emit indentation lazily in order to avoid
-   * unnecessary trailing whitespace.
-   */
   CodeWriter emitAndIndent(String s) throws IOException {
-    var first = true;
-    for (var line : LINE_BREAKING_PATTERN.split(s, -1)) {
-      // Emit a newline character. Make sure blank lines in Javadoc & comments look good.
-      if (!first) {
-        if ((javadoc || comment) && trailingNewline) {
-          emitIndentation();
-          out.append(javadoc ? " *" : "//");
-        }
-        out.append("\n");
-        trailingNewline = true;
-        if (statementLine != -1) {
-          if (statementLine == 0) {
-            indent(2); // Begin multiple-line statement. Increase the indentation level.
-          }
-          statementLine++;
-        }
-      }
-
-      first = false;
-      if (line.isEmpty()) continue; // Don't indent empty lines.
-
-      // Emit indentation and comment prefix if necessary.
-      if (trailingNewline) {
-        emitIndentation();
-        if (javadoc) {
-          out.append(" * ");
-        } else if (comment) {
-          out.append("// ");
-        }
-      }
-
-      out.append(line);
-      trailingNewline = false;
-    }
-    return this;
-  }
-
-  private void emitIndentation() throws IOException {
-    for (var j = 0; j < indentLevel; j++) {
-      out.append(indent);
-    }
+    throw new UnsupportedOperationException();
   }
 
   /**

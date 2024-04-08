@@ -15,18 +15,33 @@
  */
 package com.squareup.javapoet;
 
+import com.squareup.javapoet.notation.Notation;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
+import javax.annotation.Nonnull;
 import javax.lang.model.element.TypeParameterElement;
 import javax.lang.model.type.TypeVariable;
 import java.io.IOException;
 import java.lang.reflect.Type;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.stream.Stream;
 
 import static com.squareup.javapoet.Util.checkArgument;
 import static com.squareup.javapoet.Util.checkNotNull;
+import static com.squareup.javapoet.notation.Notation.join;
+import static com.squareup.javapoet.notation.Notation.txt;
+import static com.squareup.javapoet.notation.Notation.typeRef;
 
 public final class TypeVariableName extends ObjectTypeName {
+  private static final ThreadLocal<Boolean> guard =
+      ThreadLocal.withInitial(() -> Boolean.FALSE);
   public final String name;
   public final List<TypeName> bounds;
 
@@ -36,7 +51,11 @@ public final class TypeVariableName extends ObjectTypeName {
     this.bounds = bounds;
 
     for (var bound : this.bounds) {
-      checkArgument(!bound.isPrimitive() && bound != PrimitiveType.Void, "invalid bound: %s", bound);
+      checkArgument(
+          !bound.isPrimitive() && bound != PrimitiveType.Void,
+          "invalid bound: %s",
+          bound
+      );
     }
   }
 
@@ -44,7 +63,10 @@ public final class TypeVariableName extends ObjectTypeName {
     // Strip java.lang.Object from bounds if it is present.
     List<TypeName> boundsNoObject = new ArrayList<>(bounds);
     boundsNoObject.remove(ClassName.OBJECT);
-    return new TypeVariableName(name, Collections.unmodifiableList(boundsNoObject));
+    return new TypeVariableName(
+        name,
+        Collections.unmodifiableList(boundsNoObject)
+    );
   }
 
   /**
@@ -84,7 +106,9 @@ public final class TypeVariableName extends ObjectTypeName {
    * in {@code variables} will make sure that the bounds are filled in before returning.
    */
   static TypeVariableName get(
-          TypeVariable mirror, Map<TypeParameterElement, TypeVariableName> typeVariables) {
+      TypeVariable mirror,
+      Map<TypeParameterElement, TypeVariableName> typeVariables
+  ) {
     var element = (TypeParameterElement) mirror.asElement();
     var typeVariableName = typeVariables.get(element);
     if (typeVariableName == null) {
@@ -92,7 +116,10 @@ public final class TypeVariableName extends ObjectTypeName {
       // the List that that wraps, which means we can change it before returning.
       List<TypeName> bounds = new ArrayList<>();
       var visibleBounds = Collections.unmodifiableList(bounds);
-      typeVariableName = new TypeVariableName(element.getSimpleName().toString(), visibleBounds);
+      typeVariableName = new TypeVariableName(
+          element.getSimpleName().toString(),
+          visibleBounds
+      );
       typeVariables.put(element, typeVariableName);
       for (var typeMirror : element.getBounds()) {
         bounds.add(TypeName.get(typeMirror, typeVariables));
@@ -127,8 +154,10 @@ public final class TypeVariableName extends ObjectTypeName {
   /**
    * See {@link #get(java.lang.reflect.TypeVariable)}.
    */
-  static TypeVariableName get(java.lang.reflect.TypeVariable<?> type,
-                              Map<Type, TypeVariableName> map) {
+  static TypeVariableName get(
+      java.lang.reflect.TypeVariable<?> type,
+      Map<Type, TypeVariableName> map
+  ) {
     var result = map.get(type);
     if (result == null) {
       List<TypeName> bounds = new ArrayList<>();
@@ -176,14 +205,103 @@ public final class TypeVariableName extends ObjectTypeName {
     return new TypeVariableName(name, newBounds);
   }
 
+  @Nonnull
   @Override
-  public TypeName nestedClass(String name) {
-    throw new UnsupportedOperationException("Cannot nest class inside type variable");
+  public @NotNull String nameWhenImported() {
+    return name;
+  }
+
+  @Override
+  public @NotNull String canonicalName() {
+    return name;
+  }
+
+  @Override
+  public @NotNull ClassName topLevelClassName() {
+    throw new UnsupportedOperationException(
+        "Does not make sense for type variable");
+  }
+
+  @Override
+  public @NotNull String reflectionName() {
+    throw new UnsupportedOperationException(
+        "Does not make sense for type variable");
+  }
+
+  @Override
+  public @Nullable TypeName enclosingClassName() {
+    throw new UnsupportedOperationException(
+        "Does not make sense for type variable");
+  }
+
+  @Override
+  public List<String> simpleNames() {
+    throw new UnsupportedOperationException(
+        "Does not make sense for type variable");
+  }
+
+  @Override
+  public @NotNull TypeName nestedClass(@NotNull String name) {
+    throw new UnsupportedOperationException(
+        "Cannot nest class inside type variable");
+  }
+
+  @Override
+  public @NotNull TypeName nestedClass(
+      @NotNull String name,
+      @NotNull List<TypeName> typeArguments
+  ) {
+    throw new UnsupportedOperationException(
+        "Cannot nest class inside type variable");
   }
 
   @Override
   public @NotNull CodeWriter emit(@NotNull CodeWriter out) throws IOException {
 //    emitAnnotations(out);
     return out.emitAndIndent(name);
+  }
+
+  @Override
+  public String toString() {
+    return toNotation().toCode();
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) {
+      return true;
+    }
+    if (o == null || getClass() != o.getClass()) {
+      return false;
+    }
+    TypeVariableName that = (TypeVariableName) o;
+    return Objects.equals(name, that.name) && Objects.equals(
+        bounds,
+        that.bounds
+    );
+  }
+
+  @Override
+  public int hashCode() {
+    if (guard.get()) {
+      return Objects.hash(name);
+    }
+    try {
+      guard.set(Boolean.TRUE);
+      return Objects.hash(name, bounds);
+    } finally {
+      guard.set(Boolean.FALSE);
+    }
+  }
+
+  @Override
+  public Notation toNotation() {
+    var builder = Stream.<Notation>builder();
+    builder.add(Notation.typeRef(this));
+    builder.add(bounds
+        .stream()
+        .map(b -> txt("extends ").then(typeRef(b)))
+        .collect(join(txt(" & "))));
+    return builder.build().filter(n -> !n.isEmpty()).collect(join(txt(" ")));
   }
 }

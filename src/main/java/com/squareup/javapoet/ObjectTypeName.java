@@ -17,18 +17,9 @@ package com.squareup.javapoet;
 
 import org.jetbrains.annotations.NotNull;
 
-import java.io.IOException;
-
-public sealed abstract class ObjectTypeName implements TypeName permits ArrayTypeName, ClassName, ParameterizedTypeName, TypeVariableName, WildcardTypeName {
-
-  /**
-   * Lazily-initialized toString of this type name.
-   */
-  private String cachedString;
-
-
-  public ObjectTypeName() {
-  }
+public sealed abstract class ObjectTypeName implements TypeName
+    permits ArrayTypeName, ClassName, ParameterizedTypeName, TypeVariableName,
+    WildcardTypeName {
 
   @Override
   public @NotNull ObjectTypeName withoutAnnotations() {
@@ -56,35 +47,5 @@ public sealed abstract class ObjectTypeName implements TypeName permits ArrayTyp
   @Override
   public ObjectTypeName box() {
     return this; // Doesn't need boxing.
-  }
-
-  @Override
-  public final boolean equals(Object o) {
-    if (this == o) return true;
-    if (o == null) return false;
-    if (getClass() != o.getClass()) return false;
-    return toString().equals(o.toString());
-  }
-
-  @Override
-  public final int hashCode() {
-    return toString().hashCode();
-  }
-
-  @Override
-  public final String toString() {
-    var result = cachedString;
-    if (result == null) {
-      try {
-        var resultBuilder = new StringBuilder();
-        var codeWriter = new CodeWriter(resultBuilder);
-        emit(codeWriter);
-        result = resultBuilder.toString();
-        cachedString = result;
-      } catch (IOException e) {
-        throw new AssertionError();
-      }
-    }
-    return result;
   }
 }

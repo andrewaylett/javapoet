@@ -20,7 +20,15 @@ import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 
 import javax.lang.model.element.Modifier;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 import static java.lang.Character.isISOControl;
 
@@ -35,7 +43,9 @@ final class Util {
   static <K, V> Map<K, List<V>> immutableMultimap(Map<K, List<V>> multimap) {
     var result = new LinkedHashMap<K, List<V>>();
     for (var entry : multimap.entrySet()) {
-      if (entry.getValue().isEmpty()) continue;
+      if (entry.getValue().isEmpty()) {
+        continue;
+      }
       result.put(entry.getKey(), immutableList(entry.getValue()));
     }
     return Collections.unmodifiableMap(result);
@@ -45,18 +55,36 @@ final class Util {
     return Collections.unmodifiableMap(new LinkedHashMap<>(map));
   }
 
-  static void checkArgument(boolean condition, @PrintFormat String format, Object... args) {
-    if (!condition) throw new IllegalArgumentException(String.format(format, args));
+  static void checkArgument(
+      boolean condition,
+      @PrintFormat String format,
+      Object... args
+  ) {
+    if (!condition) {
+      throw new IllegalArgumentException(String.format(format, args));
+    }
   }
 
   @Contract("!null, _, _ -> param1; null, _, _ -> fail")
-  static <T> @NotNull T checkNotNull(T reference, @PrintFormat String format, Object... args) {
-    if (reference == null) throw new NullPointerException(String.format(format, args));
+  static <T> @NotNull T checkNotNull(
+      T reference,
+      @PrintFormat String format,
+      Object... args
+  ) {
+    if (reference == null) {
+      throw new NullPointerException(String.format(format, args));
+    }
     return reference;
   }
 
-  static void checkState(boolean condition, @PrintFormat String format, Object... args) {
-    if (!condition) throw new IllegalStateException(String.format(format, args));
+  static void checkState(
+      boolean condition,
+      @PrintFormat String format,
+      Object... args
+  ) {
+    if (!condition) {
+      throw new IllegalStateException(String.format(format, args));
+    }
   }
 
   static <T> List<T> immutableList(Collection<T> collection) {
@@ -75,13 +103,19 @@ final class Util {
     return result;
   }
 
-  static void requireExactlyOneOf(Set<Modifier> modifiers, Modifier... mutuallyExclusive) {
+  static void requireExactlyOneOf(
+      Set<Modifier> modifiers,
+      Modifier... mutuallyExclusive
+  ) {
     var count = 0;
     for (var modifier : mutuallyExclusive) {
-      if (modifiers.contains(modifier)) count++;
+      if (modifiers.contains(modifier)) {
+        count++;
+      }
     }
     checkArgument(count == 1, "modifiers %s must contain one of %s",
-            modifiers, Arrays.toString(mutuallyExclusive));
+        modifiers, Arrays.toString(mutuallyExclusive)
+    );
   }
 
   static String characterLiteralWithoutSingleQuotes(char c) {
@@ -104,7 +138,9 @@ final class Util {
       case '\\':
         return "\\\\";  /* \\u005c: backslash (\) */
       default:
-        return isISOControl(c) ? String.format("\\u%04x", (int) c) : Character.toString(c);
+        return isISOControl(c)
+            ? String.format("\\u%04x", (int) c)
+            : Character.toString(c);
     }
   }
 

@@ -14,20 +14,21 @@
  * limitations under the License.
  */
 
-import static com.google.common.truth.Truth.assertThat;
-
 import com.squareup.javapoet.ClassName;
 import org.junit.Test;
+
+import static com.google.common.truth.Truth.assertThat;
 
 /**
  * Since it is impossible to import classes from the default package into other
  * modules, this test must live in this package.
  */
 public final class ClassNameNoPackageTest {
-  @Test public void shouldSupportClassInDefaultPackage() {
+  @Test
+  public void shouldSupportClassInDefaultPackage() {
     var className = ClassName.get(ClassNameNoPackageTest.class);
     assertThat(className.packageName()).isEqualTo("");
-    assertThat(className.simpleName()).isEqualTo("ClassNameNoPackageTest");
+    assertThat(className.nameWhenImported()).isEqualTo("ClassNameNoPackageTest");
     assertThat(className.toString()).isEqualTo("ClassNameNoPackageTest");
   }
 }

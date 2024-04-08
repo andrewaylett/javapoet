@@ -21,9 +21,10 @@ import org.jetbrains.annotations.Nullable;
 
 import javax.lang.model.element.Element;
 import javax.lang.model.type.TypeMirror;
-import java.io.IOException;
 import java.lang.reflect.Type;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Deque;
 import java.util.List;
 import java.util.Map;
 import java.util.regex.Matcher;
@@ -32,6 +33,7 @@ import java.util.stream.Collector;
 import java.util.stream.StreamSupport;
 
 import static com.squareup.javapoet.Util.checkArgument;
+import static com.squareup.javapoet.notation.Notation.nl;
 
 /**
  * A fragment of a .java file, potentially containing declarations, statements, and documentation.
@@ -66,20 +68,18 @@ import static com.squareup.javapoet.Util.checkArgument;
  *   <li>{@code $]} ends a statement.
  * </ul>
  */
-public final class CodeBlock {
+public final class CodeBlock implements Emitable {
   private static final Pattern NAMED_ARGUMENT =
-          Pattern.compile("\\$(?<argumentName>[\\w_]+):(?<typeChar>\\w).*");
+      Pattern.compile("\\$(?<argumentName>[\\w_]+):(?<typeChar>\\w).*");
   private static final Pattern LOWERCASE = Pattern.compile("[a-z]+[\\w_]*");
 
   /**
    * A heterogeneous list containing string literals and value placeholders.
    */
-  final List<String> formatParts;
-  final List<Object> args;
+  final Notation notation;
 
-  private CodeBlock(Builder builder) {
-    this.formatParts = Util.immutableList(builder.formatParts);
-    this.args = Util.immutableList(builder.args);
+  private CodeBlock(Notation notation) {
+    this.notation = notation;
   }
 
   public static CodeBlock of(String format, Object... args) {
@@ -91,8 +91,13 @@ public final class CodeBlock {
    * For example, joining {@code String s}, {@code Object o} and {@code int i} using {@code ", "}
    * would produce {@code String s, Object o, int i}.
    */
-  public static CodeBlock join(Iterable<CodeBlock> codeBlocks, String separator) {
-    return StreamSupport.stream(codeBlocks.spliterator(), false).collect(joining(separator));
+  public static CodeBlock join(
+      Iterable<CodeBlock> codeBlocks,
+      String separator
+  ) {
+    return StreamSupport
+        .stream(codeBlocks.spliterator(), false)
+        .collect(joining(separator));
   }
 
   /**
@@ -102,10 +107,11 @@ public final class CodeBlock {
    */
   public static Collector<CodeBlock, ?, CodeBlock> joining(String separator) {
     return Collector.of(
-            () -> new CodeBlockJoiner(separator, builder()),
-            CodeBlockJoiner::add,
-            CodeBlockJoiner::merge,
-            CodeBlockJoiner::join);
+        () -> new CodeBlockJoiner(separator, builder()),
+        CodeBlockJoiner::add,
+        CodeBlockJoiner::merge,
+        CodeBlockJoiner::join
+    );
   }
 
   /**
@@ -114,16 +120,18 @@ public final class CodeBlock {
    * {@code int i} using {@code ", "} would produce {@code String s, Object o, int i}.
    */
   public static Collector<CodeBlock, ?, CodeBlock> joining(
-          String separator, String prefix, String suffix) {
+      String separator, String prefix, String suffix
+  ) {
     var builder = builder().add("$N", prefix);
     return Collector.of(
-            () -> new CodeBlockJoiner(separator, builder),
-            CodeBlockJoiner::add,
-            CodeBlockJoiner::merge,
-            joiner -> {
-              builder.add(CodeBlock.of("$N", suffix));
-              return joiner.join();
-            });
+        () -> new CodeBlockJoiner(separator, builder),
+        CodeBlockJoiner::add,
+        CodeBlockJoiner::merge,
+        joiner -> {
+          builder.add(CodeBlock.of("$N", suffix));
+          return joiner.join();
+        }
+    );
   }
 
   public static Builder builder() {
@@ -131,14 +139,25 @@ public final class CodeBlock {
   }
 
   public boolean isEmpty() {
-    return formatParts.isEmpty();
+    return notation.isEmpty();
+  }
+
+  @Override
+  public Notation toNotation() {
+    return notation;
   }
 
   @Override
   public boolean equals(Object o) {
-    if (this == o) return true;
-    if (o == null) return false;
-    if (getClass() != o.getClass()) return false;
+    if (this == o) {
+      return true;
+    }
+    if (o == null) {
+      return false;
+    }
+    if (getClass() != o.getClass()) {
+      return false;
+    }
     return toString().equals(o.toString());
   }
 
@@ -149,35 +168,26 @@ public final class CodeBlock {
 
   @Override
   public String toString() {
-    var out = new StringBuilder();
-    try {
-      new CodeWriter(out).emit(this);
-      return out.toString();
-    } catch (IOException e) {
-      throw new AssertionError();
-    }
+    return toNotation().toCode();
   }
 
   public Builder toBuilder() {
     var builder = new Builder();
-    builder.formatParts.addAll(formatParts);
-    builder.args.addAll(args);
+    builder.add(notation);
     return builder;
   }
 
-  public Notation generateNotation() {
-    return null;
-  }
-
   public static final class Builder {
-    final List<String> formatParts = new ArrayList<>();
-    final List<Object> args = new ArrayList<>();
+    final Deque<Notation> notation;
+    boolean inStatement = false;
 
     private Builder() {
+      notation = new ArrayDeque<>();
+      notation.push(Notation.empty());
     }
 
     public boolean isEmpty() {
-      return formatParts.isEmpty();
+      return notation.stream().allMatch(Notation::isEmpty);
     }
 
     /**
@@ -196,18 +206,19 @@ public final class CodeBlock {
 
       for (var argument : arguments.keySet()) {
         checkArgument(LOWERCASE.matcher(argument).matches(),
-                "argument '%s' must start with a lowercase character", argument);
+            "argument '%s' must start with a lowercase character", argument
+        );
       }
 
       while (p < format.length()) {
         var nextP = format.indexOf("$", p);
         if (nextP == -1) {
-          formatParts.add(format.substring(p));
+          add(format.substring(p));
           break;
         }
 
         if (p != nextP) {
-          formatParts.add(format.substring(p, nextP));
+          add(format.substring(p, nextP));
           p = nextP;
         }
 
@@ -219,17 +230,25 @@ public final class CodeBlock {
         }
         if (matcher != null && matcher.lookingAt()) {
           var argumentName = matcher.group("argumentName");
-          checkArgument(arguments.containsKey(argumentName), "Missing named argument for $%s",
-                  argumentName);
+          checkArgument(arguments.containsKey(argumentName),
+              "Missing named argument for $%s",
+              argumentName
+          );
           var formatChar = matcher.group("typeChar").charAt(0);
-          addArgument(format, formatChar, arguments.get(argumentName));
-          formatParts.add("$" + formatChar);
+          var prev = notation.pop();
+          var next =
+              addArgument(format, formatChar, arguments.get(argumentName));
+          notation.push(prev.then(next));
           p += matcher.regionEnd();
         } else {
           checkArgument(p < format.length() - 1, "dangling $ at end");
           checkArgument(isNoArgPlaceholder(format.charAt(p + 1)),
-                  "unknown format $%s at %s in '%s'", format.charAt(p + 1), p + 1, format);
-          formatParts.add(format.substring(p, p + 2));
+              "unknown format $%s at %s in '%s'",
+              format.charAt(p + 1),
+              p + 1,
+              format
+          );
+          add(format.substring(p, p + 2));
           p += 2;
         }
       }
@@ -258,8 +277,12 @@ public final class CodeBlock {
       for (var p = 0; p < format.length(); ) {
         if (format.charAt(p) != '$') {
           var nextP = format.indexOf('$', p + 1);
-          if (nextP == -1) nextP = format.length();
-          formatParts.add(format.substring(p, nextP));
+          if (nextP == -1) {
+            nextP = format.length();
+          }
+          var prev = notation.pop();
+          var next = Notation.txt(format.substring(p, nextP));
+          notation.push(prev.then(next));
           p = nextP;
           continue;
         }
@@ -270,7 +293,11 @@ public final class CodeBlock {
         var indexStart = p;
         char c;
         do {
-          checkArgument(p < format.length(), "dangling format characters in '%s'", format);
+          checkArgument(
+              p < format.length(),
+              "dangling format characters in '%s'",
+              format
+          );
           c = format.charAt(p++);
         } while (c >= '0' && c <= '9');
         var indexEnd = p - 1;
@@ -278,8 +305,35 @@ public final class CodeBlock {
         // If 'c' doesn't take an argument, we're done.
         if (isNoArgPlaceholder(c)) {
           checkArgument(
-                  indexStart == indexEnd, "$$, $>, $<, $[, $], $W, and $Z may not have an index");
-          formatParts.add("$" + c);
+              indexStart == indexEnd,
+              "$$, $>, $<, $[, $], $W, and $Z may not have an index"
+          );
+          switch (c) {
+            case '$':
+              notation.push(notation.pop().then(Notation.txt("$")));
+              break;
+            case '>':
+              indent();
+              break;
+            case '<':
+              unindent();
+              break;
+            case '[':
+              statement();
+              break;
+            case ']':
+              unstatement();
+              break;
+            case 'W':
+              notation.push(notation.pop().then(Notation.txt(" ").or(nl())));
+              break;
+            case 'Z':
+              notation.push(notation.pop().then(Notation.empty().or(nl())));
+              break;
+            default:
+              throw new IllegalArgumentException(
+                  "Can't use '" + c + "' as a no arg placeholder");
+          }
           continue;
         }
 
@@ -289,7 +343,8 @@ public final class CodeBlock {
           index = Integer.parseInt(format.substring(indexStart, indexEnd)) - 1;
           hasIndexed = true;
           if (args.length > 0) {
-            indexedParameterCount[index % args.length]++; // modulo is needed, checked below anyway
+            indexedParameterCount[index
+                % args.length]++; // modulo is needed, checked below anyway
           }
         } else {
           index = relativeParameterCount;
@@ -298,18 +353,27 @@ public final class CodeBlock {
         }
 
         checkArgument(index >= 0 && index < args.length,
-                "index %d for '%s' not in range (received %s arguments)",
-                index + 1, format.substring(indexStart - 1, indexEnd + 1), args.length);
-        checkArgument(!hasIndexed || !hasRelative, "cannot mix indexed and positional parameters");
+            "index %d for '%s' not in range (received %s arguments)",
+            index + 1,
+            format.substring(indexStart - 1, indexEnd + 1),
+            args.length
+        );
+        checkArgument(
+            !hasIndexed || !hasRelative,
+            "cannot mix indexed and positional parameters"
+        );
 
-        addArgument(format, c, args[index]);
-
-        formatParts.add("$" + c);
+        var prev = notation.pop();
+        var next = addArgument(format, c, args[index]);
+        notation.push(prev.then(next));
       }
 
       if (hasRelative) {
         checkArgument(relativeParameterCount >= args.length,
-                "unused arguments: expected %s, received %s", relativeParameterCount, args.length);
+            "unused arguments: expected %s, received %s",
+            relativeParameterCount,
+            args.length
+        );
       }
       if (hasIndexed) {
         List<String> unused = new ArrayList<>();
@@ -319,41 +383,53 @@ public final class CodeBlock {
           }
         }
         var s = unused.size() == 1 ? "" : "s";
-        checkArgument(unused.isEmpty(), "unused argument%s: %s", s, String.join(", ", unused));
+        checkArgument(
+            unused.isEmpty(),
+            "unused argument%s: %s",
+            s,
+            String.join(", ", unused)
+        );
       }
       return this;
     }
 
-    private boolean isNoArgPlaceholder(char c) {
-      return c == '$' || c == '>' || c == '<' || c == '[' || c == ']' || c == 'W' || c == 'Z';
+    public Builder add(Notation n) {
+      notation.push(notation.pop().then(n));
+      return this;
     }
 
-    private void addArgument(String format, char c, Object arg) {
-      switch (c) {
-        case 'N':
-          this.args.add(argToName(arg));
-          break;
-        case 'L':
-          this.args.add(argToLiteral(arg));
-          break;
-        case 'S':
-          this.args.add(argToString(arg));
-          break;
-        case 'T':
-          this.args.add(argToType(arg));
-          break;
-        default:
-          throw new IllegalArgumentException(
-                  String.format("invalid format string: '%s'", format));
-      }
+    private boolean isNoArgPlaceholder(char c) {
+      return c == '$' || c == '>' || c == '<' || c == '[' || c == ']'
+          || c == 'W' || c == 'Z';
+    }
+
+    private Notation addArgument(String format, char c, Object arg) {
+      return switch (c) {
+        case 'N' -> Notation.txt(argToName(arg));
+        case 'L' -> Notation.literal(argToLiteral(arg));
+        case 'S' -> Notation.txt("\"" + argToString(arg) + "\"");
+        case 'T' -> Notation.typeRef(argToType(arg));
+        default -> throw new IllegalArgumentException(
+            String.format("invalid format string: '%s'", format));
+      };
     }
 
     private String argToName(Object o) {
-      if (o instanceof CharSequence) return o.toString();
-      if (o instanceof ParameterSpec) return ((ParameterSpec) o).name;
-      if (o instanceof FieldSpec) return ((FieldSpec) o).name;
-      if (o instanceof MethodSpec) return ((MethodSpec) o).name;
-      if (o instanceof TypeSpec) return ((TypeSpec) o).name;
+      if (o instanceof CharSequence) {
+        return o.toString();
+      }
+      if (o instanceof ParameterSpec) {
+        return ((ParameterSpec) o).name;
+      }
+      if (o instanceof FieldSpec) {
+        return ((FieldSpec) o).name;
+      }
+      if (o instanceof MethodSpec) {
+        return ((MethodSpec) o).name;
+      }
+      if (o instanceof TypeSpec) {
+        return ((TypeSpec) o).name;
+      }
       throw new IllegalArgumentException("expected name but was " + o);
     }
 
@@ -361,18 +437,27 @@ public final class CodeBlock {
       return o;
     }
 
-    @Contract(value = "null -> null", pure = true)
+    @Contract(pure = true)
     private @Nullable String argToString(Object o) {
-      return o != null ? String.valueOf(o) : null;
+      return o != null ? String.valueOf(o) : "null";
     }
 
     @Contract("null -> fail")
     private TypeName argToType(Object o) {
-      if (o instanceof TypeName) return (TypeName) o;
-      if (o instanceof TypeMirror) return TypeName.get((TypeMirror) o);
-      if (o instanceof Element) return TypeName.get(((Element) o).asType());
-      if (o instanceof Type) return TypeName.get((Type) o);
-      throw new IllegalArgumentException("expected type but was a " + o.getClass());
+      if (o instanceof TypeName) {
+        return (TypeName) o;
+      }
+      if (o instanceof TypeMirror) {
+        return TypeName.get((TypeMirror) o);
+      }
+      if (o instanceof Element) {
+        return TypeName.get(((Element) o).asType());
+      }
+      if (o instanceof Type) {
+        return TypeName.get((Type) o);
+      }
+      throw new IllegalArgumentException(
+          "expected type but was a " + o.getClass());
     }
 
     /**
@@ -380,7 +465,7 @@ public final class CodeBlock {
      *                    Shouldn't contain braces or newline characters.
      */
     public Builder beginControlFlow(String controlFlow, Object... args) {
-      add(controlFlow + " {\n", args);
+      add(controlFlow + " {", args);
       indent();
       return this;
     }
@@ -391,14 +476,14 @@ public final class CodeBlock {
      */
     public Builder nextControlFlow(String controlFlow, Object... args) {
       unindent();
-      add("} " + controlFlow + " {\n", args);
+      add("\n} " + controlFlow + " {", args);
       indent();
       return this;
     }
 
     public Builder endControlFlow() {
       unindent();
-      add("}\n");
+      add("\n}");
       return this;
     }
 
@@ -408,14 +493,14 @@ public final class CodeBlock {
      */
     public Builder endControlFlow(String controlFlow, Object... args) {
       unindent();
-      add("} " + controlFlow + ";\n", args);
+      add("\n} " + controlFlow + ";", args);
       return this;
     }
 
     public Builder addStatement(String format, Object... args) {
       add("$[");
       add(format, args);
-      add(";\n$]");
+      add(";$]");
       return this;
     }
 
@@ -424,29 +509,65 @@ public final class CodeBlock {
     }
 
     public Builder add(CodeBlock codeBlock) {
-      formatParts.addAll(codeBlock.formatParts);
-      args.addAll(codeBlock.args);
+      add(codeBlock.notation);
       return this;
     }
 
     public Builder indent() {
-      this.formatParts.add("$>");
+      notation.push(Notation.empty());
       return this;
     }
 
     public Builder unindent() {
-      this.formatParts.add("$<");
+      var indented = notation.pop();
+      var surrounding = notation.pop();
+      notation.push(surrounding.then(indented.indent("  ")));
+      return this;
+    }
+
+    public Builder statement() {
+      if (inStatement) {
+        throw new IllegalStateException(
+            "statement enter $[ followed by statement enter $[");
+      }
+      notation.push(Notation.empty());
+      inStatement = true;
+      return this;
+    }
+
+    public Builder unstatement() {
+      if (!inStatement) {
+        throw new IllegalStateException(
+            "statement exit $] has no matching statement enter $[");
+      }
+      inStatement = false;
+      var statement = notation.pop();
+      var surrounding = notation.pop();
+      if (surrounding.isEmpty()) {
+        notation.push(Notation.statement(statement));
+      } else {
+        notation.push(surrounding
+            .then(nl())
+            .then(Notation.statement(statement)));
+      }
       return this;
     }
 
     public Builder clear() {
-      formatParts.clear();
-      args.clear();
+      notation.clear();
+      inStatement = false;
+      notation.push(Notation.empty());
       return this;
     }
 
     public CodeBlock build() {
-      return new CodeBlock(this);
+      if (inStatement) {
+        unstatement();
+      }
+      while (this.notation.size() > 1) {
+        unindent();
+      }
+      return new CodeBlock(this.notation.pop());
     }
   }
 

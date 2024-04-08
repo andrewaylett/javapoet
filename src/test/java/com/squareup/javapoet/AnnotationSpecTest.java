@@ -16,21 +16,299 @@
 package com.squareup.javapoet;
 
 import com.google.testing.compile.CompilationRule;
+import org.junit.Rule;
+import org.junit.Test;
+
 import java.lang.annotation.Annotation;
 import java.lang.annotation.Inherited;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
-import java.util.Arrays;
 import java.util.List;
-
-import javax.lang.model.element.TypeElement;
-import org.junit.Rule;
-import org.junit.Test;
 
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.fail;
 
 public final class AnnotationSpecTest {
+
+  @Rule public final CompilationRule compilation = new CompilationRule();
+
+  @Test
+  public void equalsAndHashCode() {
+    var a = AnnotationSpec.builder(AnnotationC.class).build();
+    var b = AnnotationSpec.builder(AnnotationC.class).build();
+    assertThat(a.equals(b)).isTrue();
+    assertThat(a.hashCode()).isEqualTo(b.hashCode());
+    a = AnnotationSpec
+        .builder(AnnotationC.class)
+        .addMember("value", "$S", "123")
+        .build();
+    b = AnnotationSpec
+        .builder(AnnotationC.class)
+        .addMember("value", "$S", "123")
+        .build();
+    assertThat(a.equals(b)).isTrue();
+    assertThat(a.hashCode()).isEqualTo(b.hashCode());
+  }
+
+  @Test
+  public void defaultAnnotation() {
+    var name = IsAnnotated.class.getCanonicalName();
+    var element = compilation.getElements().getTypeElement(name);
+    var annotation = AnnotationSpec.get(element.getAnnotationMirrors().get(0));
+
+    var taco = TypeSpec.classBuilder("Taco")
+        .addAnnotation(annotation)
+        .build();
+    assertThat(toString(taco)).isEqualTo("""
+        package com.squareup.tacos;
+
+        import com.squareup.javapoet.AnnotationSpecTest;
+        import java.lang.Double;
+        import java.lang.Float;
+        import java.lang.Override;
+
+        @AnnotationSpecTest.HasDefaultsAnnotation(
+          o = AnnotationSpecTest.Breakfast.PANCAKES,
+          p = 1701,
+          f = 11.1,
+          m = { 9, 8, 1 },
+          l = Override.class,
+          j = @AnnotationSpecTest.AnnotationA,
+          q = @AnnotationSpecTest.AnnotationC("bar"),
+          r = { Float.class, Double.class }
+        )
+        class Taco {}
+        """);
+  }
+
+  @Test
+  public void defaultAnnotationWithImport() {
+    var name = IsAnnotated.class.getCanonicalName();
+    var element = compilation.getElements().getTypeElement(name);
+    var annotation = AnnotationSpec.get(element.getAnnotationMirrors().get(0));
+    var typeBuilder = TypeSpec.classBuilder(IsAnnotated.class.getSimpleName());
+    typeBuilder.addAnnotation(annotation);
+    var file =
+        JavaFile.builder("com.squareup.javapoet", typeBuilder.build()).build();
+    assertThat(file.toString()).isEqualTo(
+        """
+            package com.squareup.javapoet;
+
+            import java.lang.Double;
+            import java.lang.Float;
+            import java.lang.Override;
+
+            @AnnotationSpecTest.HasDefaultsAnnotation(
+              o = AnnotationSpecTest.Breakfast.PANCAKES,
+              p = 1701,
+              f = 11.1,
+              m = { 9, 8, 1 },
+              l = Override.class,
+              j = @AnnotationSpecTest.AnnotationA,
+              q = @AnnotationSpecTest.AnnotationC("bar"),
+              r = { Float.class, Double.class }
+            )
+            class IsAnnotated {}
+            """
+    );
+  }
+
+  @Test
+  public void emptyArray() {
+    var builder = AnnotationSpec.builder(HasDefaultsAnnotation.class);
+    builder.addMember("n", "$L", "{}");
+    assertThat(builder.build().toString()).isEqualTo(
+        "@com.squareup.javapoet.AnnotationSpecTest.HasDefaultsAnnotation("
+            + "n = {}" + ")");
+    builder.addMember("m", "$L", "{}");
+    assertThat(builder.build().toString())
+        .isEqualTo(
+            "@com.squareup.javapoet.AnnotationSpecTest.HasDefaultsAnnotation("
+                + "n = {}, m = {}"
+                + ")");
+  }
+
+  @Test
+  public void dynamicArrayOfEnumConstants() {
+    var builder = AnnotationSpec.builder(HasDefaultsAnnotation.class);
+    builder.addMember("n", "$T.$L", Breakfast.class, Breakfast.PANCAKES.name());
+    assertThat(builder.build().toString()).isEqualTo("""
+            @com.squareup.javapoet.AnnotationSpecTest.HasDefaultsAnnotation(
+              n = com.squareup.javapoet.AnnotationSpecTest.Breakfast.PANCAKES
+            )""");
+
+    // builder = AnnotationSpec.builder(HasDefaultsAnnotation.class);
+    builder.addMember("n", "$T.$L", Breakfast.class, Breakfast.WAFFLES.name());
+    builder.addMember("n", "$T.$L", Breakfast.class, Breakfast.PANCAKES.name());
+    assertThat(builder.build().toString()).isEqualTo("""
+            @com.squareup.javapoet.AnnotationSpecTest.HasDefaultsAnnotation(
+              n = {
+                com.squareup.javapoet.AnnotationSpecTest.Breakfast.PANCAKES,
+                com.squareup.javapoet.AnnotationSpecTest.Breakfast.WAFFLES,
+                com.squareup.javapoet.AnnotationSpecTest.Breakfast.PANCAKES
+              }
+            )""");
+
+    builder = builder.build().toBuilder(); // idempotent
+    assertThat(builder.build().toString()).isEqualTo("""
+            @com.squareup.javapoet.AnnotationSpecTest.HasDefaultsAnnotation(
+              n = {
+                com.squareup.javapoet.AnnotationSpecTest.Breakfast.PANCAKES,
+                com.squareup.javapoet.AnnotationSpecTest.Breakfast.WAFFLES,
+                com.squareup.javapoet.AnnotationSpecTest.Breakfast.PANCAKES
+              }
+            )""");
+
+    builder.addMember("n", "$T.$L", Breakfast.class, Breakfast.WAFFLES.name());
+    assertThat(builder.build().toString()).isEqualTo("""
+            @com.squareup.javapoet.AnnotationSpecTest.HasDefaultsAnnotation(
+              n = {
+                com.squareup.javapoet.AnnotationSpecTest.Breakfast.PANCAKES,
+                com.squareup.javapoet.AnnotationSpecTest.Breakfast.WAFFLES,
+                com.squareup.javapoet.AnnotationSpecTest.Breakfast.PANCAKES,
+                com.squareup.javapoet.AnnotationSpecTest.Breakfast.WAFFLES
+              }
+            )""");
+  }
+
+  @Test
+  public void defaultAnnotationToBuilder() {
+    var name = IsAnnotated.class.getCanonicalName();
+    var element = compilation.getElements().getTypeElement(name);
+    var builder = AnnotationSpec.get(element.getAnnotationMirrors().get(0))
+        .toBuilder();
+    builder.addMember("m", "$L", 123);
+    assertThat(builder.build().toString()).isEqualTo("""
+            @com.squareup.javapoet.AnnotationSpecTest.HasDefaultsAnnotation(
+              o = com.squareup.javapoet.AnnotationSpecTest.Breakfast.PANCAKES,
+              p = 1701,
+              f = 11.1,
+              m = { 9, 8, 1, 123 },
+              l = java.lang.Override.class,
+              j = @com.squareup.javapoet.AnnotationSpecTest.AnnotationA,
+              q = @com.squareup.javapoet.AnnotationSpecTest.AnnotationC("bar"),
+              r = { java.lang.Float.class, java.lang.Double.class }
+            )""");
+  }
+
+  @Test
+  public void reflectAnnotation() {
+    var annotation =
+        IsAnnotated.class.getAnnotation(HasDefaultsAnnotation.class);
+    var spec = AnnotationSpec.get(annotation);
+    var taco = TypeSpec.classBuilder("Taco")
+        .addAnnotation(spec)
+        .build();
+    assertThat(toString(taco)).isEqualTo("""
+        package com.squareup.tacos;
+
+        import com.squareup.javapoet.AnnotationSpecTest;
+        import java.lang.Double;
+        import java.lang.Float;
+        import java.lang.Override;
+
+        @AnnotationSpecTest.HasDefaultsAnnotation(
+          f = 11.1,
+          l = Override.class,
+          m = { 9, 8, 1 },
+          o = AnnotationSpecTest.Breakfast.PANCAKES,
+          p = 1701,
+          q = @AnnotationSpecTest.AnnotationC("bar"),
+          r = { Float.class, Double.class }
+        )
+        class Taco {}
+        """);
+  }
+
+  @Test
+  public void reflectAnnotationWithDefaults() {
+    var annotation =
+        IsAnnotated.class.getAnnotation(HasDefaultsAnnotation.class);
+    var spec = AnnotationSpec.get(annotation, true);
+    var taco = TypeSpec.classBuilder("Taco")
+        .addAnnotation(spec)
+        .build();
+    assertThat(toString(taco)).isEqualTo("""
+        package com.squareup.tacos;
+
+        import com.squareup.javapoet.AnnotationSpecTest;
+        import java.lang.Double;
+        import java.lang.Float;
+        import java.lang.Override;
+
+        @AnnotationSpecTest.HasDefaultsAnnotation(
+          a = 5,
+          b = 6,
+          c = 7,
+          d = 12345678910L,
+          e = 9.0f,
+          f = 11.1,
+          g = { '\\u0000', '쫾', 'z', '€', 'ℕ', '"', '\\'', '\\t', '\\n' },
+          h = true,
+          i = AnnotationSpecTest.Breakfast.WAFFLES,
+          j = @AnnotationSpecTest.AnnotationA,
+          k = "maple",
+          l = Override.class,
+          m = { 9, 8, 1 },
+          n = {
+            AnnotationSpecTest.Breakfast.WAFFLES,
+            AnnotationSpecTest.Breakfast.PANCAKES,
+            AnnotationSpecTest.Breakfast.WAFFLES
+          },
+          o = AnnotationSpecTest.Breakfast.PANCAKES,
+          p = 1701,
+          q = @AnnotationSpecTest.AnnotationC("bar"),
+          r = { Float.class, Double.class }
+        )
+        class Taco {}
+        """);
+  }
+
+  @Test
+  public void disallowsNullMemberName() {
+    var builder = AnnotationSpec.builder(HasDefaultsAnnotation.class);
+    try {
+      var $L = builder.addMember(null, "$L", "");
+      fail($L.build().toString());
+    } catch (NullPointerException e) {
+      assertThat(e).hasMessageThat().isEqualTo("name == null");
+    }
+  }
+
+  @Test
+  public void requiresValidMemberName() {
+    var builder = AnnotationSpec.builder(HasDefaultsAnnotation.class);
+    try {
+      var $L = builder.addMember("@", "$L", "");
+      fail($L.build().toString());
+    } catch (IllegalArgumentException e) {
+      assertThat(e).hasMessageThat().isEqualTo("not a valid name: @");
+    }
+  }
+
+  @Test
+  public void modifyMembers() {
+    var builder = AnnotationSpec.builder(SuppressWarnings.class)
+        .addMember("value", "$S", "Foo");
+
+    builder.members.clear();
+    builder.members.put("value", List.of(CodeBlock.of("$S", "Bar")));
+
+    assertThat(builder.build().toString()).isEqualTo(
+        "@java.lang.SuppressWarnings(\"Bar\")");
+  }
+
+  private String toString(TypeSpec typeSpec) {
+    return JavaFile.builder("com.squareup.tacos", typeSpec).build().toString();
+  }
+
+  public enum Breakfast {
+    WAFFLES, PANCAKES;
+
+    public String toString() {
+      return name() + " with cherries!";
+    }
+  }
 
   @Retention(RetentionPolicy.RUNTIME)
   public @interface AnnotationA {
@@ -44,11 +322,6 @@ public final class AnnotationSpecTest {
   @Retention(RetentionPolicy.RUNTIME)
   public @interface AnnotationC {
     String value();
-  }
-
-  public enum Breakfast {
-    WAFFLES, PANCAKES;
-    public String toString() { return name() + " with cherries!"; }
   }
 
   @Retention(RetentionPolicy.RUNTIME)
@@ -80,7 +353,11 @@ public final class AnnotationSpecTest {
 
     int[] m() default {1, 2, 3};
 
-    Breakfast[] n() default {Breakfast.WAFFLES, Breakfast.PANCAKES};
+    Breakfast[] n() default {
+        Breakfast.WAFFLES,
+        Breakfast.PANCAKES,
+        Breakfast.WAFFLES
+    };
 
     Breakfast o();
 
@@ -88,7 +365,12 @@ public final class AnnotationSpecTest {
 
     AnnotationC q() default @AnnotationC("foo");
 
-    Class<? extends Number>[] r() default {Byte.class, Short.class, Integer.class, Long.class};
+    Class<? extends Number>[] r() default {
+        Byte.class,
+        Short.class,
+        Integer.class,
+        Long.class
+    };
 
   }
 
@@ -103,285 +385,5 @@ public final class AnnotationSpecTest {
       r = {Float.class, Double.class})
   public class IsAnnotated {
     // empty
-  }
-
-  @Rule public final CompilationRule compilation = new CompilationRule();
-
-  @Test public void equalsAndHashCode() {
-    var a = AnnotationSpec.builder(AnnotationC.class).build();
-    var b = AnnotationSpec.builder(AnnotationC.class).build();
-    assertThat(a.equals(b)).isTrue();
-    assertThat(a.hashCode()).isEqualTo(b.hashCode());
-    a = AnnotationSpec.builder(AnnotationC.class).addMember("value", "$S", "123").build();
-    b = AnnotationSpec.builder(AnnotationC.class).addMember("value", "$S", "123").build();
-    assertThat(a.equals(b)).isTrue();
-    assertThat(a.hashCode()).isEqualTo(b.hashCode());
-  }
-
-  @Test public void defaultAnnotation() {
-    var name = IsAnnotated.class.getCanonicalName();
-    var element = compilation.getElements().getTypeElement(name);
-    var annotation = AnnotationSpec.get(element.getAnnotationMirrors().get(0));
-
-    var taco = TypeSpec.classBuilder("Taco")
-        .addAnnotation(annotation)
-        .build();
-    assertThat(toString(taco)).isEqualTo("package com.squareup.tacos;\n"
-        + "\n"
-        + "import com.squareup.javapoet.AnnotationSpecTest;\n"
-        + "import java.lang.Double;\n"
-        + "import java.lang.Float;\n"
-        + "import java.lang.Override;\n"
-        + "\n"
-        + "@AnnotationSpecTest.HasDefaultsAnnotation(\n"
-        + "    o = AnnotationSpecTest.Breakfast.PANCAKES,\n"
-        + "    p = 1701,\n"
-        + "    f = 11.1,\n"
-        + "    m = {\n"
-        + "        9,\n"
-        + "        8,\n"
-        + "        1\n"
-        + "    },\n"
-        + "    l = Override.class,\n"
-        + "    j = @AnnotationSpecTest.AnnotationA,\n"
-        + "    q = @AnnotationSpecTest.AnnotationC(\"bar\"),\n"
-        + "    r = {\n"
-        + "        Float.class,\n"
-        + "        Double.class\n"
-        + "    }\n"
-        + ")\n"
-        + "class Taco {\n"
-        + "}\n");
-  }
-
-  @Test public void defaultAnnotationWithImport() {
-    var name = IsAnnotated.class.getCanonicalName();
-    var element = compilation.getElements().getTypeElement(name);
-    var annotation = AnnotationSpec.get(element.getAnnotationMirrors().get(0));
-    var typeBuilder = TypeSpec.classBuilder(IsAnnotated.class.getSimpleName());
-    typeBuilder.addAnnotation(annotation);
-    var file = JavaFile.builder("com.squareup.javapoet", typeBuilder.build()).build();
-    assertThat(file.toString()).isEqualTo(
-        "package com.squareup.javapoet;\n"
-            + "\n"
-            + "import java.lang.Double;\n"
-            + "import java.lang.Float;\n"
-            + "import java.lang.Override;\n"
-            + "\n"
-            + "@AnnotationSpecTest.HasDefaultsAnnotation(\n"
-            + "    o = AnnotationSpecTest.Breakfast.PANCAKES,\n"
-            + "    p = 1701,\n"
-            + "    f = 11.1,\n"
-            + "    m = {\n"
-            + "        9,\n"
-            + "        8,\n"
-            + "        1\n"
-            + "    },\n"
-            + "    l = Override.class,\n"
-            + "    j = @AnnotationSpecTest.AnnotationA,\n"
-            + "    q = @AnnotationSpecTest.AnnotationC(\"bar\"),\n"
-            + "    r = {\n"
-            + "        Float.class,\n"
-            + "        Double.class\n"
-            + "    }\n"
-            + ")\n"
-            + "class IsAnnotated {\n"
-            + "}\n"
-    );
-  }
-
-  @Test public void emptyArray() {
-    var builder = AnnotationSpec.builder(HasDefaultsAnnotation.class);
-    builder.addMember("n", "$L", "{}");
-    assertThat(builder.build().toString()).isEqualTo(
-        "@com.squareup.javapoet.AnnotationSpecTest.HasDefaultsAnnotation(" + "n = {}" + ")");
-    builder.addMember("m", "$L", "{}");
-    assertThat(builder.build().toString())
-        .isEqualTo(
-            "@com.squareup.javapoet.AnnotationSpecTest.HasDefaultsAnnotation("
-                + "n = {}, m = {}"
-                + ")");
-  }
-
-  @Test public void dynamicArrayOfEnumConstants() {
-    var builder = AnnotationSpec.builder(HasDefaultsAnnotation.class);
-    builder.addMember("n", "$T.$L", Breakfast.class, Breakfast.PANCAKES.name());
-    assertThat(builder.build().toString()).isEqualTo(
-        "@com.squareup.javapoet.AnnotationSpecTest.HasDefaultsAnnotation("
-            + "n = com.squareup.javapoet.AnnotationSpecTest.Breakfast.PANCAKES"
-            + ")");
-
-    // builder = AnnotationSpec.builder(HasDefaultsAnnotation.class);
-    builder.addMember("n", "$T.$L", Breakfast.class, Breakfast.WAFFLES.name());
-    builder.addMember("n", "$T.$L", Breakfast.class, Breakfast.PANCAKES.name());
-    assertThat(builder.build().toString()).isEqualTo(
-        "@com.squareup.javapoet.AnnotationSpecTest.HasDefaultsAnnotation("
-            + "n = {"
-            + "com.squareup.javapoet.AnnotationSpecTest.Breakfast.PANCAKES"
-            + ", com.squareup.javapoet.AnnotationSpecTest.Breakfast.WAFFLES"
-            + ", com.squareup.javapoet.AnnotationSpecTest.Breakfast.PANCAKES"
-            + "})");
-
-    builder = builder.build().toBuilder(); // idempotent
-    assertThat(builder.build().toString()).isEqualTo(
-        "@com.squareup.javapoet.AnnotationSpecTest.HasDefaultsAnnotation("
-            + "n = {"
-            + "com.squareup.javapoet.AnnotationSpecTest.Breakfast.PANCAKES"
-            + ", com.squareup.javapoet.AnnotationSpecTest.Breakfast.WAFFLES"
-            + ", com.squareup.javapoet.AnnotationSpecTest.Breakfast.PANCAKES"
-            + "})");
-
-    builder.addMember("n", "$T.$L", Breakfast.class, Breakfast.WAFFLES.name());
-    assertThat(builder.build().toString()).isEqualTo(
-        "@com.squareup.javapoet.AnnotationSpecTest.HasDefaultsAnnotation("
-            + "n = {"
-            + "com.squareup.javapoet.AnnotationSpecTest.Breakfast.PANCAKES"
-            + ", com.squareup.javapoet.AnnotationSpecTest.Breakfast.WAFFLES"
-            + ", com.squareup.javapoet.AnnotationSpecTest.Breakfast.PANCAKES"
-            + ", com.squareup.javapoet.AnnotationSpecTest.Breakfast.WAFFLES"
-            + "})");
-  }
-
-  @Test public void defaultAnnotationToBuilder() {
-    var name = IsAnnotated.class.getCanonicalName();
-    var element = compilation.getElements().getTypeElement(name);
-    var builder = AnnotationSpec.get(element.getAnnotationMirrors().get(0))
-        .toBuilder();
-    builder.addMember("m", "$L", 123);
-    assertThat(builder.build().toString()).isEqualTo(
-        "@com.squareup.javapoet.AnnotationSpecTest.HasDefaultsAnnotation("
-            + "o = com.squareup.javapoet.AnnotationSpecTest.Breakfast.PANCAKES"
-            + ", p = 1701"
-            + ", f = 11.1"
-            + ", m = {9, 8, 1, 123}"
-            + ", l = java.lang.Override.class"
-            + ", j = @com.squareup.javapoet.AnnotationSpecTest.AnnotationA"
-            + ", q = @com.squareup.javapoet.AnnotationSpecTest.AnnotationC(\"bar\")"
-            + ", r = {java.lang.Float.class, java.lang.Double.class}"
-            + ")");
-  }
-
-  @Test public void reflectAnnotation() {
-    var annotation = IsAnnotated.class.getAnnotation(HasDefaultsAnnotation.class);
-    var spec = AnnotationSpec.get(annotation);
-    var taco = TypeSpec.classBuilder("Taco")
-        .addAnnotation(spec)
-        .build();
-    assertThat(toString(taco)).isEqualTo("package com.squareup.tacos;\n"
-        + "\n"
-        + "import com.squareup.javapoet.AnnotationSpecTest;\n"
-        + "import java.lang.Double;\n"
-        + "import java.lang.Float;\n"
-        + "import java.lang.Override;\n"
-        + "\n"
-        + "@AnnotationSpecTest.HasDefaultsAnnotation(\n"
-        + "    f = 11.1,\n"
-        + "    l = Override.class,\n"
-        + "    m = {\n"
-        + "        9,\n"
-        + "        8,\n"
-        + "        1\n"
-        + "    },\n"
-        + "    o = AnnotationSpecTest.Breakfast.PANCAKES,\n"
-        + "    p = 1701,\n"
-        + "    q = @AnnotationSpecTest.AnnotationC(\"bar\"),\n"
-        + "    r = {\n"
-        + "        Float.class,\n"
-        + "        Double.class\n"
-        + "    }\n"
-        + ")\n"
-        + "class Taco {\n"
-        + "}\n");
-  }
-
-  @Test public void reflectAnnotationWithDefaults() {
-    var annotation = IsAnnotated.class.getAnnotation(HasDefaultsAnnotation.class);
-    var spec = AnnotationSpec.get(annotation, true);
-    var taco = TypeSpec.classBuilder("Taco")
-        .addAnnotation(spec)
-        .build();
-    assertThat(toString(taco)).isEqualTo("package com.squareup.tacos;\n"
-        + "\n"
-        + "import com.squareup.javapoet.AnnotationSpecTest;\n"
-        + "import java.lang.Double;\n"
-        + "import java.lang.Float;\n"
-        + "import java.lang.Override;\n"
-        + "\n"
-        + "@AnnotationSpecTest.HasDefaultsAnnotation(\n"
-        + "    a = 5,\n"
-        + "    b = 6,\n"
-        + "    c = 7,\n"
-        + "    d = 12345678910L,\n"
-        + "    e = 9.0f,\n"
-        + "    f = 11.1,\n"
-        + "    g = {\n"
-        + "        '\\u0000',\n"
-        + "        '쫾',\n"
-        + "        'z',\n"
-        + "        '€',\n"
-        + "        'ℕ',\n"
-        + "        '\"',\n"
-        + "        '\\'',\n"
-        + "        '\\t',\n"
-        + "        '\\n'\n"
-        + "    },\n"
-        + "    h = true,\n"
-        + "    i = AnnotationSpecTest.Breakfast.WAFFLES,\n"
-        + "    j = @AnnotationSpecTest.AnnotationA,\n"
-        + "    k = \"maple\",\n"
-        + "    l = Override.class,\n"
-        + "    m = {\n"
-        + "        9,\n"
-        + "        8,\n"
-        + "        1\n"
-        + "    },\n"
-        + "    n = {\n"
-        + "        AnnotationSpecTest.Breakfast.WAFFLES,\n"
-        + "        AnnotationSpecTest.Breakfast.PANCAKES\n"
-        + "    },\n"
-        + "    o = AnnotationSpecTest.Breakfast.PANCAKES,\n"
-        + "    p = 1701,\n"
-        + "    q = @AnnotationSpecTest.AnnotationC(\"bar\"),\n"
-        + "    r = {\n"
-        + "        Float.class,\n"
-        + "        Double.class\n"
-        + "    }\n"
-        + ")\n"
-        + "class Taco {\n"
-        + "}\n");
-  }
-
-  @Test public void disallowsNullMemberName() {
-    var builder = AnnotationSpec.builder(HasDefaultsAnnotation.class);
-    try {
-      var $L = builder.addMember(null, "$L", "");
-      fail($L.build().toString());
-    } catch (NullPointerException e) {
-      assertThat(e).hasMessageThat().isEqualTo("name == null");
-    }
-  }
-
-  @Test public void requiresValidMemberName() {
-    var builder = AnnotationSpec.builder(HasDefaultsAnnotation.class);
-    try {
-      var $L = builder.addMember("@", "$L", "");
-      fail($L.build().toString());
-    } catch (IllegalArgumentException e) {
-      assertThat(e).hasMessageThat().isEqualTo("not a valid name: @");
-    }
-  }
-
-  @Test public void modifyMembers() {
-    var builder = AnnotationSpec.builder(SuppressWarnings.class)
-            .addMember("value", "$S", "Foo");
-
-    builder.members.clear();
-    builder.members.put("value", List.of(CodeBlock.of("$S", "Bar")));
-
-    assertThat(builder.build().toString()).isEqualTo("@java.lang.SuppressWarnings(\"Bar\")");
-  }
-
-  private String toString(TypeSpec typeSpec) {
-    return JavaFile.builder("com.squareup.tacos", typeSpec).build().toString();
   }
 }

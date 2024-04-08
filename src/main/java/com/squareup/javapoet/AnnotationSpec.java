@@ -15,6 +15,8 @@
  */
 package com.squareup.javapoet;
 
+import com.squareup.javapoet.notation.Notation;
+
 import javax.lang.model.SourceVersion;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.AnnotationValue;
@@ -26,14 +28,24 @@ import java.io.IOException;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Array;
 import java.lang.reflect.Method;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Comparator;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 
-import static com.squareup.javapoet.Util.*;
+import static com.squareup.javapoet.Util.characterLiteralWithoutSingleQuotes;
+import static com.squareup.javapoet.Util.checkArgument;
+import static com.squareup.javapoet.Util.checkNotNull;
+import static com.squareup.javapoet.notation.Notation.join;
+import static com.squareup.javapoet.notation.Notation.txt;
 
 /**
  * A generated annotation on a declaration.
  */
-public final class AnnotationSpec {
+public final class AnnotationSpec implements Emitable {
   public static final String VALUE = "value";
 
   public final TypeName type;
@@ -48,7 +60,10 @@ public final class AnnotationSpec {
     return get(annotation, false);
   }
 
-  public static AnnotationSpec get(Annotation annotation, boolean includeDefaultValues) {
+  public static AnnotationSpec get(
+      Annotation annotation,
+      boolean includeDefaultValues
+  ) {
     var builder = builder(annotation.annotationType());
     try {
       var methods = annotation.annotationType().getDeclaredMethods();
@@ -99,6 +114,30 @@ public final class AnnotationSpec {
     return builder(ClassName.get(type));
   }
 
+  @Override
+  public Notation toNotation() {
+    var ref = txt("@").then(Notation.typeRef(type));
+    if (members.isEmpty()) {
+      return ref;
+    }
+    if (members.size() == 1 && members.containsKey("value")) {
+      return Notate.wrapAndIndent(
+          ref.then(txt("(")),
+          Notate.oneOrArray(members.get("value")),
+          txt(")")
+      );
+    }
+    var choice = txt(", ").or(txt(",\n"));
+    var m = members
+        .entrySet()
+        .stream()
+        .map(e -> txt(e.getKey())
+            .then(txt(" = "))
+            .then(Notate.oneOrArray(e.getValue())))
+        .collect(join(choice));
+    return Notate.wrapAndIndent(ref.then(txt("(")), m, txt(")"));
+  }
+
   void emit(CodeWriter codeWriter, boolean inline) throws IOException {
     var whitespace = inline ? "" : "\n";
     var memberSeparator = inline ? ", " : ",\n";
@@ -108,7 +147,12 @@ public final class AnnotationSpec {
     } else if (members.size() == 1 && members.containsKey("value")) {
       // @Named("foo")
       codeWriter.emit("@$T(", type);
-      emitAnnotationValues(codeWriter, whitespace, memberSeparator, members.get("value"));
+      emitAnnotationValues(
+          codeWriter,
+          whitespace,
+          memberSeparator,
+          members.get("value")
+      );
       codeWriter.emit(")");
     } else {
       // Inline:
@@ -125,16 +169,25 @@ public final class AnnotationSpec {
            = members.entrySet().iterator(); i.hasNext(); ) {
         var entry = i.next();
         codeWriter.emit("$L = ", entry.getKey());
-        emitAnnotationValues(codeWriter, whitespace, memberSeparator, entry.getValue());
-        if (i.hasNext()) codeWriter.emit(memberSeparator);
+        emitAnnotationValues(
+            codeWriter,
+            whitespace,
+            memberSeparator,
+            entry.getValue()
+        );
+        if (i.hasNext()) {
+          codeWriter.emit(memberSeparator);
+        }
       }
       codeWriter.unindent(2);
       codeWriter.emit(whitespace + ")");
     }
   }
 
-  private void emitAnnotationValues(CodeWriter codeWriter, String whitespace,
-                                    String memberSeparator, List<CodeBlock> values) throws IOException {
+  private void emitAnnotationValues(
+      CodeWriter codeWriter, String whitespace,
+      String memberSeparator, List<CodeBlock> values
+  ) throws IOException {
     if (values.size() == 1) {
       codeWriter.indent(2);
       codeWriter.emit(values.get(0));
@@ -146,7 +199,9 @@ public final class AnnotationSpec {
     codeWriter.indent(2);
     var first = true;
     for (var codeBlock : values) {
-      if (!first) codeWriter.emit(memberSeparator);
+      if (!first) {
+        codeWriter.emit(memberSeparator);
+      }
       codeWriter.emit(codeBlock);
       first = false;
     }
@@ -164,9 +219,15 @@ public final class AnnotationSpec {
 
   @Override
   public boolean equals(Object o) {
-    if (this == o) return true;
-    if (o == null) return false;
-    if (getClass() != o.getClass()) return false;
+    if (this == o) {
+      return true;
+    }
+    if (o == null) {
+      return false;
+    }
+    if (getClass() != o.getClass()) {
+      return false;
+    }
     return toString().equals(o.toString());
   }
 
@@ -177,14 +238,7 @@ public final class AnnotationSpec {
 
   @Override
   public String toString() {
-    var out = new StringBuilder();
-    try {
-      var codeWriter = new CodeWriter(out);
-      codeWriter.emit("$L", this);
-      return out.toString();
-    } catch (IOException e) {
-      throw new AssertionError();
-    }
+    return toNotation().toCode();
   }
 
   public static final class Builder {
@@ -212,13 +266,26 @@ public final class AnnotationSpec {
      */
     Builder addMemberForValue(String memberName, Object value) {
       checkNotNull(memberName, "memberName == null");
-      checkNotNull(value, "value == null, constant non-null value expected for %s", memberName);
-      checkArgument(SourceVersion.isName(memberName), "not a valid name: %s", memberName);
+      checkNotNull(
+          value,
+          "value == null, constant non-null value expected for %s",
+          memberName
+      );
+      checkArgument(
+          SourceVersion.isName(memberName),
+          "not a valid name: %s",
+          memberName
+      );
       if (value instanceof Class<?>) {
         return addMember(memberName, "$T.class", value);
       }
       if (value instanceof Enum) {
-        return addMember(memberName, "$T.$L", value.getClass(), ((Enum<?>) value).name());
+        return addMember(
+            memberName,
+            "$T.$L",
+            value.getClass(),
+            ((Enum<?>) value).name()
+        );
       }
       if (value instanceof String) {
         return addMember(memberName, "$S", value);
@@ -230,7 +297,11 @@ public final class AnnotationSpec {
         return addMember(memberName, "$LL", value);
       }
       if (value instanceof Character) {
-        return addMember(memberName, "'$L'", characterLiteralWithoutSingleQuotes((char) value));
+        return addMember(
+            memberName,
+            "'$L'",
+            characterLiteralWithoutSingleQuotes((char) value)
+        );
       }
       return addMember(memberName, "$L", value);
     }
@@ -247,7 +318,8 @@ public final class AnnotationSpec {
   /**
    * Annotation value visitor adding members to the given builder instance.
    */
-  private static class Visitor extends SimpleAnnotationValueVisitor8<Builder, String> {
+  private static class Visitor
+      extends SimpleAnnotationValueVisitor8<Builder, String> {
     final Builder builder;
 
     Visitor(Builder builder) {
@@ -276,7 +348,10 @@ public final class AnnotationSpec {
     }
 
     @Override
-    public Builder visitArray(List<? extends AnnotationValue> values, String name) {
+    public Builder visitArray(
+        List<? extends AnnotationValue> values,
+        String name
+    ) {
       for (var value : values) {
         value.accept(this, name);
       }

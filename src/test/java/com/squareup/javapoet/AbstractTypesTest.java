@@ -15,19 +15,9 @@
  */
 package com.squareup.javapoet;
 
-import static com.google.common.truth.Truth.assertThat;
-import static com.google.testing.compile.CompilationSubject.assertThat;
-import static com.google.testing.compile.Compiler.javac;
-import static javax.lang.model.util.ElementFilter.fieldsIn;
-import static org.junit.Assert.*;
-
 import com.google.testing.compile.JavaFileObjects;
-import java.io.Serializable;
-import java.nio.charset.Charset;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import org.junit.Test;
+
 import javax.annotation.processing.AbstractProcessor;
 import javax.annotation.processing.RoundEnvironment;
 import javax.lang.model.element.TypeElement;
@@ -36,11 +26,22 @@ import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.Elements;
 import javax.lang.model.util.Types;
+import java.io.Serializable;
+import java.nio.charset.Charset;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
-import org.junit.Test;
+import static com.google.common.truth.Truth.assertThat;
+import static com.google.testing.compile.CompilationSubject.assertThat;
+import static com.google.testing.compile.Compiler.javac;
+import static javax.lang.model.util.ElementFilter.fieldsIn;
+import static org.junit.Assert.fail;
 
 public abstract class AbstractTypesTest {
   protected abstract Elements getElements();
+
   protected abstract Types getTypes();
 
   private TypeElement getElement(Class<?> clazz) {
@@ -51,7 +52,8 @@ public abstract class AbstractTypesTest {
     return getElement(clazz).asType();
   }
 
-  @Test public void getBasicTypeMirror() {
+  @Test
+  public void getBasicTypeMirror() {
     assertThat(TypeName.get(getMirror(Object.class)))
         .isEqualTo(ClassName.get(Object.class));
     assertThat(TypeName.get(getMirror(Charset.class)))
@@ -60,14 +62,22 @@ public abstract class AbstractTypesTest {
         .isEqualTo(ClassName.get(AbstractTypesTest.class));
   }
 
-  @Test public void getParameterizedTypeMirror() {
+  @Test
+  public void getParameterizedTypeMirror() {
     var setType =
-        getTypes().getDeclaredType(getElement(Set.class), getMirror(Object.class));
+        getTypes().getDeclaredType(
+            getElement(Set.class),
+            getMirror(Object.class)
+        );
     assertThat(TypeName.get(setType))
-        .isEqualTo(ParameterizedTypeName.get(ClassName.get(Set.class), ClassName.OBJECT));
+        .isEqualTo(ParameterizedTypeName.get(
+            ClassName.get(Set.class),
+            ClassName.OBJECT
+        ));
   }
 
-  @Test public void errorTypes() {
+  @Test
+  public void errorTypes() {
     var hasErrorTypes =
         JavaFileObjects.forSourceLines(
             "com.squareup.tacos.ErrorTypes",
@@ -77,18 +87,30 @@ public abstract class AbstractTypesTest {
             "class ErrorTypes {",
             "  Tacos tacos;",
             "  Ingredients.Guacamole guacamole;",
-            "}");
+            "}"
+        );
     var compilation = javac().withProcessors(new AbstractProcessor() {
       @Override
-      public boolean process(Set<? extends TypeElement> set, RoundEnvironment roundEnvironment) {
+      public boolean process(
+          Set<? extends TypeElement> set,
+          RoundEnvironment roundEnvironment
+      ) {
         var classFile =
-            processingEnv.getElementUtils().getTypeElement("com.squareup.tacos.ErrorTypes");
+            processingEnv
+                .getElementUtils()
+                .getTypeElement("com.squareup.tacos.ErrorTypes");
         var fields = fieldsIn(classFile.getEnclosedElements());
         var topLevel = (ErrorType) fields.get(0).asType();
         var member = (ErrorType) fields.get(1).asType();
 
-        assertThat(TypeName.get(topLevel)).isEqualTo(ClassName.get("", "Tacos"));
-        assertThat(TypeName.get(member)).isEqualTo(ClassName.get("Ingredients", "Guacamole"));
+        assertThat(TypeName.get(topLevel)).isEqualTo(ClassName.get(
+            "",
+            "Tacos"
+        ));
+        assertThat(TypeName.get(member)).isEqualTo(ClassName.get(
+            "Ingredients",
+            "Guacamole"
+        ));
         return false;
       }
 
@@ -101,15 +123,8 @@ public abstract class AbstractTypesTest {
     assertThat(compilation).failed();
   }
 
-  static class Parameterized<
-      Simple,
-      ExtendsClass extends Number,
-      ExtendsInterface extends Runnable,
-      ExtendsTypeVariable extends Simple,
-      Intersection extends Number & Runnable,
-      IntersectionOfInterfaces extends Runnable & Serializable> {}
-
-  @Test public void getTypeVariableTypeMirror() {
+  @Test
+  public void getTypeVariableTypeMirror() {
     var typeVariables =
         getElement(Parameterized.class).getTypeParameters();
 
@@ -125,16 +140,23 @@ public abstract class AbstractTypesTest {
     assertThat(TypeName.get(typeVariables.get(2).asType()))
         .isEqualTo(TypeVariableName.get("ExtendsInterface", runnable));
     assertThat(TypeName.get(typeVariables.get(3).asType()))
-        .isEqualTo(TypeVariableName.get("ExtendsTypeVariable", TypeVariableName.get("Simple")));
+        .isEqualTo(TypeVariableName.get(
+            "ExtendsTypeVariable",
+            TypeVariableName.get("Simple")
+        ));
     assertThat(TypeName.get(typeVariables.get(4).asType()))
         .isEqualTo(TypeVariableName.get("Intersection", number, runnable));
     assertThat(TypeName.get(typeVariables.get(5).asType()))
-        .isEqualTo(TypeVariableName.get("IntersectionOfInterfaces", runnable, serializable));
-    assertThat(((TypeVariableName) TypeName.get(typeVariables.get(4).asType())).bounds)
+        .isEqualTo(TypeVariableName.get(
+            "IntersectionOfInterfaces",
+            runnable,
+            serializable
+        ));
+    assertThat(((TypeVariableName) TypeName.get(typeVariables
+        .get(4)
+        .asType())).bounds)
         .containsExactly(number, runnable);
   }
-
-  static class Recursive<T extends Map<List<T>, Set<T[]>>> {}
 
   @Test
   public void getTypeVariableTypeMirrorRecursive() {
@@ -156,7 +178,8 @@ public abstract class AbstractTypesTest {
         .isEqualTo("[java.util.Map<java.util.List<T>, java.util.Set<T[]>>]");
   }
 
-  @Test public void getPrimitiveTypeMirror() {
+  @Test
+  public void getPrimitiveTypeMirror() {
     assertThat(TypeName.get(getTypes().getPrimitiveType(TypeKind.BOOLEAN)))
         .isEqualTo(PrimitiveType.Boolean);
     assertThat(TypeName.get(getTypes().getPrimitiveType(TypeKind.BYTE)))
@@ -175,17 +198,20 @@ public abstract class AbstractTypesTest {
         .isEqualTo(PrimitiveType.Double);
   }
 
-  @Test public void getArrayTypeMirror() {
+  @Test
+  public void getArrayTypeMirror() {
     assertThat(TypeName.get(getTypes().getArrayType(getMirror(Object.class))))
         .isEqualTo(ArrayTypeName.of(ClassName.OBJECT));
   }
 
-  @Test public void getVoidTypeMirror() {
+  @Test
+  public void getVoidTypeMirror() {
     assertThat(TypeName.get(getTypes().getNoType(TypeKind.VOID)))
         .isEqualTo(PrimitiveType.Void);
   }
 
-  @Test public void getNullTypeMirror() {
+  @Test
+  public void getNullTypeMirror() {
     try {
       TypeName.get(getTypes().getNullType());
       fail();
@@ -193,47 +219,57 @@ public abstract class AbstractTypesTest {
     }
   }
 
-  @Test public void parameterizedType() throws Exception {
+  @Test
+  public void parameterizedType() throws Exception {
     var type = ParameterizedTypeName.get(Map.class, String.class, Long.class);
-    assertThat(type.toString()).isEqualTo("java.util.Map<java.lang.String, java.lang.Long>");
+    assertThat(type.toString()).isEqualTo(
+        "java.util.Map<java.lang.String, java.lang.Long>");
   }
 
-  @Test public void arrayType() throws Exception {
+  @Test
+  public void arrayType() throws Exception {
     var type = ArrayTypeName.of(String.class);
     assertThat(type.toString()).isEqualTo("java.lang.String[]");
   }
 
-  @Test public void wildcardExtendsType() throws Exception {
+  @Test
+  public void wildcardExtendsType() throws Exception {
     var type = WildcardTypeName.subtypeOf(CharSequence.class);
     assertThat(type.toString()).isEqualTo("? extends java.lang.CharSequence");
   }
 
-  @Test public void wildcardExtendsObject() throws Exception {
+  @Test
+  public void wildcardExtendsObject() throws Exception {
     var type = WildcardTypeName.subtypeOf(Object.class);
     assertThat(type.toString()).isEqualTo("?");
   }
 
-  @Test public void wildcardSuperType() throws Exception {
+  @Test
+  public void wildcardSuperType() throws Exception {
     var type = WildcardTypeName.supertypeOf(String.class);
     assertThat(type.toString()).isEqualTo("? super java.lang.String");
   }
 
-  @Test public void wildcardMirrorNoBounds() throws Exception {
+  @Test
+  public void wildcardMirrorNoBounds() throws Exception {
     var wildcard = getTypes().getWildcardType(null, null);
     var type = TypeName.get(wildcard);
     assertThat(type.toString()).isEqualTo("?");
   }
 
-  @Test public void wildcardMirrorExtendsType() throws Exception {
+  @Test
+  public void wildcardMirrorExtendsType() throws Exception {
     var types = getTypes();
     var elements = getElements();
-    var charSequence = elements.getTypeElement(CharSequence.class.getName()).asType();
+    var charSequence =
+        elements.getTypeElement(CharSequence.class.getName()).asType();
     var wildcard = types.getWildcardType(charSequence, null);
     var type = TypeName.get(wildcard);
     assertThat(type.toString()).isEqualTo("? extends java.lang.CharSequence");
   }
 
-  @Test public void wildcardMirrorSuperType() throws Exception {
+  @Test
+  public void wildcardMirrorSuperType() throws Exception {
     var types = getTypes();
     var elements = getElements();
     var string = elements.getTypeElement(String.class.getName()).asType();
@@ -242,25 +278,37 @@ public abstract class AbstractTypesTest {
     assertThat(type.toString()).isEqualTo("? super java.lang.String");
   }
 
-  @Test public void typeVariable() throws Exception {
+  @Test
+  public void typeVariable() throws Exception {
     var type = TypeVariableName.get("T", CharSequence.class);
     assertThat(type.toString()).isEqualTo("T"); // (Bounds are only emitted in declaration.)
   }
 
-  @Test public void box() throws Exception {
+  @Test
+  public void box() throws Exception {
     assertThat(PrimitiveType.Integer.box()).isEqualTo(ClassName.get(Integer.class));
     assertThat(PrimitiveType.Void.box()).isEqualTo(ClassName.get(Void.class));
-    assertThat(ClassName.get(Integer.class).box()).isEqualTo(ClassName.get(Integer.class));
-    assertThat(ClassName.get(Void.class).box()).isEqualTo(ClassName.get(Void.class));
+    assertThat(ClassName.get(Integer.class).box()).isEqualTo(ClassName.get(
+        Integer.class));
+    assertThat(ClassName
+        .get(Void.class)
+        .box()).isEqualTo(ClassName.get(Void.class));
     assertThat(ClassName.OBJECT.box()).isEqualTo(ClassName.OBJECT);
-    assertThat(ClassName.get(String.class).box()).isEqualTo(ClassName.get(String.class));
+    assertThat(ClassName
+        .get(String.class)
+        .box()).isEqualTo(ClassName.get(String.class));
   }
 
-  @Test public void unbox() throws Exception {
+  @Test
+  public void unbox() throws Exception {
     assertThat(PrimitiveType.Integer).isEqualTo(PrimitiveType.Integer.unbox());
     assertThat(PrimitiveType.Void).isEqualTo(PrimitiveType.Void.unbox());
-    assertThat(ClassName.get(Integer.class).unbox()).isEqualTo(PrimitiveType.Integer.unbox());
-    assertThat(ClassName.get(Void.class).unbox()).isEqualTo(PrimitiveType.Void.unbox());
+    assertThat(ClassName
+        .get(Integer.class)
+        .unbox()).isEqualTo(PrimitiveType.Integer.unbox());
+    assertThat(ClassName
+        .get(Void.class)
+        .unbox()).isEqualTo(PrimitiveType.Void.unbox());
     try {
       ClassName.OBJECT.unbox();
       fail();
@@ -271,5 +319,17 @@ public abstract class AbstractTypesTest {
       fail();
     } catch (UnsupportedOperationException expected) {
     }
+  }
+
+  static class Parameterized<
+      Simple,
+      ExtendsClass extends Number,
+      ExtendsInterface extends Runnable,
+      ExtendsTypeVariable extends Simple,
+      Intersection extends Number & Runnable,
+      IntersectionOfInterfaces extends Runnable & Serializable> {
+  }
+
+  static class Recursive<T extends Map<List<T>, Set<T[]>>> {
   }
 }

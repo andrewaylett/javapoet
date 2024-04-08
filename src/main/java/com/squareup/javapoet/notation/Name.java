@@ -4,18 +4,22 @@ import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 
 import java.io.IOException;
+import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 
-@SuppressWarnings("UnstableApiUsage")
-public class NewLine extends Notation {
-  public static NewLine INSTANCE = new NewLine();
+public class Name extends Notation {
 
-  private NewLine() {
+  private final Object tag;
+
+  public Name(Object tag, String suggestion) {
+    super(Map.of(tag, suggestion), Set.of());
+    this.tag = tag;
   }
 
   @Override
   public Notation toNotation() {
-    return txt("\\n");
+    return txt("Name(" + tag + ")");
   }
 
   @Override
@@ -24,21 +28,18 @@ public class NewLine extends Notation {
   }
 
   @Override
-  @Contract(mutates = "param1")
   public void visit(
       @NotNull Printer.PrinterVisitor printer,
       @NotNull Chunk chunk
   ) throws IOException {
-    printer.newLine();
-    printer.append(chunk.indent);
+    printer.append(chunk.getName(tag));
   }
 
   @Override
-  @Contract(pure = true)
   public @NotNull Printer.FlatResponse visit(
       @NotNull Printer.FlatVisitor flatVisitor, @NotNull Chunk chunk
   ) {
-    return Printer.FlatResponse.FITS;
+    return flatVisitor.fitText(chunk.getName(tag));
   }
 
   @Override
@@ -47,12 +48,20 @@ public class NewLine extends Notation {
   }
 
   @Override
+  @Contract(value = "null -> false", pure = true)
   public boolean equals(Object o) {
-    return o instanceof NewLine;
+    if (this == o) {
+      return true;
+    }
+    if (o instanceof Name name) {
+      return Objects.equals(tag, name.tag) && Objects.equals(names, name.names);
+    }
+    return false;
   }
 
   @Override
+  @Contract(pure = true)
   public int hashCode() {
-    return Objects.hashCode(this.getClass());
+    return Objects.hash(tag, names);
   }
 }

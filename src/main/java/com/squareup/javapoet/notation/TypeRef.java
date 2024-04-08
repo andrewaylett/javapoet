@@ -1,21 +1,26 @@
 package com.squareup.javapoet.notation;
 
+import com.squareup.javapoet.TypeName;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 
 import java.io.IOException;
+import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 
-@SuppressWarnings("UnstableApiUsage")
-public class NewLine extends Notation {
-  public static NewLine INSTANCE = new NewLine();
+public class TypeRef extends Notation {
 
-  private NewLine() {
+  private final TypeName ref;
+
+  public TypeRef(TypeName ref) {
+    super(Map.of(), Set.of(ref));
+    this.ref = ref;
   }
 
   @Override
   public Notation toNotation() {
-    return txt("\\n");
+    return txt("TypeRef(" + ref.nameWhenImported() + ")");
   }
 
   @Override
@@ -24,21 +29,18 @@ public class NewLine extends Notation {
   }
 
   @Override
-  @Contract(mutates = "param1")
   public void visit(
       @NotNull Printer.PrinterVisitor printer,
       @NotNull Chunk chunk
   ) throws IOException {
-    printer.newLine();
-    printer.append(chunk.indent);
+    printer.append(chunk.getName(ref));
   }
 
   @Override
-  @Contract(pure = true)
   public @NotNull Printer.FlatResponse visit(
       @NotNull Printer.FlatVisitor flatVisitor, @NotNull Chunk chunk
   ) {
-    return Printer.FlatResponse.FITS;
+    return flatVisitor.fitText(chunk.getName(ref));
   }
 
   @Override
@@ -47,12 +49,23 @@ public class NewLine extends Notation {
   }
 
   @Override
+  @Contract(value = "null -> false", pure = true)
   public boolean equals(Object o) {
-    return o instanceof NewLine;
+    if (this == o) {
+      return true;
+    }
+    if (o instanceof TypeRef typeRef) {
+      return Objects.equals(ref, typeRef.ref) && Objects.equals(
+          imports,
+          typeRef.imports
+      );
+    }
+    return false;
   }
 
   @Override
+  @Contract(pure = true)
   public int hashCode() {
-    return Objects.hashCode(this.getClass());
+    return Objects.hash(ref, imports);
   }
 }
