@@ -11,7 +11,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 public class Concat extends Notation {
-  protected final @NotNull List<Notation> content;
+  public final @NotNull List<Notation> content;
 
   public Concat(@NotNull List<Notation> content) {
     super(

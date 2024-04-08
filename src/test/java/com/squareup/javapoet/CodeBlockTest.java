@@ -161,7 +161,7 @@ public final class CodeBlockTest {
     map.put("text", "tacos");
     var block = CodeBlock.builder()
         .addNamed("$>$text:L for $$3.50", map).build();
-    assertThat(block.toString()).isEqualTo("\n  tacos for $3.50");
+    assertThat(block.toString()).isEqualTo("tacos for $3.50");
   }
 
   @Test
@@ -331,7 +331,7 @@ public final class CodeBlockTest {
   @Test
   public void statementExitWithoutStatementEnter() {
     var expected = assertThrows(IllegalStateException.class, () -> {
-      var codeBlock = builder().add("$]").build();
+      var _ignored = builder().add("$]").build().toNotation();
     });
     assertThat(expected)
         .hasMessageThat()

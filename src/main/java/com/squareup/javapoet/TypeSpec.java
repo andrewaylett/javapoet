@@ -348,7 +348,7 @@ public final class TypeSpec {
         .collect(asLines());
     body.add(staticFields);
 
-    body.add(staticBlock.toNotation());
+    body.add(staticBlock.toNotation(true));
 
     // Non-static fields.
     var nonStaticFields = fieldSpecs
@@ -359,7 +359,7 @@ public final class TypeSpec {
     body.add(nonStaticFields);
 
     // Initializer block.
-    body.add(initializerBlock.toNotation());
+    body.add(initializerBlock.toNotation(true));
 
     // Constructors.
     var constructors = methodSpecs
@@ -398,9 +398,11 @@ public final class TypeSpec {
     preamble.add(javadoc.toNotation());
     annotations.stream().map(Emitable::toNotation).forEach(preamble);
     var emumNotation = literal(name);
-    if (!anonymousTypeArguments.notation.isEmpty()) {
-      emumNotation = Notate.wrapAndIndent(emumNotation.then(txt("(")),
-          anonymousTypeArguments.toNotation(),
+    var anonymousTypeNotation = anonymousTypeArguments.toNotation();
+    if (!anonymousTypeNotation.isEmpty()) {
+      emumNotation = Notate.wrapAndIndent(
+          emumNotation.then(txt("(")),
+          anonymousTypeNotation,
           txt(")")
       );
     }
@@ -763,9 +765,11 @@ public final class TypeSpec {
             kind + " can't have initializer blocks");
       }
       initializerBlock
+          .add("{$W")
           .indent()
           .add(block)
-          .unindent("{", "}");
+          .unindent()
+          .add("$W}");
       return this;
     }
 
@@ -951,7 +955,8 @@ public final class TypeSpec {
               Modifier.PRIVATE
           );
           Set<Modifier> check = EnumSet.of(Modifier.STATIC, Modifier.FINAL);
-          checkState(fieldSpec.modifiers.containsAll(check),
+          checkState(
+              fieldSpec.modifiers.containsAll(check),
               "%s %s.%s requires modifiers %s",
               kind,
               name,
@@ -969,20 +974,23 @@ public final class TypeSpec {
               Modifier.PRIVATE
           );
           if (methodSpec.modifiers.contains(Modifier.PRIVATE)) {
-            checkState(!methodSpec.hasModifier(Modifier.DEFAULT),
+            checkState(
+                !methodSpec.hasModifier(Modifier.DEFAULT),
                 "%s %s.%s cannot be private and default",
                 kind,
                 name,
                 methodSpec.name
             );
-            checkState(!methodSpec.hasModifier(Modifier.ABSTRACT),
+            checkState(
+                !methodSpec.hasModifier(Modifier.ABSTRACT),
                 "%s %s.%s cannot be private and abstract",
                 kind,
                 name,
                 methodSpec.name
             );
           } else {
-            requireExactlyOneOf(methodSpec.modifiers,
+            requireExactlyOneOf(
+                methodSpec.modifiers,
                 Modifier.ABSTRACT,
                 Modifier.STATIC,
                 Modifier.DEFAULT
@@ -995,7 +1003,8 @@ public final class TypeSpec {
           );
         }
         if (kind != Kind.ANNOTATION) {
-          checkState(methodSpec.defaultValue == null,
+          checkState(
+              methodSpec.defaultValue == null,
               "%s %s.%s cannot have a default value",
               kind,
               name,
@@ -1003,7 +1012,8 @@ public final class TypeSpec {
           );
         }
         if (kind != Kind.INTERFACE) {
-          checkState(!methodSpec.hasModifier(Modifier.DEFAULT),
+          checkState(
+              !methodSpec.hasModifier(Modifier.DEFAULT),
               "%s %s.%s cannot be default",
               kind,
               name,
@@ -1022,7 +1032,8 @@ public final class TypeSpec {
       var isAbstract =
           modifiers.contains(Modifier.ABSTRACT) || kind != Kind.CLASS;
       for (var methodSpec : methodSpecs) {
-        checkArgument(isAbstract || !methodSpec.hasModifier(Modifier.ABSTRACT),
+        checkArgument(
+            isAbstract || !methodSpec.hasModifier(Modifier.ABSTRACT),
             "non-abstract type %s cannot declare abstract method %s",
             name,
             methodSpec.name

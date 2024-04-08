@@ -15,6 +15,7 @@
  */
 package com.squareup.javapoet;
 
+import com.squareup.javapoet.notation.Notation;
 import org.intellij.lang.annotations.PrintFormat;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
@@ -29,7 +30,10 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Stream;
 
+import static com.squareup.javapoet.notation.Notation.join;
+import static com.squareup.javapoet.notation.Notation.txt;
 import static java.lang.Character.isISOControl;
 
 /**
@@ -56,9 +60,7 @@ final class Util {
   }
 
   static void checkArgument(
-      boolean condition,
-      @PrintFormat String format,
-      Object... args
+      boolean condition, @PrintFormat String format, Object... args
   ) {
     if (!condition) {
       throw new IllegalArgumentException(String.format(format, args));
@@ -67,9 +69,7 @@ final class Util {
 
   @Contract("!null, _, _ -> param1; null, _, _ -> fail")
   static <T> @NotNull T checkNotNull(
-      T reference,
-      @PrintFormat String format,
-      Object... args
+      T reference, @PrintFormat String format, Object... args
   ) {
     if (reference == null) {
       throw new NullPointerException(String.format(format, args));
@@ -78,9 +78,7 @@ final class Util {
   }
 
   static void checkState(
-      boolean condition,
-      @PrintFormat String format,
-      Object... args
+      boolean condition, @PrintFormat String format, Object... args
   ) {
     if (!condition) {
       throw new IllegalStateException(String.format(format, args));
@@ -104,8 +102,7 @@ final class Util {
   }
 
   static void requireExactlyOneOf(
-      Set<Modifier> modifiers,
-      Modifier... mutuallyExclusive
+      Set<Modifier> modifiers, Modifier... mutuallyExclusive
   ) {
     var count = 0;
     for (var modifier : mutuallyExclusive) {
@@ -113,8 +110,11 @@ final class Util {
         count++;
       }
     }
-    checkArgument(count == 1, "modifiers %s must contain one of %s",
-        modifiers, Arrays.toString(mutuallyExclusive)
+    checkArgument(
+        count == 1,
+        "modifiers %s must contain one of %s",
+        modifiers,
+        Arrays.toString(mutuallyExclusive)
     );
   }
 
@@ -145,11 +145,13 @@ final class Util {
   }
 
   /**
-   * Returns the string literal representing {@code value}, including wrapping double quotes.
+   * Returns the notation representing {@code value},
+   * including wrapping double quotes.
    */
-  static String stringLiteralWithDoubleQuotes(String value, String indent) {
+  static Notation stringLiteralWithDoubleQuotes(String value) {
+    var lines = new ArrayList<Notation>();
     var result = new StringBuilder(value.length() + 2);
-    result.append('"');
+
     for (var i = 0; i < value.length(); i++) {
       var c = value.charAt(i);
       // trivial case: single quote must not be escaped
@@ -166,10 +168,22 @@ final class Util {
       result.append(characterLiteralWithoutSingleQuotes(c));
       // need to append indent after linefeed?
       if (c == '\n' && i + 1 < value.length()) {
-        result.append("\"\n").append(indent).append(indent).append("+ \"");
+        lines.add(txt(result.toString()));
+        result.setLength(0);
       }
     }
-    result.append('"');
-    return result.toString();
+    lines.add(txt(result.toString()));
+    if (lines.size() == 1) {
+      return txt("\"").then(lines.get(0)).then(txt("\""));
+    }
+    return Stream.of(
+        txt("\"").then(lines.get(0)),
+        lines
+            .subList(1, lines.size())
+            .stream()
+            .collect(join(txt("\"\n+ \"")))
+            .indent()
+            .indent()
+    ).collect(join(txt("\"\n+ \""))).then(txt("\""));
   }
 }

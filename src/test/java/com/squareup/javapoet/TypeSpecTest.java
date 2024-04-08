@@ -1591,8 +1591,7 @@ public final class TypeSpecTest {
         import java.util.Map;
 
         class Util {
-          private static final Map<String, String> ESCAPE_HTML =
-            ImmutableMap.<String, String>builder()
+          private static final Map<String, String> ESCAPE_HTML = ImmutableMap.<String, String>builder()
               .add("'", "&#39;")
               .add("&", "&amp;")
               .add("<", "&lt;")
@@ -1887,11 +1886,11 @@ public final class TypeSpecTest {
             .addParameter(String.class, "msg")
             .addCode(CodeBlock
                 .builder()
-                .add(" /*-")
+                .add(" /*-{$W")
                 .indent()
                 .addStatement("$$wnd.alert(msg)")
-                .unindent("{", "}")
-                .add("-*/")
+                .unindent()
+                .add("$W}-*/")
                 .build())
             .build())
         .build();

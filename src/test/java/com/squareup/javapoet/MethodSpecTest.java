@@ -436,7 +436,9 @@ public final class MethodSpecTest {
 
     assertThat(methodSpec.toString()).isEqualTo("""
         void method() {
-          if (valueField > 5) {} else if (valueField == 5) {}
+          if (valueField > 5) {
+          } else if (valueField == 5) {
+          }
         }
         """);
   }

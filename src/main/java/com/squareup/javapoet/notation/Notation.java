@@ -84,6 +84,10 @@ public abstract class Notation {
     return new TypeRef(ref);
   }
 
+  public static @NotNull Notation staticImport(@NotNull TypeName ref, @NotNull String name) {
+    return new StaticImportRef(ref, name);
+  }
+
   public static <T> @NotNull Notation literal(@NotNull T ref) {
     if (ref instanceof Emitable e) {
       return e.toNotation();
@@ -170,6 +174,38 @@ public abstract class Notation {
             .collect(join(joiner.left))
             .flat()
             .or(arr.stream().collect(join(joiner.right)))
+    );
+  }
+
+  public static @NotNull Collector<Notation, List<Notation>, Notation> hoistChoice() {
+    return Collector.of(
+        ArrayList::new,
+        List::add,
+        (List<Notation> arr, List<Notation> arr2) -> Stream
+            .concat(arr.stream(), arr2.stream())
+            .toList(),
+        (List<Notation> arr) -> {
+          if (arr.isEmpty()) {
+            return Notation.empty();
+          }
+          var foundChoice = false;
+          var left = empty();
+          var right = empty();
+          for (var next : arr) {
+            if (next instanceof Choice choice) {
+              foundChoice = true;
+              left = left.then(choice.left);
+              right = right.then(choice.right);
+            } else {
+              left = left.then(next.flat());
+              right = right.then(next);
+            }
+          }
+          if (foundChoice) {
+            return left.or(right);
+          }
+          return right;
+        }
     );
   }
 

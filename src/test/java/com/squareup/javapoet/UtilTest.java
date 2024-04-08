@@ -74,7 +74,7 @@ public class UtilTest {
   void stringLiteral(String expected, String value, String indent) {
     assertEquals(
         "\"" + expected + "\"",
-        Util.stringLiteralWithDoubleQuotes(value, indent)
+        Util.stringLiteralWithDoubleQuotes(value).toCode()
     );
   }
 }

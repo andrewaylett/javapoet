@@ -328,7 +328,7 @@ public final class MethodSpec implements Emitable {
     } else {
       components.add(Notate.wrapAndIndentUnlessEmpty(
           method.then(txt(" {")),
-          code.toNotation(),
+          code.toNotation(true),
           txt("}")
       ));
     }

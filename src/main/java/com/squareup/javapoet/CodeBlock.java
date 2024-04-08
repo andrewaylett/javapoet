@@ -15,28 +15,42 @@
  */
 package com.squareup.javapoet;
 
+import com.google.common.base.Splitter;
+import com.squareup.javapoet.notation.Concat;
+import com.squareup.javapoet.notation.NewLine;
 import com.squareup.javapoet.notation.Notation;
 import org.jetbrains.annotations.Contract;
+import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import javax.annotation.Nonnull;
+import javax.lang.model.SourceVersion;
 import javax.lang.model.element.Element;
 import javax.lang.model.type.TypeMirror;
 import java.lang.reflect.Type;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
-import java.util.Deque;
 import java.util.List;
 import java.util.Map;
+import java.util.NoSuchElementException;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collector;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
 import static com.squareup.javapoet.Util.checkArgument;
-import static com.squareup.javapoet.notation.Notation.asLines;
+import static com.squareup.javapoet.Util.checkState;
+import static com.squareup.javapoet.Util.stringLiteralWithDoubleQuotes;
 import static com.squareup.javapoet.notation.Notation.empty;
+import static com.squareup.javapoet.notation.Notation.hoistChoice;
+import static com.squareup.javapoet.notation.Notation.literal;
 import static com.squareup.javapoet.notation.Notation.nl;
+import static com.squareup.javapoet.notation.Notation.staticImport;
 import static com.squareup.javapoet.notation.Notation.txt;
+import static com.squareup.javapoet.notation.Notation.typeRef;
 
 /**
  * A fragment of a .java file, potentially containing declarations, statements, and documentation.
@@ -79,10 +93,12 @@ public final class CodeBlock implements Emitable {
   /**
    * A heterogeneous list containing string literals and value placeholders.
    */
-  final Notation notation;
+  final List<String> formatParts;
+  final List<Object> args;
 
-  private CodeBlock(Notation notation) {
-    this.notation = notation;
+  private CodeBlock(Builder builder) {
+    this.formatParts = Util.immutableList(builder.formatParts);
+    this.args = Util.immutableList(builder.args);
   }
 
   public static CodeBlock of(String format, Object... args) {
@@ -95,8 +111,7 @@ public final class CodeBlock implements Emitable {
    * would produce {@code String s, Object o, int i}.
    */
   public static CodeBlock join(
-      Iterable<CodeBlock> codeBlocks,
-      String separator
+      Iterable<CodeBlock> codeBlocks, String separator
   ) {
     return StreamSupport
         .stream(codeBlocks.spliterator(), false)
@@ -109,8 +124,7 @@ public final class CodeBlock implements Emitable {
    * {@code int i} using {@code ", "} would produce {@code String s, Object o, int i}.
    */
   public static Collector<CodeBlock, ?, CodeBlock> joining(String separator) {
-    return Collector.of(
-        () -> new CodeBlockJoiner(separator, builder()),
+    return Collector.of(() -> new CodeBlockJoiner(separator, builder()),
         CodeBlockJoiner::add,
         CodeBlockJoiner::merge,
         CodeBlockJoiner::join
@@ -126,8 +140,7 @@ public final class CodeBlock implements Emitable {
       String separator, String prefix, String suffix
   ) {
     var builder = builder().add("$N", prefix);
-    return Collector.of(
-        () -> new CodeBlockJoiner(separator, builder),
+    return Collector.of(() -> new CodeBlockJoiner(separator, builder),
         CodeBlockJoiner::add,
         CodeBlockJoiner::merge,
         joiner -> {
@@ -142,12 +155,7 @@ public final class CodeBlock implements Emitable {
   }
 
   public boolean isEmpty() {
-    return notation.isEmpty();
-  }
-
-  @Override
-  public Notation toNotation() {
-    return notation;
+    return formatParts.isEmpty();
   }
 
   @Override
@@ -171,28 +179,252 @@ public final class CodeBlock implements Emitable {
 
   @Override
   public String toString() {
-    return toNotation().toCode();
+    return toNotation(true).toCode();
   }
 
   public Builder toBuilder() {
     var builder = new Builder();
-    builder.add(notation);
+    builder.formatParts.addAll(formatParts);
+    builder.args.addAll(args);
     return builder;
   }
 
+  @Override
+  public Notation toNotation() {
+    return toNotation(false);
+  }
+
+  public Notation toNotation(boolean stripResult) {
+    return toNotation(stripResult, JavaFile.CURRENT_STATIC_IMPORTS.get());
+  }
+
+  public Notation toNotation(boolean stripResult, Set<String> staticImports) {
+    if (this.isEmpty()) {
+      return empty();
+    }
+    var staticImportClassNames = staticImports
+        .stream()
+        .flatMap(im -> Stream.iterate(im,
+            i -> !i.isEmpty(),
+            i -> i.lastIndexOf('.') >= 0 ? i.substring(0, i.lastIndexOf('.')) : ""
+        ))
+        .collect(Collectors.toSet());
+    var a = 0;
+    var partIterator = this.formatParts.listIterator();
+    var stack = new ArrayDeque<ArrayList<Notation>>();
+    var builder = new ArrayList<Notation>();
+    @Nullable ClassName deferredTypeName = null;
+    while (partIterator.hasNext()) {
+      var part = partIterator.next();
+      switch (part) {
+        case "$L", "$N":
+          var literal = literal(this.args.get(a++));
+          if (literal instanceof Concat concat) {
+            builder.addAll(concat.content);
+          } else {
+            builder.add(literal);
+          }
+          break;
+
+        case "$S":
+          var string = (String) this.args.get(a++);
+          // Emit null as a literal null: no quotes.
+          builder.add(string != null
+              ? stringLiteralWithDoubleQuotes(string)
+              : txt("null"));
+          break;
+
+        case "$T": {
+          var typeName = (TypeName) this.args.get(a++);
+          // defer "typeName.emit(this)" if next format part will be handled by the default case
+          if (typeName instanceof ClassName candidate
+              && partIterator.hasNext()) {
+            if (!this.formatParts
+                .get(partIterator.nextIndex())
+                .startsWith("$")) {
+              if (staticImportClassNames.contains(candidate.canonicalName)) {
+                checkState(deferredTypeName == null,
+                    "pending type for static import?!"
+                );
+                deferredTypeName = candidate;
+                break;
+              }
+            }
+          }
+          builder.add(typeRef(typeName));
+          break;
+        }
+
+        case "$$":
+          builder.add(txt("$"));
+          break;
+
+        case "$>", "$[": {
+          var addNL = false;
+          if (!builder.isEmpty() && builder.get(
+              builder.size() - 1) instanceof NewLine) {
+            addNL = true;
+            builder.remove(builder.size() - 1);
+          }
+          stack.push(builder);
+          builder = new ArrayList<>();
+          if (addNL) {
+            builder.add(nl());
+          }
+        }
+        break;
+
+        case "$<": {
+          builder = unindent(stack, builder);
+          break;
+        }
+
+        case "$]": {
+          var addNl = false;
+          var statementBuilder = builder;
+          try {
+            builder = stack.pop();
+          } catch (NoSuchElementException e) {
+            throw new IllegalStateException("statement exit $] has no matching statement enter $[",
+                e
+            );
+          }
+          if (!statementBuilder.isEmpty()) {
+            if (statementBuilder.get(
+                statementBuilder.size() - 1) instanceof NewLine) {
+              statementBuilder.remove(statementBuilder.size() - 1);
+              addNl = true;
+            }
+            builder.add(Notation.statement(statementBuilder
+                .stream()
+                .collect(Notation.join(empty()))));
+            if (addNl) {
+              builder.add(nl());
+            }
+          }
+          break;
+        }
+
+        case "$W":
+          builder.add(txt(" ").or(nl()));
+          break;
+
+        case "$Z":
+          builder.add(empty().or(nl()));
+          break;
+
+        default:
+          // handle deferred type
+          if (deferredTypeName != null) {
+            if (part.startsWith(".")) {
+              emitStaticImportMember(staticImports,
+                  deferredTypeName,
+                  part
+              ).forEach(builder::add);
+              // okay, static import hit and all was emitted,
+              // so clean-up and jump to next part
+              deferredTypeName = null;
+              break;
+            }
+            builder.add(typeRef(deferredTypeName));
+            deferredTypeName = null;
+          }
+
+          splitAtNewLines(part).forEach(builder::add);
+          break;
+      }
+    }
+    while (!stack.isEmpty()) {
+      builder = unindent(stack, builder);
+    }
+    if (stripResult) {
+      while (!builder.isEmpty() && builder.get(0) instanceof NewLine) {
+        builder.remove(0);
+      }
+      while (!builder.isEmpty() && builder.get(
+          builder.size() - 1) instanceof NewLine) {
+        builder.remove(builder.size() - 1);
+      }
+    }
+    return builder.stream().collect(Notation.hoistChoice());
+  }
+
+  @NotNull
+  private ArrayList<Notation> unindent(
+      ArrayDeque<ArrayList<Notation>> stack,
+      ArrayList<Notation> builder
+  ) {
+    var addNL = false;
+    while (!builder.isEmpty() && builder.get(
+        builder.size() - 1) instanceof NewLine) {
+      builder.remove(builder.size() - 1);
+      addNL = true;
+    }
+    var indented = builder.stream().collect(hoistChoice());
+    builder = stack.pop();
+    builder.add(indented.indent());
+    if (addNL) {
+      builder.add(nl());
+    }
+    return builder;
+  }
+
+  private Stream<Notation> splitAtNewLines(String part) {
+    var pieces = Splitter.on('\n').splitToStream(part);
+
+    return pieces
+        .flatMap(t -> t.isEmpty() ? Stream.of(nl()) : Stream.of(nl(), txt(t)))
+        .skip(1);
+  }
+
+  private Stream<Notation> emitStaticImportMember(
+      Set<String> staticImports, TypeName enclosing, String part
+  ) {
+    var builder = Stream.<Notation>builder();
+    builder.add(typeRef(enclosing));
+    splitAtNewLines(part).forEach(builder);
+    var partWithoutLeadingDot = part.substring(1);
+    if (partWithoutLeadingDot.isEmpty()) {
+      return builder.build();
+    }
+    var first = partWithoutLeadingDot.charAt(0);
+    if (!Character.isJavaIdentifierStart(first)) {
+      return builder.build();
+    }
+    var memberName = extractMemberName(partWithoutLeadingDot);
+    var explicit = enclosing.canonicalName() + "." + memberName;
+    var wildcard = enclosing.canonicalName() + ".*";
+    if (staticImports.contains(explicit) || staticImports.contains(wildcard)) {
+      var staticBuilder = Stream.<Notation>builder();
+      staticBuilder.add(staticImport(enclosing, memberName));
+      splitAtNewLines(part.substring(memberName.length() + 1)).forEach(staticBuilder);
+      return staticBuilder.build();
+    }
+    return builder.build();
+  }
+
+  private static String extractMemberName(String part) {
+    checkArgument(Character.isJavaIdentifierStart(part.charAt(0)),
+        "not an identifier: %s",
+        part
+    );
+    for (var i = 1; i <= part.length(); i++) {
+      if (!SourceVersion.isIdentifier(part.substring(0, i))) {
+        return part.substring(0, i - 1);
+      }
+    }
+    return part;
+  }
+
   public static final class Builder {
-    final ArrayList<Notation> lines;
-    final Deque<Notation> notation;
-    boolean inStatement = false;
+    final List<String> formatParts = new ArrayList<>();
+    final List<Object> args = new ArrayList<>();
 
     private Builder() {
-      notation = new ArrayDeque<>();
-      lines = new ArrayList<>();
-      notation.push(Notation.empty());
     }
 
     public boolean isEmpty() {
-      return notation.stream().allMatch(Notation::isEmpty);
+      return formatParts.isEmpty();
     }
 
     /**
@@ -210,20 +442,22 @@ public final class CodeBlock implements Emitable {
       var p = 0;
 
       for (var argument : arguments.keySet()) {
-        checkArgument(LOWERCASE.matcher(argument).matches(),
-            "argument '%s' must start with a lowercase character", argument
+        checkArgument(
+            LOWERCASE.matcher(argument).matches(),
+            "argument '%s' must start with a lowercase character",
+            argument
         );
       }
 
       while (p < format.length()) {
         var nextP = format.indexOf("$", p);
         if (nextP == -1) {
-          add(format.substring(p));
+          formatParts.add(format.substring(p));
           break;
         }
 
         if (p != nextP) {
-          add(format.substring(p, nextP));
+          formatParts.add(format.substring(p, nextP));
           p = nextP;
         }
 
@@ -235,25 +469,25 @@ public final class CodeBlock implements Emitable {
         }
         if (matcher != null && matcher.lookingAt()) {
           var argumentName = matcher.group("argumentName");
-          checkArgument(arguments.containsKey(argumentName),
+          checkArgument(
+              arguments.containsKey(argumentName),
               "Missing named argument for $%s",
               argumentName
           );
           var formatChar = matcher.group("typeChar").charAt(0);
-          var prev = notation.pop();
-          var next =
-              addArgument(format, formatChar, arguments.get(argumentName));
-          notation.push(prev.then(next));
+          addArgument(format, formatChar, arguments.get(argumentName));
+          formatParts.add("$" + formatChar);
           p += matcher.regionEnd();
         } else {
           checkArgument(p < format.length() - 1, "dangling $ at end");
-          checkArgument(isNoArgPlaceholder(format.charAt(p + 1)),
+          checkArgument(
+              isNoArgPlaceholder(format.charAt(p + 1)),
               "unknown format $%s at %s in '%s'",
               format.charAt(p + 1),
               p + 1,
               format
           );
-          add(format.substring(p, p + 2));
+          formatParts.add(format.substring(p, p + 2));
           p += 2;
         }
       }
@@ -278,7 +512,6 @@ public final class CodeBlock implements Emitable {
 
       var relativeParameterCount = 0;
       var indexedParameterCount = new int[args.length];
-      format = format.replace("\n", "$W");
 
       for (var p = 0; p < format.length(); ) {
         if (format.charAt(p) != '$') {
@@ -286,9 +519,7 @@ public final class CodeBlock implements Emitable {
           if (nextP == -1) {
             nextP = format.length();
           }
-          var prev = notation.pop();
-          var next = txt(format.substring(p, nextP));
-          notation.push(prev.then(next));
+          formatParts.add(format.substring(p, nextP));
           p = nextP;
           continue;
         }
@@ -299,8 +530,7 @@ public final class CodeBlock implements Emitable {
         var indexStart = p;
         char c;
         do {
-          checkArgument(
-              p < format.length(),
+          checkArgument(p < format.length(),
               "dangling format characters in '%s'",
               format
           );
@@ -314,34 +544,7 @@ public final class CodeBlock implements Emitable {
               indexStart == indexEnd,
               "$$, $>, $<, $[, $], $W, and $Z may not have an index"
           );
-          switch (c) {
-            case '$':
-              notation.push(notation.pop().then(txt("$")));
-              break;
-            case '>':
-              indent();
-              break;
-            case '<':
-              unindent("", "");
-              break;
-            case '[':
-              statement();
-              break;
-            case ']':
-              unstatement();
-              break;
-            case 'W':
-              lines.add(notation.pop().then(txt(" ")));
-              notation.push(empty());
-              break;
-            case 'Z':
-              lines.add(notation.pop());
-              notation.push(empty());
-              break;
-            default:
-              throw new IllegalArgumentException(
-                  "Can't use '" + c + "' as a no arg placeholder");
-          }
+          formatParts.add("$" + c);
           continue;
         }
 
@@ -360,7 +563,8 @@ public final class CodeBlock implements Emitable {
           relativeParameterCount++;
         }
 
-        checkArgument(index >= 0 && index < args.length,
+        checkArgument(
+            index >= 0 && index < args.length,
             "index %d for '%s' not in range (received %s arguments)",
             index + 1,
             format.substring(indexStart - 1, indexEnd + 1),
@@ -371,13 +575,14 @@ public final class CodeBlock implements Emitable {
             "cannot mix indexed and positional parameters"
         );
 
-        var prev = notation.pop();
-        var next = addArgument(format, c, args[index]);
-        notation.push(prev.then(next));
+        addArgument(format, c, args[index]);
+
+        formatParts.add("$" + c);
       }
 
       if (hasRelative) {
-        checkArgument(relativeParameterCount >= args.length,
+        checkArgument(
+            relativeParameterCount >= args.length,
             "unused arguments: expected %s, received %s",
             relativeParameterCount,
             args.length
@@ -391,8 +596,7 @@ public final class CodeBlock implements Emitable {
           }
         }
         var s = unused.size() == 1 ? "" : "s";
-        checkArgument(
-            unused.isEmpty(),
+        checkArgument(unused.isEmpty(),
             "unused argument%s: %s",
             s,
             String.join(", ", unused)
@@ -401,25 +605,30 @@ public final class CodeBlock implements Emitable {
       return this;
     }
 
-    public Builder add(Notation n) {
-      notation.push(notation.pop().then(n));
-      return this;
-    }
-
     private boolean isNoArgPlaceholder(char c) {
       return c == '$' || c == '>' || c == '<' || c == '[' || c == ']'
           || c == 'W' || c == 'Z';
     }
 
-    private Notation addArgument(String format, char c, Object arg) {
-      return switch (c) {
-        case 'N' -> txt(argToName(arg));
-        case 'L' -> Notation.literal(argToLiteral(arg));
-        case 'S' -> txt(argToString(arg));
-        case 'T' -> Notation.typeRef(argToType(arg));
-        default -> throw new IllegalArgumentException(
-            String.format("invalid format string: '%s'", format));
-      };
+    private void addArgument(String format, char c, Object arg) {
+      switch (c) {
+        case 'N':
+          this.args.add(argToName(arg));
+          break;
+        case 'L':
+          this.args.add(argToLiteral(arg));
+          break;
+        case 'S':
+          this.args.add(argToString(arg));
+          break;
+        case 'T':
+          this.args.add(argToType(arg));
+          break;
+        default:
+          throw new IllegalArgumentException(String.format("invalid format string: '%s'",
+              format
+          ));
+      }
     }
 
     private String argToName(Object o) {
@@ -445,9 +654,9 @@ public final class CodeBlock implements Emitable {
       return o;
     }
 
-    @Contract(pure = true)
-    private String argToString(Object o) {
-      return o != null ? "\"" + o + "\"" : "null";
+    @Contract(value = "null -> null", pure = true)
+    private @Nullable String argToString(Object o) {
+      return o != null ? String.valueOf(o) : null;
     }
 
     @Contract("null -> fail")
@@ -473,7 +682,7 @@ public final class CodeBlock implements Emitable {
      *                    Shouldn't contain braces or newline characters.
      */
     public Builder beginControlFlow(String controlFlow, Object... args) {
-      add(controlFlow + " ", args);
+      add(controlFlow + " {\n", args);
       indent();
       return this;
     }
@@ -483,14 +692,15 @@ public final class CodeBlock implements Emitable {
      *                    Shouldn't contain braces or newline characters.
      */
     public Builder nextControlFlow(String controlFlow, Object... args) {
-      unindent("{", "}");
-      add(" " + controlFlow + " ", args);
+      unindent();
+      add("} " + controlFlow + " {\n", args);
       indent();
       return this;
     }
 
     public Builder endControlFlow() {
-      unindent("{", "}");
+      unindent();
+      add("}\n");
       return this;
     }
 
@@ -499,15 +709,15 @@ public final class CodeBlock implements Emitable {
      *                    "while(foo == 20)". Only used for "do/while" control flows.
      */
     public Builder endControlFlow(String controlFlow, Object... args) {
-      unindent("{", "}");
-      add(" " + controlFlow + ";", args);
+      unindent();
+      add("} " + controlFlow + ";\n", args);
       return this;
     }
 
     public Builder addStatement(String format, Object... args) {
       add("$[");
       add(format, args);
-      add(";$]");
+      add(";\n$]");
       return this;
     }
 
@@ -516,74 +726,29 @@ public final class CodeBlock implements Emitable {
     }
 
     public Builder add(CodeBlock codeBlock) {
-      add(codeBlock.notation);
-      return this;
-    }
-
-    public Builder gatherLines() {
-      notation.push(lines.stream().collect(asLines()).then(notation.pop()));
-      lines.clear();
+      formatParts.addAll(codeBlock.formatParts);
+      args.addAll(codeBlock.args);
       return this;
     }
 
     public Builder indent() {
-      notation.push(Notation.empty());
+      this.formatParts.add("$>");
       return this;
     }
 
-    public Builder unindent(String before, String after) {
-      gatherLines();
-      var indented = notation.pop();
-      var surrounding = notation.pop();
-      notation.push(surrounding.then(Notate.wrapAndIndentUnlessEmpty(txt(before), indented, txt(after))));
-      return this;
-    }
-
-    public Builder statement() {
-      if (inStatement) {
-        throw new IllegalStateException(
-            "statement enter $[ followed by statement enter $[");
-      }
-      notation.push(Notation.empty());
-      inStatement = true;
-      return this;
-    }
-
-    public Builder unstatement() {
-      if (!inStatement) {
-        throw new IllegalStateException(
-            "statement exit $] has no matching statement enter $[");
-      }
-      inStatement = false;
-      gatherLines();
-      var statement = notation.pop();
-      var surrounding = notation.pop();
-      if (surrounding.isEmpty()) {
-        notation.push(Notation.statement(statement));
-      } else {
-        notation.push(surrounding
-            .then(nl())
-            .then(Notation.statement(statement)));
-      }
+    public Builder unindent() {
+      this.formatParts.add("$<");
       return this;
     }
 
     public Builder clear() {
-      notation.clear();
-      inStatement = false;
-      notation.push(Notation.empty());
+      formatParts.clear();
+      args.clear();
       return this;
     }
 
     public CodeBlock build() {
-      if (inStatement) {
-        unstatement();
-      }
-      gatherLines();
-      while (this.notation.size() > 1) {
-        unindent("", "");
-      }
-      return new CodeBlock(this.notation.pop());
+      return new CodeBlock(this);
     }
   }
 

@@ -71,6 +71,8 @@ public final class JavaFile implements Emitable {
     }
   };
 
+  public static final ThreadLocal<Set<String>> CURRENT_STATIC_IMPORTS = ThreadLocal.withInitial(HashSet::new);
+
   public final CodeBlock fileComment;
   public final String packageName;
   public final TypeSpec typeSpec;
@@ -109,45 +111,56 @@ public final class JavaFile implements Emitable {
   }
 
   public void writeTo(Appendable out) throws IOException {
-    // First pass: emit the entire class, just to collect the types we'll need to import.
-    var notation = toNotation();
+    CURRENT_STATIC_IMPORTS.set(staticImports);
+    try {
+      // First pass: emit the entire class, just to collect the types we'll need to import.
+      var notation = toNotation();
 
-    var suggestedImports = notation.imports;
-    var actualImports = new HashSet<ClassName>();
-    var names = new HashMap<>(notation.names);
+      var suggestedImports = notation.imports;
+      var actualImports = new HashSet<ClassName>();
+      var names = new HashMap<>(notation.names);
 
-    for (var typeName : suggestedImports) {
-      names.put(typeName, typeName.nameWhenImported());
-      if (typeName instanceof ClassName className) {
-        if (!className.packageName.isEmpty() && !className.packageName.equals(
-            packageName)) {
-          actualImports.add(className.topLevelClassName());
+      for (var typeName : suggestedImports) {
+        names.put(typeName, typeName.nameWhenImported());
+        if (typeName instanceof ClassName className) {
+          if (!className.packageName.isEmpty() && !className.packageName.equals(
+              packageName)) {
+            actualImports.add(className.topLevelClassName());
+          }
         }
       }
+
+      var comment = fileComment.isEmpty()
+          ? empty()
+          : txt("// ").then(fileComment.toNotation().indent("// "));
+      var pkg = txt("package " + packageName + ";");
+
+      var imports = actualImports
+          .stream()
+          .sorted(ClassName.PACKAGE_COMPARATOR)
+          .map(c -> txt("import " + c.canonicalName() + ";"))
+          .collect(Notation.asLines());
+
+      var statics = staticImports.stream().sorted().map(
+          c -> txt("import static " + c + ";"))
+          .collect(Notation.asLines());
+
+      var top = Stream
+          .of(comment, pkg)
+          .filter(n -> !n.isEmpty())
+          .collect(join(txt("\n")));
+
+      var everything = Stream
+          .of(top, imports, statics, notation)
+          .filter(n -> !n.isEmpty())
+          .collect(join(txt("\n\n")))
+          .then(nl());
+
+      var printer = new Printer(everything, 100, names, indent);
+      printer.print(out);
+    } finally {
+      CURRENT_STATIC_IMPORTS.remove();
     }
-
-    var comment = fileComment.isEmpty() ? empty() : txt("// ").then(fileComment.toNotation().indent("// "));
-    var pkg = Notation.txt("package " + packageName + ";");
-
-    var imports = actualImports
-        .stream()
-        .sorted(ClassName.PACKAGE_COMPARATOR)
-        .map(c -> Notation.txt("import " + c.canonicalName() + ";"))
-        .collect(Notation.asLines());
-
-    var top = Stream
-        .of(comment, pkg)
-        .filter(n -> !n.isEmpty())
-        .collect(join(txt("\n")));
-
-    var everything = Stream
-        .of(top, imports, notation)
-        .filter(n -> !n.isEmpty())
-        .collect(join(txt("\n\n")))
-        .then(nl());
-
-    var printer = new Printer(everything, 100, names, indent);
-    printer.print(out);
   }
 
   /**
