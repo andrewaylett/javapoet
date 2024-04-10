@@ -39,7 +39,8 @@ public class NoImport extends Notation {
             .stream()
             .filter(t -> !(suppress.contains(t.canonicalName()) || suppress.contains(t.nameWhenImported())))
             .collect(
-                Collectors.toSet())
+                Collectors.toSet()),
+        inner.childContexts
     );
     this.inner = inner;
   }

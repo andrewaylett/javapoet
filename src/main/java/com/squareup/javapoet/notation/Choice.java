@@ -34,6 +34,9 @@ public class Choice extends Notation {
             )),
         Stream
             .concat(left.imports.stream(), right.imports.stream())
+            .collect(Collectors.toSet()),
+        Stream
+            .concat(left.childContexts.stream(), right.childContexts.stream())
             .collect(Collectors.toSet())
     );
     this.left = left;
@@ -42,6 +45,9 @@ public class Choice extends Notation {
 
   @Override
   public Notation toNotation() {
+    if (left instanceof Flat f && f.inner.equals(right)) {
+      return Notate.fnLike("FlatChoice", List.of(right));
+    }
     return Notate.fnLike("Choice", List.of(left, right));
   }
 

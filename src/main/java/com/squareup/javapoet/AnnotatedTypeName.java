@@ -155,4 +155,9 @@ public final class AnnotatedTypeName implements TypeName {
   public @NotNull String canonicalName() {
     return inner.canonicalName();
   }
+
+  @Override
+  public @NotNull String simpleName() {
+    return inner.simpleName();
+  }
 }

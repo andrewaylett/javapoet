@@ -8,10 +8,10 @@ import java.util.List;
 import java.util.Objects;
 
 public class Flat extends Notation {
-  private final Notation inner;
+  public final Notation inner;
 
   public Flat(@NotNull Notation inner) {
-    super(inner.names, inner.imports);
+    super(inner.names, inner.imports, inner.childContexts);
     this.inner = inner;
   }
 

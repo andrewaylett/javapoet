@@ -835,9 +835,7 @@ public final class TypeSpecTest {
         import java.lang.Cloneable;
 
         enum Food implements Serializable, Cloneable {
-          LEAN_GROUND_BEEF,
-
-          SHREDDED_CHEESE
+          LEAN_GROUND_BEEF, SHREDDED_CHEESE
         }
         """);
   }
@@ -874,7 +872,7 @@ public final class TypeSpecTest {
         .addField(taco, "taco")
         .addField(chips, "chips")
         .addType(TypeSpec
-            .classBuilder(taco.nameWhenImported())
+            .classBuilder(taco.simpleName())
             .addModifiers(Modifier.STATIC)
             .addField(ParameterizedTypeName.get(
                 ClassName.get(List.class),
@@ -882,19 +880,19 @@ public final class TypeSpecTest {
             ), "toppings")
             .addField(sauce, "sauce")
             .addType(TypeSpec
-                .enumBuilder(topping.nameWhenImported())
+                .enumBuilder(topping.simpleName())
                 .addEnumConstant("SHREDDED_CHEESE")
                 .addEnumConstant("LEAN_GROUND_BEEF")
                 .build())
             .build())
         .addType(TypeSpec
-            .classBuilder(chips.nameWhenImported())
+            .classBuilder(chips.simpleName())
             .addModifiers(Modifier.STATIC)
             .addField(topping, "topping")
             .addField(sauce, "dippingSauce")
             .build())
         .addType(TypeSpec
-            .enumBuilder(sauce.nameWhenImported())
+            .enumBuilder(sauce.simpleName())
             .addEnumConstant("SOUR_CREAM")
             .addEnumConstant("SALSA")
             .addEnumConstant("QUESO")

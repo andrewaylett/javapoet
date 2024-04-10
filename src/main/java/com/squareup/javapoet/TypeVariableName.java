@@ -241,6 +241,11 @@ public final class TypeVariableName extends ObjectTypeName {
   }
 
   @Override
+  public @NotNull String simpleName() {
+    return name;
+  }
+
+  @Override
   public @NotNull TypeName nestedClass(@NotNull String name) {
     throw new UnsupportedOperationException(
         "Cannot nest class inside type variable");

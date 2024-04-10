@@ -333,4 +333,6 @@ public sealed interface TypeName extends Emitable
   TypeName enclosingClassName();
 
   List<String> simpleNames();
+
+  String simpleName();
 }

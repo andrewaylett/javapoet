@@ -13,7 +13,7 @@ public class Name extends Notation {
   private final Object tag;
 
   public Name(Object tag, String suggestion) {
-    super(Map.of(tag, suggestion), Set.of());
+    super(Map.of(tag, suggestion), Set.of(), Set.of());
     this.tag = tag;
   }
 

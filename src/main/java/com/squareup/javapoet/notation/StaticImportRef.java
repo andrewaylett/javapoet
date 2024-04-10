@@ -15,7 +15,7 @@ public class StaticImportRef extends Notation {
   private final String part;
 
   public StaticImportRef(TypeName ref, String part) {
-    super(Map.of(), Set.of());
+    super(Map.of(), Set.of(), Set.of());
     this.ref = ref;
     this.part = part;
   }

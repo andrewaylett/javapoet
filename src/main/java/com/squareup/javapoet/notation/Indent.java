@@ -13,7 +13,7 @@ public class Indent extends Notation {
   public final Notation inner;
 
   public Indent(Optional<String> indent, Notation inner) {
-    super(inner.names, inner.imports);
+    super(inner.names, inner.imports, inner.childContexts);
     this.indent = indent;
     this.inner = inner;
   }
@@ -28,14 +28,14 @@ public class Indent extends Notation {
       @NotNull Printer.PrinterVisitor printer,
       @NotNull Chunk chunk
   ) {
-    printer.push(chunk.withNotation(inner).indented(indent.orElseGet(chunk::indentBy)));
+    printer.push(chunk.withNotation(inner).indented(indent.orElseGet(() -> chunk.indentBy)));
   }
 
   @Override
   public @NotNull Printer.FlatResponse visit(
       @NotNull Printer.FlatVisitor flatVisitor, @NotNull Chunk chunk
   ) {
-    flatVisitor.push(chunk.withNotation(inner).indented(indent.orElseGet(chunk::indentBy)));
+    flatVisitor.push(chunk.withNotation(inner).indented(indent.orElseGet(() -> chunk.indentBy)));
     return Printer.FlatResponse.INCONCLUSIVE;
   }
 

@@ -16,8 +16,10 @@
 package com.squareup.javapoet;
 
 import com.google.common.base.Splitter;
+import com.squareup.javapoet.notation.Context;
 import com.squareup.javapoet.notation.Notation;
 import com.squareup.javapoet.notation.Printer;
+import com.squareup.javapoet.notation.PriorityMap;
 
 import javax.annotation.processing.Filer;
 import javax.lang.model.element.Element;
@@ -35,7 +37,6 @@ import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.Map;
@@ -123,14 +124,15 @@ public final class JavaFile implements Emitable {
           .sorted(ClassName.PACKAGE_COMPARATOR)
           .toList();
       var actualImports = new HashSet<ClassName>();
-      var names = new HashMap<>(notation.names);
+      var names = PriorityMap.from(notation.names);
+      var localNames = notation.childContexts
+          .stream()
+          .flatMap(Context::allContextNames)
+          .collect(Collectors.toSet());
 
-      names.put(ClassName.get(packageName, typeSpec.name), typeSpec.name);
-
-      typeSpec.nestedTypesSimpleNames.forEach(n -> names.put(ClassName.get(packageName,
-          typeSpec.name,
-          n
-      ), n));
+      notation.childContexts.forEach(c -> names.put(ClassName.get(packageName,
+          c.simpleName
+      ), c.simpleName));
 
       var inverseNames = names
           .entrySet()
@@ -144,20 +146,23 @@ public final class JavaFile implements Emitable {
 
       // Find package local names first
       for (var typeName : suggestedImports) {
-        var keys = inverseNames.get(typeName.nameWhenImported());
+        var nameWhenImported = typeName.nameWhenImported();
+        var keys = inverseNames.get(nameWhenImported);
         if ((keys == null || keys.equals(Set.of(typeName))) && typeName
             .canonicalName()
-            .equals(packageName + "." + typeName.nameWhenImported())) {
-          names.put(typeName, typeName.nameWhenImported());
-          inverseNames.put(typeName.nameWhenImported(), Set.of(typeName));
+            .equals(packageName + "." + nameWhenImported)) {
+          names.put(typeName, nameWhenImported);
+          inverseNames.put(nameWhenImported, Set.of(typeName));
         }
       }
 
       for (var typeName : suggestedImports) {
-        if (!alwaysQualify.contains(typeName.nameWhenImported())
-            && !inverseNames.containsKey(typeName.nameWhenImported())) {
-          names.put(typeName, typeName.nameWhenImported());
-          inverseNames.put(typeName.nameWhenImported(), Set.of(typeName));
+        var nameWhenImported = typeName.nameWhenImported();
+        if (!alwaysQualify.contains(nameWhenImported)
+            && !inverseNames.containsKey(nameWhenImported)
+            && !localNames.contains(nameWhenImported)) {
+          names.put(typeName, nameWhenImported);
+          inverseNames.put(nameWhenImported, Set.of(typeName));
           try {
             var className = typeName.topLevelClassName();
             if (!className.packageName.isEmpty()
@@ -167,12 +172,12 @@ public final class JavaFile implements Emitable {
           } catch (UnsupportedOperationException ignored) {
           }
         } else {
-          var keys = inverseNames.get(typeName.nameWhenImported());
+          var keys = inverseNames.get(nameWhenImported);
           if (keys == null || keys.contains(typeName) && typeName
               .canonicalName()
-              .equals(packageName + "." + typeName.nameWhenImported())) {
-            names.put(typeName, typeName.nameWhenImported());
-            inverseNames.put(typeName.nameWhenImported(), Set.of(typeName));
+              .equals(packageName + "." + nameWhenImported)) {
+            names.put(typeName, nameWhenImported);
+            inverseNames.put(nameWhenImported, Set.of(typeName));
           } else {
             names.put(typeName, typeName.canonicalName());
             inverseNames.put(typeName.canonicalName(), Set.of(typeName));
@@ -211,7 +216,7 @@ public final class JavaFile implements Emitable {
           .collect(join(txt("\n\n")))
           .then(nl());
 
-      var printer = new Printer(everything, 100, names, indent);
+      var printer = new Printer(everything, 100, names, indent, packageName);
       printer.print(out);
     } finally {
       CURRENT_STATIC_IMPORTS.remove();
@@ -353,7 +358,7 @@ public final class JavaFile implements Emitable {
       }
 
       @Override
-      public InputStream openInputStream() throws IOException {
+      public InputStream openInputStream() {
         return new ByteArrayInputStream(getCharContent(true).getBytes(UTF_8));
       }
 

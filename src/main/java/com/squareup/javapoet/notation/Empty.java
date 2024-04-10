@@ -1,18 +1,19 @@
 package com.squareup.javapoet.notation;
 
-import com.squareup.javapoet.Notate;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 
 import java.io.IOException;
-import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 
 @SuppressWarnings("UnstableApiUsage")
 public class Empty extends Notation {
   public static Empty INSTANCE = new Empty();
 
   private Empty() {
+    super(Map.of(), Set.of(), Set.of());
   }
 
   @Override

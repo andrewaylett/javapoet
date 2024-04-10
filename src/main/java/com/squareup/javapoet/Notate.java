@@ -23,8 +23,7 @@ public class Notate {
   }
 
   public static Notation annotations(
-      List<AnnotationSpec> annotations,
-      boolean inline
+      List<AnnotationSpec> annotations, boolean inline
   ) {
     if (inline) {
       return annotations
@@ -51,25 +50,22 @@ public class Notate {
   }
 
   public static Notation wrapAndIndent(
-      Notation before,
-      Notation wrapped,
-      Notation after
+      Notation before, Notation wrapped, Notation after
   ) {
     if (wrapped.isEmpty()) {
       return before.then(after);
     }
-    return before.flat()
-        .then(wrapped.flat())
-        .then(after.flat())
+    return before
+        .then(wrapped)
+        .then(after)
+        .flat()
         .or(before
             .then(nl().then(wrapped).indent())
             .then(after.isEmpty() ? empty() : nl().then(after)));
   }
 
   public static Notation wrapAndIndentUnlessEmpty(
-      Notation before,
-      Notation wrapped,
-      Notation after
+      Notation before, Notation wrapped, Notation after
   ) {
     if (wrapped.isEmpty()) {
       return before.then(after);
@@ -80,17 +76,16 @@ public class Notate {
   }
 
   public static Notation spacesOrWrapAndIndent(
-      Notation before,
-      Notation wrapped,
-      Notation after
+      Notation before, Notation wrapped, Notation after
   ) {
     if (wrapped.isEmpty()) {
       return before.then(after);
     }
     return before
         .then(txt(" "))
-        .then(wrapped.flat())
+        .then(wrapped)
         .then(after.isEmpty() ? empty() : txt(" ").then(after))
+        .flat()
         .or(before
             .then(nl().then(wrapped).indent())
             .then(after.isEmpty() ? empty() : nl().then(after)));
@@ -99,6 +94,10 @@ public class Notate {
   public static Notation fnLike(String name, Iterable<Notation> content) {
     var builder = Stream.<Notation>builder();
     content.forEach(builder);
-    return wrapAndIndent(txt(name + "("), builder.build().map(Notation::toNotation).collect(commaSeparated()), txt(")"));
+    return wrapAndIndent(
+        txt(name + "("),
+        builder.build().map(Notation::toNotation).collect(commaSeparated()),
+        txt(")")
+    );
   }
 }

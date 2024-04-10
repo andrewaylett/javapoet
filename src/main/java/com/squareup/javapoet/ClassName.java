@@ -29,6 +29,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 
 import static com.squareup.javapoet.Util.checkArgument;
 import static com.squareup.javapoet.Util.checkNotNull;
@@ -39,31 +40,25 @@ import static com.squareup.javapoet.Util.checkNotNull;
 public final class ClassName extends ObjectTypeName
     implements Comparable<ClassName> {
   public static final Comparator<? super TypeName> PACKAGE_COMPARATOR =
-      Comparator.comparing(
-          c -> c.canonicalName().split("\\."),
-          (a, b) -> {
-            for (var i = 0; i < Math.min(a.length, b.length); i++) {
-              var cmp = a[i].compareTo(b[i]);
-              if (cmp != 0) {
-                return cmp;
-              }
-            }
-            return -Integer.compare(a.length, b.length);
+      Comparator.comparing(c -> c.canonicalName().split("\\."), (a, b) -> {
+        for (var i = 0; i < Math.min(a.length, b.length); i++) {
+          var cmp = a[i].compareTo(b[i]);
+          if (cmp != 0) {
+            return cmp;
           }
-      );
+        }
+        return -Integer.compare(a.length, b.length);
+      });
   public static final Comparator<? super String> STRING_PACKAGE_COMPARATOR =
-      Comparator.comparing(
-          s -> s.split("\\."),
-          (a, b) -> {
-            for (var i = 0; i < Math.min(a.length, b.length); i++) {
-              var cmp = a[i].compareTo(b[i]);
-              if (cmp != 0) {
-                return cmp;
-              }
-            }
-            return -Integer.compare(a.length, b.length);
+      Comparator.comparing(s -> s.split("\\."), (a, b) -> {
+        for (var i = 0; i < Math.min(a.length, b.length); i++) {
+          var cmp = a[i].compareTo(b[i]);
+          if (cmp != 0) {
+            return cmp;
           }
-      );
+        }
+        return -Integer.compare(a.length, b.length);
+      });
   /**
    * The name representing the default Java package.
    */
@@ -100,7 +95,9 @@ public final class ClassName extends ObjectTypeName
     this.simpleName = simpleName;
     this.canonicalName = enclosingClassName != null
         ? (enclosingClassName.canonicalName() + '.' + simpleName)
-        : (packageName.isEmpty() ? simpleName : packageName + '.' + simpleName);
+        : (packageName.isEmpty()
+            ? simpleName
+            : packageName + '.' + simpleName);
   }
 
   public static ClassName get(Class<?> clazz) {
@@ -113,8 +110,7 @@ public final class ClassName extends ObjectTypeName
         !void.class.equals(clazz),
         "'void' type cannot be represented as a ClassName"
     );
-    checkArgument(
-        !clazz.isArray(),
+    checkArgument(!clazz.isArray(),
         "array types cannot be represented as a ClassName"
     );
 
@@ -174,9 +170,7 @@ public final class ClassName extends ObjectTypeName
    * {@code "java.util"} and simple names {@code "Map"}, {@code "Entry"} yields {@link Map.Entry}.
    */
   public static ClassName get(
-      String packageName,
-      String simpleName,
-      String... simpleNames
+      String packageName, String simpleName, String... simpleNames
   ) {
     var className = new ClassName(packageName, null, simpleName);
     for (var name : simpleNames) {
@@ -197,8 +191,7 @@ public final class ClassName extends ObjectTypeName
         .accept(new SimpleElementVisitor8<ClassName, Void>() {
           @Override
           public ClassName visitPackage(PackageElement packageElement, Void p) {
-            return new ClassName(
-                packageElement.getQualifiedName().toString(),
+            return new ClassName(packageElement.getQualifiedName().toString(),
                 null,
                 simpleName
             );
@@ -312,6 +305,11 @@ public final class ClassName extends ObjectTypeName
     }
   }
 
+  @Override
+  public @NotNull String simpleName() {
+    return simpleName;
+  }
+
   /**
    * Returns a class that shares the same enclosing package or class. If this class is enclosed by
    * another class, this is equivalent to {@code enclosingClassName().nestedClass(name)}. Otherwise
@@ -332,11 +330,9 @@ public final class ClassName extends ObjectTypeName
 
   @Override
   public @NotNull TypeName nestedClass(
-      @NotNull String name,
-      @NotNull List<TypeName> typeArguments
+      @NotNull String name, @NotNull List<TypeName> typeArguments
   ) {
-    return new ParameterizedTypeName(
-        this,
+    return new ParameterizedTypeName(this,
         this.nestedClass(name),
         typeArguments
     );
@@ -378,19 +374,17 @@ public final class ClassName extends ObjectTypeName
       return false;
     }
     var className = (ClassName) o;
-    return Objects.equals(packageName, className.packageName) && Objects.equals(
-        enclosingClassName,
+    return Objects.equals(packageName, className.packageName) && Objects.equals(enclosingClassName,
         className.enclosingClassName
-    ) && Objects.equals(simpleName, className.simpleName) && Objects.equals(
-        canonicalName,
-        className.canonicalName
-    );
+    ) && Objects.equals(
+        simpleName,
+        className.simpleName
+    ) && Objects.equals(canonicalName, className.canonicalName);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(
-        packageName,
+    return Objects.hash(packageName,
         enclosingClassName,
         simpleName,
         canonicalName
@@ -400,5 +394,35 @@ public final class ClassName extends ObjectTypeName
   @Override
   public Notation toNotation() {
     return Notation.typeRef(this);
+  }
+
+  public String referenceTo(TypeName other, Set<String> enclosedNames) {
+    if (!(other instanceof ClassName c) || !Objects.equals(packageName,
+        c.packageName
+    )) {
+      return other.canonicalName();
+    }
+    var thisSimpleNames = new ArrayList<>(simpleNames());
+    var otherSimpleNames = new ArrayList<>(other.simpleNames());
+    var restoreSimpleNames = new ArrayList<String>();
+    while (!thisSimpleNames.isEmpty() && !otherSimpleNames.isEmpty()
+        && thisSimpleNames.get(0).equals(otherSimpleNames.get(0))) {
+      thisSimpleNames.remove(0);
+      restoreSimpleNames.add(otherSimpleNames.remove(0));
+    }
+    List<String> proposedSimpleNames;
+    if (otherSimpleNames.isEmpty()) {
+      proposedSimpleNames = new ArrayList<>();
+      proposedSimpleNames.add(other.simpleName());
+    } else {
+      proposedSimpleNames = otherSimpleNames;
+    }
+    if (!thisSimpleNames.isEmpty() && enclosedNames.contains(proposedSimpleNames.get(0))) {
+      // Name collisions with something inside this scope
+      while (!restoreSimpleNames.isEmpty() && enclosedNames.contains(proposedSimpleNames.get(0))) {
+        proposedSimpleNames.add(0, restoreSimpleNames.remove(restoreSimpleNames.size() - 1));
+      }
+    }
+    return String.join(".", proposedSimpleNames);
   }
 }

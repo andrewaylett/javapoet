@@ -108,7 +108,7 @@ public final class TypeSpec {
   }
 
   /**
-   * Creates a dummy type spec for type-resolution only (in CodeWriter)
+   * Creates a type spec for type-resolution only (in CodeWriter)
    * while emitting the type declaration but before entering the type body.
    */
   private TypeSpec(@NotNull TypeSpec type) {
@@ -237,7 +237,7 @@ public final class TypeSpec {
   }
 
   public Notation toNotation() {
-    return toNotation(Set.of());
+    return toNotation(kind.implicitTypeModifiers);
   }
 
   public Notation toNotation(Set<Modifier> implicitModifiers) {
@@ -380,7 +380,7 @@ public final class TypeSpec {
     // Types.
     var types = typeSpecs
         .stream()
-        .map(m -> m.toNotation(kind.implicitTypeModifiers))
+        .map(m -> m.toNotation(m.kind.asMemberModifiers))
         .collect(join(txt("\n\n")));
     body.add(types);
 
@@ -388,9 +388,13 @@ public final class TypeSpec {
         preamble,
         body.build().filter(n -> !n.isEmpty()).collect(join(nl().then(nl()))),
         txt("}")
-    );
+    ).suppressImports(alwaysQualifiedNames);
 
-    return spec.suppressImports(alwaysQualifiedNames);
+    if (name != null) {
+      return spec.inContext(name);
+    } else {
+      return spec;
+    }
   }
 
   private Notation notationForEnumConstant(String name) {
@@ -472,7 +476,7 @@ public final class TypeSpec {
             Modifier.FINAL
         )),
         Util.immutableSet(Arrays.asList(Modifier.PUBLIC, Modifier.ABSTRACT)),
-        Util.immutableSet(Arrays.asList(Modifier.PUBLIC, Modifier.STATIC)),
+        Util.immutableSet(List.of(Modifier.STATIC)),
         Util.immutableSet(Collections.singletonList(Modifier.STATIC))
     );
 

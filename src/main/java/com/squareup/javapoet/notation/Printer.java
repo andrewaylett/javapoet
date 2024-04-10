@@ -6,6 +6,8 @@ import java.io.IOException;
 import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
 
 public class Printer {
   private final int width;
@@ -15,11 +17,21 @@ public class Printer {
   public Printer(
       @NotNull Notation notation,
       int width,
-      Map<Object, String> names,
-      String indent
+      PriorityMap<Object, String> names,
+      String indent,
+      String packageName
   ) {
     this.width = width;
-    var chunk = new Chunk(notation, "", false, names, indent);
+    var chunk = new Chunk(
+        notation,
+        "",
+        false,
+        names,
+        Set.of(),
+        indent,
+        Optional.empty(),
+        packageName
+    );
     chunks.push(chunk);
   }
 

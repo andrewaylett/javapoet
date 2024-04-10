@@ -32,14 +32,22 @@ public abstract class Notation {
   private static final Pattern fsPattern = Pattern.compile(formatSpecifier);
   public final Map<Object, String> names;
   public final Set<TypeName> imports;
+  public final Set<Context> childContexts;
 
-  public Notation() {
-    this(Map.of(), Set.of());
+  public Notation(Map<Object, String> names, Set<TypeName> imports, Set<Context> childContexts) {
+    this.names = Map.copyOf(names);
+    this.imports = Set.copyOf(imports);
+    this.childContexts = Set.copyOf(childContexts);
   }
 
   public Notation(Map<Object, String> names, Set<TypeName> imports) {
     this.names = Map.copyOf(names);
     this.imports = Set.copyOf(imports);
+    if (this instanceof Context c) {
+      this.childContexts = Set.of(c);
+    } else {
+      throw new IllegalArgumentException("Called two-param constructor of Notation when not a Context");
+    }
   }
 
   @Contract(pure = true)
@@ -266,15 +274,20 @@ public abstract class Notation {
     return new Choice(this, choice);
   }
 
+  @Contract(value = "_ -> new", pure = true)
+  public @NotNull Context inContext(@NotNull String name) {
+    return new Context(name, this);
+  }
+
   @Override
   public String toString() {
     var out = new StringWriter();
     try {
-      var names = new HashMap<>(this.names);
+      var names = PriorityMap.from(this.names);
       for (var ty : this.imports) {
         names.put(ty, ty.canonicalName());
       }
-      var printer = new Printer(toNotation(), 80, names, "  ");
+      var printer = new Printer(toNotation(), 80, names, "| ", "");
       printer.print(out);
       return out.toString();
     } catch (IOException e) {
@@ -287,11 +300,11 @@ public abstract class Notation {
   public String toCode() {
     var out = new StringWriter();
     try {
-      var names = new HashMap<>(this.names);
+      var names = PriorityMap.from(this.names);
       for (var ty : this.imports) {
         names.put(ty, ty.canonicalName());
       }
-      var printer = new Printer(this, 100, names, "  ");
+      var printer = new Printer(this, 100, names, "  ", "");
       printer.print(out);
       return out.toString();
     } catch (IOException e) {

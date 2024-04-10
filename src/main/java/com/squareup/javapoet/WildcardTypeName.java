@@ -210,6 +210,11 @@ public final class WildcardTypeName extends ObjectTypeName {
   }
 
   @Override
+  public @NotNull String simpleName() {
+    throw new UnsupportedOperationException("A wildcard has no name");
+  }
+
+  @Override
   public String toString() {
     return toNotation().toCode();
   }

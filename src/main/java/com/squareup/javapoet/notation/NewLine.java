@@ -4,13 +4,16 @@ import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 
 import java.io.IOException;
+import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 
 @SuppressWarnings("UnstableApiUsage")
 public class NewLine extends Notation {
   public static NewLine INSTANCE = new NewLine();
 
   private NewLine() {
+    super(Map.of(), Set.of(), Set.of());
   }
 
   @Override

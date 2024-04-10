@@ -29,6 +29,8 @@ public class Concat extends Notation {
                 }
             )),
         content.stream().unordered().flatMap(n -> n.imports.stream().unordered())
+            .collect(Collectors.toSet()),
+        content.stream().unordered().flatMap(n -> n.childContexts.stream().unordered())
             .collect(Collectors.toSet())
     );
     this.content = List.copyOf(content);

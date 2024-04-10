@@ -10,7 +10,7 @@ public class Statement extends Notation {
   public final Notation inner;
 
   public Statement(Notation inner) {
-    super(inner.names, inner.imports);
+    super(inner.names, inner.imports, inner.childContexts);
 
     inner.visit((Notation notation) -> {
       if (notation instanceof Statement) {

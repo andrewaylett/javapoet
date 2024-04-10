@@ -4,13 +4,15 @@ import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 
 import java.io.IOException;
+import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 
 public class Text extends Notation {
   protected final String content;
 
   public Text(@NotNull String s) {
-    super();
+    super(Map.of(), Set.of(), Set.of());
     this.content = s;
   }
 

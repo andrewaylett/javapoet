@@ -183,6 +183,11 @@ public final class ParameterizedTypeName extends ObjectTypeName {
     return rawType.simpleNames();
   }
 
+  @Override
+  public @NotNull String simpleName() {
+    return rawType.simpleName();
+  }
+
   /**
    * Returns a new {@link ParameterizedTypeName} instance for the specified {@code name} as nested
    * inside this class, with the specified {@code typeArguments}.

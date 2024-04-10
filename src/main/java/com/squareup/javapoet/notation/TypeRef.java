@@ -14,7 +14,7 @@ public class TypeRef extends Notation {
   private final TypeName ref;
 
   public TypeRef(TypeName ref) {
-    super(Map.of(), Set.of(ref));
+    super(Map.of(), Set.of(ref), Set.of());
     this.ref = ref;
   }
 

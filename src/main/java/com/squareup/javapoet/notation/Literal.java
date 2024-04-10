@@ -5,15 +5,16 @@ import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 
 import java.io.IOException;
-import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 
 public class Literal<T> extends Notation {
 
   private final T value;
 
   public Literal(T value) {
-    super();
+    super(Map.of(), Set.of(), Set.of());
     this.value = value;
   }
 

@@ -142,6 +142,11 @@ public final class ArrayTypeName extends ObjectTypeName {
   }
 
   @Override
+  public @NotNull String simpleName() {
+    return componentType.simpleName();
+  }
+
+  @Override
   public @NotNull Notation toNotation() {
     return componentType.toNotation().then(Notation.txt("[]"));
   }

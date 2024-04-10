@@ -104,6 +104,11 @@ public enum PrimitiveType implements TypeName {
   }
 
   @Override
+  public @NotNull String simpleName() {
+    return keyword;
+  }
+
+  @Override
   public Notation toNotation() {
     return Notation.typeRef(this);
   }
