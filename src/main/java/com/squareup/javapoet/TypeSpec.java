@@ -256,7 +256,7 @@ public final class TypeSpec {
       annotations.stream().map(Emitable::toNotation).forEach(lines);
       var declaration = Stream.<Notation>builder();
       modifiers.stream()
-          .filter(m -> !implicitModifiers.contains(m))
+          .filter(m -> !implicitModifiers.contains(m) && !kind.asMemberModifiers.contains(m))
           .map(String::valueOf)
           .map(Notation::txt)
           .forEach(declaration);
@@ -380,7 +380,7 @@ public final class TypeSpec {
     // Types.
     var types = typeSpecs
         .stream()
-        .map(m -> m.toNotation(m.kind.asMemberModifiers))
+        .map(m -> m.toNotation(kind.implicitTypeModifiers))
         .collect(join(txt("\n\n")));
     body.add(types);
 

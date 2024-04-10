@@ -253,7 +253,7 @@ public final class MethodSpec implements Emitable {
 
   @Override
   public Notation toNotation() {
-    return toNotation("ArbitraryClass", Set.of());
+    return toNotation("Constructor", Set.of());
   }
 
   public Notation toNotation(

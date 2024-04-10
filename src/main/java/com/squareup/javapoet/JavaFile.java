@@ -127,7 +127,7 @@ public final class JavaFile implements Emitable {
       var names = PriorityMap.from(notation.names);
       var localNames = notation.childContexts
           .stream()
-          .flatMap(Context::allContextNames)
+          .flatMap(Context::immediateChildContextNames)
           .collect(Collectors.toSet());
 
       notation.childContexts.forEach(c -> names.put(ClassName.get(packageName,

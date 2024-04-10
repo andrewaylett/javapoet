@@ -243,8 +243,9 @@ public final class TypeSpecTest {
         import java.lang.String;
 
         class Foo {
-          public Foo(long id, @Ping String one, @Ping String two, @Pong("pong") String three,
-              @Ping String four) {
+          public Foo(
+            long id, @Ping String one, @Ping String two, @Pong("pong") String three, @Ping String four
+          ) {
             /* code snippets */
           }
         }
@@ -621,12 +622,7 @@ public final class TypeSpecTest {
         import java.lang.Deprecated;
 
         public enum Roshambo {
-          @Deprecated
-          ROCK,
-
-          PAPER,
-
-          SCISSORS
+          @Deprecated ROCK, PAPER, SCISSORS
         }
         """);
   }
@@ -1470,11 +1466,10 @@ public final class TypeSpecTest {
         package com.squareup.tacos;
 
         @MealDeal(
-            price = 500,
-            options = {
-                @Option(name = "taco", meat = Beef.class),
-                @Option(name = "quesadilla", meat = Chicken.class)
-            }
+          price = 500,
+          options = {
+            @Option(name = "taco", meat = Beef.class), @Option(name = "quesadilla", meat = Chicken.class)
+          }
         )
         class Menu {}
         """);
@@ -1575,12 +1570,13 @@ public final class TypeSpecTest {
         import java.util.Map;
 
         class Util {
-          private static final Map<String, String> ESCAPE_HTML = ImmutableMap.<String, String>builder()
-              .add("'", "&#39;")
-              .add("&", "&amp;")
-              .add("<", "&lt;")
-              .add(">", "&gt;")
-              .build();
+          private static final Map<String, String> ESCAPE_HTML =
+            ImmutableMap.<String, String>builder()
+                .add("'", "&#39;")
+                .add("&", "&amp;")
+                .add("<", "&lt;")
+                .add(">", "&gt;")
+                .build();
 
           int commonPrefixLength(List<String> listA, List<String> listB) {
             int size = Math.min(listA.size(), listB.size());
@@ -1828,11 +1824,9 @@ public final class TypeSpecTest {
 
         class Members {
           static String X;
-
           static String V;
 
           String W;
-
           String U;
 
           Members(int p) {}
