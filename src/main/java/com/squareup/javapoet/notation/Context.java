@@ -2,6 +2,7 @@ package com.squareup.javapoet.notation;
 
 import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.Notate;
+import com.squareup.javapoet.TypeName;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.HashMap;
@@ -9,6 +10,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 public class Context extends Notation {
@@ -16,14 +18,28 @@ public class Context extends Notation {
   public final Set<Context> innerContexts;
   public final String simpleName;
   public final Notation inner;
+  private final Set<TypeName> typeVariableNames;
 
-  public Context(String name, Notation inner) {
-    super(Map.of(), inner.imports);
+  public Context(String name, Notation inner, Set<TypeName> typeVariableNames) {
+    super(
+        typeVariableNames.stream().collect(
+            Collectors.toUnmodifiableMap(
+                t -> t,
+                TypeName::canonicalName
+            )),
+        inner.imports
+    );
 
     this.childNames = inner.names;
     this.innerContexts = inner.childContexts;
     this.simpleName = name;
     this.inner = inner;
+    this.typeVariableNames = typeVariableNames;
+  }
+
+  @Override
+  public @NotNull Notation flat() {
+    return new Context(simpleName, inner.flat(), typeVariableNames);
   }
 
   @Override
@@ -74,7 +90,7 @@ public class Context extends Notation {
         Stream.concat(chunk.scopes.stream(), Stream.of(scope)).toList();
 
     var newNames = new PriorityMap<>(chunk.names);
-    var namesInScope = new HashMap<String, ClassName>();
+    var namesInScope = new HashMap<String, Object>();
 
     scopes
         .stream()
@@ -84,6 +100,13 @@ public class Context extends Notation {
             .map(n -> s.className().nestedClass(n)))
         .forEach(c -> namesInScope.put(c.simpleName(), c));
 
+    scopes
+        .stream()
+        .flatMap(s -> s
+            .context()
+            .typeVariableNames.stream())
+        .forEach(t -> namesInScope.put(t.canonicalName(), t));
+
     chunk.names
         .keySet()
         .stream()
@@ -91,10 +114,13 @@ public class Context extends Notation {
         .filter(c -> c
             .canonicalName()
             .startsWith(className.topLevelClassName().canonicalName()))
-        .map(n -> Map.<Object, String>entry(n,
+        .map(n -> Map.<Object, String>entry(
+            n,
             className.referenceTo(n, namesInScope)
         ))
         .forEach(newNames.entrySet()::add);
+
+    typeVariableNames.forEach(t -> newNames.put(t, t.canonicalName()));
 
     this.childNames.forEach((k, v) -> {
       while (newNames.containsValue(v)) {
@@ -116,7 +142,12 @@ public class Context extends Notation {
   }
 
   public Stream<String> immediateChildContextNames() {
-    return innerContexts.stream().map(c -> c.simpleName);
+    return Stream.concat(
+        typeVariableNames
+            .stream()
+            .map(TypeName::canonicalName),
+        innerContexts.stream().map(c -> c.simpleName)
+    );
   }
 
   @Override

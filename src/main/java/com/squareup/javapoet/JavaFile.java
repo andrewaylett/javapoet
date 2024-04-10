@@ -121,6 +121,7 @@ public final class JavaFile implements Emitable {
 
       var suggestedImports = notation.imports
           .stream()
+          .filter(t -> !(t.withoutAnnotations() instanceof TypeVariableName))
           .sorted(ClassName.PACKAGE_COMPARATOR)
           .toList();
       var actualImports = new HashSet<ClassName>();

@@ -415,7 +415,7 @@ public final class TypeSpec {
     ).suppressImports(alwaysQualifiedNames);
 
     if (name != null) {
-      return spec.inContext(name);
+      return spec.inContext(name, typeVariables);
     } else {
       return spec;
     }

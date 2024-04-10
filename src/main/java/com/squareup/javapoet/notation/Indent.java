@@ -48,6 +48,11 @@ public class Indent extends Notation {
   }
 
   @Override
+  public @NotNull Notation flat() {
+    return new Indent(indent, inner.flat());
+  }
+
+  @Override
   public Notation toNotation() {
     return Notate.fnLike("Indent", List.of(inner));
   }

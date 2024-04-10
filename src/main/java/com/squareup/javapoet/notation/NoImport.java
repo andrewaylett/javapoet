@@ -14,6 +14,7 @@ import java.util.stream.Stream;
 
 public class NoImport extends Notation {
   private final Notation inner;
+  private final Set<String> suppressed;
 
   public NoImport(@NotNull Notation inner) {
     this(inner, inner.imports.stream().map(TypeName::canonicalName).collect(
@@ -43,6 +44,7 @@ public class NoImport extends Notation {
         inner.childContexts
     );
     this.inner = inner;
+    this.suppressed = suppress;
   }
 
   @Override
@@ -72,6 +74,11 @@ public class NoImport extends Notation {
     visitor.enter(this);
     inner.visit(visitor);
     visitor.exit(this);
+  }
+
+  @Override
+  public @NotNull Notation flat() {
+    return new NoImport(inner.flat(), suppressed);
   }
 
   @Override

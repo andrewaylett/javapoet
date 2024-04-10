@@ -44,6 +44,11 @@ public class Literal<T> extends Notation {
   }
 
   @Override
+  public @NotNull Notation flat() {
+    return this;
+  }
+
+  @Override
   public Notation toNotation() {
     return Notate.wrapAndIndent(txt("Literal("), txt(String.valueOf(value)), txt(")"));
   }

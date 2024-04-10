@@ -16,6 +16,7 @@
 package com.squareup.javapoet;
 
 import com.squareup.javapoet.notation.Notation;
+import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -40,8 +41,6 @@ import static com.squareup.javapoet.notation.Notation.txt;
 import static com.squareup.javapoet.notation.Notation.typeRef;
 
 public final class TypeVariableName extends ObjectTypeName {
-  private static final ThreadLocal<Boolean> guard =
-      ThreadLocal.withInitial(() -> Boolean.FALSE);
   public final String name;
   public final List<TypeName> bounds;
 
@@ -266,31 +265,24 @@ public final class TypeVariableName extends ObjectTypeName {
   }
 
   @Override
+  @Contract(value = "null -> false", pure = true)
   public boolean equals(Object o) {
     if (this == o) {
       return true;
     }
-    if (o == null || getClass() != o.getClass()) {
-      return false;
+    if (o instanceof TypeVariableName that) {
+      return Objects.equals(name, that.name) && Objects.equals(
+          bounds,
+          that.bounds
+      );
     }
-    TypeVariableName that = (TypeVariableName) o;
-    return Objects.equals(name, that.name) && Objects.equals(
-        bounds,
-        that.bounds
-    );
+    return false;
   }
 
   @Override
+  @Contract(pure = true)
   public int hashCode() {
-    if (guard.get()) {
-      return Objects.hash(name);
-    }
-    try {
-      guard.set(Boolean.TRUE);
-      return Objects.hash(name, bounds);
-    } finally {
-      guard.set(Boolean.FALSE);
-    }
+    return Objects.hash(name);
   }
 
   @Override

@@ -13,7 +13,7 @@ import org.jetbrains.annotations.NotNull;
 import java.io.IOException;
 import java.io.StringWriter;
 import java.util.ArrayList;
-import java.util.HashMap;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -217,10 +217,7 @@ public abstract class Notation {
     );
   }
 
-  @Contract(value = "-> new", pure = true)
-  public @NotNull Notation flat() {
-    return new Flat(this);
-  }
+  public abstract @NotNull Notation flat();
 
   @Contract(value = "_ -> new", pure = true)
   public @NotNull Notation indent(String indent) {
@@ -274,9 +271,9 @@ public abstract class Notation {
     return new Choice(this, choice);
   }
 
-  @Contract(value = "_ -> new", pure = true)
-  public @NotNull Context inContext(@NotNull String name) {
-    return new Context(name, this);
+  @Contract(value = "_, _ -> new", pure = true)
+  public @NotNull Context inContext(@NotNull String name, Collection<TypeName> typeVariableNames) {
+    return new Context(name, this, Set.copyOf(typeVariableNames));
   }
 
   @Override

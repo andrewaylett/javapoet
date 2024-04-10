@@ -397,7 +397,7 @@ public final class ClassName extends ObjectTypeName
   }
 
   public String referenceTo(
-      TypeName other, HashMap<String, ClassName> enclosedNames
+      TypeName other, HashMap<String, Object> enclosedNames
   ) {
     if (this.equals(other)) {
       return this.simpleName();
@@ -422,13 +422,14 @@ public final class ClassName extends ObjectTypeName
     } else {
       proposedSimpleNames = otherSimpleNames;
     }
-    TypeName target = enclosedNames.get(proposedSimpleNames.get(0));
+    var target = enclosedNames.get(proposedSimpleNames.get(0));
     if (target != null) {
       // Potential name collision with something inside this scope
-      if (proposedSimpleNames.size() > 1) {
+      if (proposedSimpleNames.size() > 1 && target instanceof ClassName classTarget) {
         for (var n : proposedSimpleNames.subList(1, proposedSimpleNames.size())) {
-          target = target.nestedClass(n);
+          classTarget = classTarget.nestedClass(n);
         }
+        target = classTarget;
       }
       var enclosing = other;
       while (target != null && enclosing != null && !restoreSimpleNames.isEmpty()
@@ -438,7 +439,11 @@ public final class ClassName extends ObjectTypeName
             restoreSimpleNames.remove(restoreSimpleNames.size() - 1)
         );
         enclosing = enclosing.enclosingClassName();
-        target = target.enclosingClassName();
+        if (target instanceof ClassName classTarget) {
+          target = classTarget.enclosingClassName();
+        } else {
+          target = enclosedNames.get(proposedSimpleNames.get(0));
+        }
       }
     }
     return String.join(".", proposedSimpleNames);

@@ -15,7 +15,10 @@ public class Concat extends Notation {
 
   public Concat(@NotNull List<Notation> content) {
     super(
-        content.stream().unordered().flatMap(n -> n.names.entrySet().stream().unordered())
+        content
+            .stream()
+            .unordered()
+            .flatMap(n -> n.names.entrySet().stream().unordered())
             .collect(Collectors.toMap(
                 Map.Entry::getKey,
                 Map.Entry::getValue,
@@ -28,12 +31,27 @@ public class Concat extends Notation {
                           + a + " and " + b);
                 }
             )),
-        content.stream().unordered().flatMap(n -> n.imports.stream().unordered())
+        content
+            .stream()
+            .unordered()
+            .flatMap(n -> n.imports.stream().unordered())
             .collect(Collectors.toSet()),
-        content.stream().unordered().flatMap(n -> n.childContexts.stream().unordered())
+        content
+            .stream()
+            .unordered()
+            .flatMap(n -> n.childContexts.stream().unordered())
             .collect(Collectors.toSet())
     );
     this.content = List.copyOf(content);
+  }
+
+  @Override
+  public @NotNull Notation flat() {
+    return content
+        .stream()
+        .map(Notation::flat)
+        .flatMap(n -> n instanceof Concat c ? c.content.stream() : Stream.of(n))
+        .collect(join(empty()));
   }
 
   @Override
