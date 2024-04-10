@@ -151,8 +151,13 @@ public final class JavaFile implements Emitable {
         if ((keys == null || keys.equals(Set.of(typeName))) && typeName
             .canonicalName()
             .equals(packageName + "." + nameWhenImported)) {
-          names.put(typeName, nameWhenImported);
-          inverseNames.put(nameWhenImported, Set.of(typeName));
+          if (localNames.contains(nameWhenImported)) {
+            names.put(typeName, typeName.canonicalName());
+            inverseNames.put(typeName.canonicalName(), Set.of(typeName));
+          } else {
+            names.put(typeName, nameWhenImported);
+            inverseNames.put(nameWhenImported, Set.of(typeName));
+          }
         }
       }
 
@@ -171,17 +176,9 @@ public final class JavaFile implements Emitable {
             }
           } catch (UnsupportedOperationException ignored) {
           }
-        } else {
-          var keys = inverseNames.get(nameWhenImported);
-          if (keys == null || keys.contains(typeName) && typeName
-              .canonicalName()
-              .equals(packageName + "." + nameWhenImported)) {
-            names.put(typeName, nameWhenImported);
-            inverseNames.put(nameWhenImported, Set.of(typeName));
-          } else {
-            names.put(typeName, typeName.canonicalName());
-            inverseNames.put(typeName.canonicalName(), Set.of(typeName));
-          }
+        } else if (!names.containsKey(typeName)) {
+          names.put(typeName, typeName.canonicalName());
+          inverseNames.put(typeName.canonicalName(), Set.of(typeName));
         }
       }
 
