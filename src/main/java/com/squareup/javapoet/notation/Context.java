@@ -9,6 +9,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -16,18 +17,21 @@ import java.util.stream.Stream;
 public class Context extends Notation {
   public final Map<Object, String> childNames;
   public final Set<Context> innerContexts;
-  public final String simpleName;
+  public final Optional<String> simpleName;
   public final Notation inner;
   private final Set<TypeName> typeVariableNames;
 
-  public Context(String name, Notation inner, Set<TypeName> typeVariableNames) {
+  public Context(
+      Optional<String> name,
+      Notation inner,
+      Set<TypeName> typeVariableNames
+  ) {
     super(
-        typeVariableNames.stream().collect(
-            Collectors.toUnmodifiableMap(
-                t -> t,
-                TypeName::canonicalName
-            )),
+        Map.of(),
         inner.imports
+            .stream()
+            .filter(n -> !tvnMatches(typeVariableNames, n))
+            .collect(Collectors.toSet())
     );
 
     this.childNames = inner.names;
@@ -35,6 +39,11 @@ public class Context extends Notation {
     this.simpleName = name;
     this.inner = inner;
     this.typeVariableNames = typeVariableNames;
+  }
+
+  static boolean tvnMatches(Set<TypeName> set, TypeName instance) {
+    var tvn = instance.withoutAnnotations();
+    return set.stream().anyMatch(n -> n.withoutAnnotations().equals(tvn));
   }
 
   @Override
@@ -79,11 +88,17 @@ public class Context extends Notation {
 
   private Chunk apply(Chunk chunk) {
     var className = chunk.scopes.isEmpty()
-        ? ClassName.get(chunk.packageName, simpleName)
-        : chunk.scopes
+        ? ClassName.get(
+        chunk.packageName,
+        simpleName.orElse("Object")
+    ) : simpleName
+        .map(n -> chunk.scopes
             .get(chunk.scopes.size() - 1)
             .className()
-            .nestedClass(simpleName);
+            .nestedClass(n))
+        .orElseGet(() -> chunk.scopes
+            .get(chunk.scopes.size() - 1)
+            .className());
 
     var scope = new Chunk.Scope(this, className);
     var scopes =
@@ -105,6 +120,7 @@ public class Context extends Notation {
         .flatMap(s -> s
             .context()
             .typeVariableNames.stream())
+        .map(TypeName::withoutAnnotations)
         .forEach(t -> namesInScope.put(t.canonicalName(), t));
 
     chunk.names
@@ -120,7 +136,10 @@ public class Context extends Notation {
         ))
         .forEach(newNames.entrySet()::add);
 
-    typeVariableNames.forEach(t -> newNames.put(t, t.canonicalName()));
+    typeVariableNames.forEach(tvn -> {
+      newNames.values().remove(tvn.canonicalName());
+      newNames.put(tvn.withoutAnnotations(), tvn.canonicalName());
+    });
 
     this.childNames.forEach((k, v) -> {
       while (newNames.containsValue(v)) {
@@ -146,7 +165,9 @@ public class Context extends Notation {
         typeVariableNames
             .stream()
             .map(TypeName::canonicalName),
-        innerContexts.stream().map(c -> c.simpleName)
+        innerContexts
+            .stream()
+            .flatMap(c -> c.simpleName.stream())
     );
   }
 

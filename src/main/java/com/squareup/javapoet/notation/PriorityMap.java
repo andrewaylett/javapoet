@@ -7,6 +7,7 @@ import javax.annotation.Nonnull;
 import java.util.AbstractMap;
 import java.util.AbstractSet;
 import java.util.ArrayDeque;
+import java.util.Collection;
 import java.util.Deque;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -23,18 +24,31 @@ public class PriorityMap<K, V> extends AbstractMap<K, V> {
     delegate = new HashMap<>();
   }
 
+  private PriorityMap(Map<K, Deque<V>> delegate) {
+    this.delegate = delegate;
+  }
+
   public PriorityMap(PriorityMap<K, V> toCopy) {
-    delegate = new HashMap<>(toCopy.delegate);
+    delegate = new HashMap<>();
+    toCopy.delegate.forEach((key, value) -> delegate.put(key, new ArrayDeque<>(value)));
   }
 
   public static <K, V> PriorityMap<K, V> from(Map<K, V> source) {
-    var priorityMap = new PriorityMap<K, V>();
+    var delegate = new HashMap<K, Deque<V>>();
     source.forEach((key, value) -> {
       var l = new ArrayDeque<V>();
       l.push(value);
-      priorityMap.delegate.put(key, l);
+      delegate.put(key, l);
     });
-    return priorityMap;
+    return new PriorityMap<>(delegate);
+  }
+
+  public PriorityMap<K, V> immutableCopy() {
+    var delegate = new HashMap<K, Deque<V>>();
+    this.delegate.forEach((key, value) -> {
+      delegate.put(key, new ReadOnlyArrayDeque<>(value));
+    });
+    return new PriorityMap<>(Map.copyOf(delegate));
   }
 
   @Override
@@ -238,6 +252,202 @@ public class PriorityMap<K, V> extends AbstractMap<K, V> {
       } finally {
         delegateValue.push(value);
       }
+    }
+  }
+
+  private static class ReadOnlyArrayDeque<T> implements Deque<T> {
+    private final List<T> delegate;
+    public ReadOnlyArrayDeque(Collection<? extends T> collection) {
+      delegate = List.copyOf(collection);
+    }
+
+    @Override
+    public void addFirst(@Nonnull T t) {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void addLast(@Nonnull T t) {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public boolean offerFirst(T t) {
+      return false;
+    }
+
+    @Override
+    public boolean offerLast(T t) {
+      return false;
+    }
+
+    @Override
+    public T removeFirst() {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public T removeLast() {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public boolean addAll(Collection<? extends T> c) {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public boolean removeAll(@Nonnull Collection<?> c) {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public boolean retainAll(@Nonnull Collection<?> c) {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void clear() {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void push(T t) {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public T pop() {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public boolean remove(Object o) {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public boolean containsAll(@Nonnull Collection<?> c) {
+      return delegate.containsAll(c);
+    }
+
+    @Override
+    public boolean contains(Object o) {
+      return delegate.contains(o);
+    }
+
+    @Override
+    public int size() {
+      return delegate.size();
+    }
+
+    @Override
+    public boolean isEmpty() {
+      return delegate.isEmpty();
+    }
+
+    @Override
+    public @NotNull Iterator<T> iterator() {
+      return delegate.iterator();
+    }
+
+    @Nonnull
+    @Override
+    public Object[] toArray() {
+      return delegate.toArray();
+    }
+
+    @Nonnull
+    @Override
+    public <T1> T1[] toArray(@Nonnull T1[] a) {
+      return delegate.toArray(a);
+    }
+
+    @Nonnull
+    @Override
+    public Iterator<T> descendingIterator() {
+      return new Iterator<>() {
+        private int idx = delegate.size() - 1;
+        @Override
+        public boolean hasNext() {
+          return idx >= 0;
+        }
+
+        @Override
+        public T next() {
+          return delegate.get(idx--);
+        }
+      };
+    }
+
+    @Override
+    public T pollFirst() {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public T pollLast() {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public T getFirst() {
+      return delegate.get(0);
+    }
+
+    @Override
+    public T getLast() {
+      return delegate.get(delegate.size() - 1);
+    }
+
+    @Override
+    public @Nullable T peekFirst() {
+      return delegate.isEmpty() ? null : delegate.get(0);
+    }
+
+    @Override
+    public @Nullable T peekLast() {
+      return delegate.isEmpty() ? null : delegate.get(delegate.size() - 1);
+    }
+
+    @Override
+    public boolean removeFirstOccurrence(Object o) {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public boolean removeLastOccurrence(Object o) {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public boolean add(T t) {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public boolean offer(T t) {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public T remove() {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public T poll() {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public T element() {
+      return getFirst();
+    }
+
+    @Override
+    public @Nullable T peek() {
+      return peekFirst();
     }
   }
 }

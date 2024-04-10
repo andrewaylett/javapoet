@@ -103,6 +103,14 @@ public final class AnnotatedTypeName implements TypeName {
   }
 
   @Override
+  public @NotNull Notation toDeclaration() {
+    return Stream.concat(
+        annotations.stream().map(Emitable::toDeclaration),
+        Stream.of(inner.toDeclaration())
+    ).collect(join(txt(" ").or(nl())));
+  }
+
+  @Override
   public @NotNull ClassName topLevelClassName() {
     return inner.topLevelClassName();
   }

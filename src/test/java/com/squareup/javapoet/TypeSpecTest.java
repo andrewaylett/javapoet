@@ -758,7 +758,6 @@ public final class TypeSpecTest {
 
         class Location<P extends Number & Comparable, @A Q extends Number & Comparable> {
           P x;
-
           @A Q y;
         }
         """);
@@ -2838,8 +2837,6 @@ public final class TypeSpecTest {
 
           static {
             FOO = "FOO";
-          }
-          static {
             FOO = "staticFoo";
           }
 
@@ -2847,8 +2844,6 @@ public final class TypeSpecTest {
 
           {
             foo = "FOO";
-          }
-          {
             foo = "instanceFoo";
           }
 

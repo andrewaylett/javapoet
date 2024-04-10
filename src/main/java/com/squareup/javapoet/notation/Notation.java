@@ -272,8 +272,13 @@ public abstract class Notation {
   }
 
   @Contract(value = "_, _ -> new", pure = true)
-  public @NotNull Context inContext(@NotNull String name, Collection<TypeName> typeVariableNames) {
-    return new Context(name, this, Set.copyOf(typeVariableNames));
+  public @NotNull Context inContext(@NotNull String name, Collection<? extends TypeName> typeVariableNames) {
+    return new Context(Optional.of(name), this, Set.copyOf(typeVariableNames));
+  }
+
+  @Contract(value = "_ -> new", pure = true)
+  public @NotNull Context inContext(Collection<? extends TypeName> typeVariableNames) {
+    return new Context(Optional.empty(), this, Set.copyOf(typeVariableNames));
   }
 
   @Override

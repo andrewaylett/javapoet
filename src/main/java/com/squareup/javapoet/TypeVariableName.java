@@ -271,10 +271,7 @@ public final class TypeVariableName extends ObjectTypeName {
       return true;
     }
     if (o instanceof TypeVariableName that) {
-      return Objects.equals(name, that.name) && Objects.equals(
-          bounds,
-          that.bounds
-      );
+      return Objects.equals(name, that.name);
     }
     return false;
   }

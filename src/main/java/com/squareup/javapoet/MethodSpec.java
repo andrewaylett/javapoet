@@ -332,7 +332,7 @@ public final class MethodSpec implements Emitable {
           txt("}")
       ));
     }
-    return components.stream().filter(n -> !n.isEmpty()).collect(join(nl()));
+    return components.stream().filter(n -> !n.isEmpty()).collect(join(nl())).inContext(typeVariables);
   }
 
   public static final class Builder {

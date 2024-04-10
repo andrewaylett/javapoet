@@ -32,7 +32,7 @@ public class Chunk {
     this.notation = notation;
     this.indent = indent;
     this.flat = flat;
-    this.names = names;
+    this.names = names.immutableCopy();
     this.indentBy = indentBy;
     this.scopes = List.copyOf(scopes);
     this.packageName = packageName;

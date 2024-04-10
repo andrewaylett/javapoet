@@ -57,23 +57,6 @@ import static java.nio.charset.StandardCharsets.UTF_8;
  * A Java file containing a single top level class.
  */
 public final class JavaFile implements Emitable {
-  private static final Appendable NULL_APPENDABLE = new Appendable() {
-    @Override
-    public Appendable append(CharSequence charSequence) {
-      return this;
-    }
-
-    @Override
-    public Appendable append(CharSequence charSequence, int start, int end) {
-      return this;
-    }
-
-    @Override
-    public Appendable append(char c) {
-      return this;
-    }
-  };
-
   public static final ThreadLocal<Set<String>> CURRENT_STATIC_IMPORTS =
       ThreadLocal.withInitial(HashSet::new);
 
@@ -131,9 +114,8 @@ public final class JavaFile implements Emitable {
           .flatMap(Context::immediateChildContextNames)
           .collect(Collectors.toSet());
 
-      notation.childContexts.forEach(c -> names.put(ClassName.get(packageName,
-          c.simpleName
-      ), c.simpleName));
+      notation.childContexts.forEach(c -> c.simpleName.ifPresent(
+          s -> names.put(ClassName.get(packageName, s), s)));
 
       var inverseNames = names
           .entrySet()
@@ -147,15 +129,15 @@ public final class JavaFile implements Emitable {
 
       // Find package local names first
       for (var typeName : suggestedImports) {
+        // All classes may be referenced by their canonical name
+        names.put(typeName, typeName.canonicalName());
+        inverseNames.put(typeName.canonicalName(), Set.of(typeName));
         var nameWhenImported = typeName.nameWhenImported();
         var keys = inverseNames.get(nameWhenImported);
         if ((keys == null || keys.equals(Set.of(typeName))) && typeName
             .canonicalName()
             .equals(packageName + "." + nameWhenImported)) {
-          if (localNames.contains(nameWhenImported)) {
-            names.put(typeName, typeName.canonicalName());
-            inverseNames.put(typeName.canonicalName(), Set.of(typeName));
-          } else {
+          if (!localNames.contains(nameWhenImported)) {
             names.put(typeName, nameWhenImported);
             inverseNames.put(nameWhenImported, Set.of(typeName));
           }
