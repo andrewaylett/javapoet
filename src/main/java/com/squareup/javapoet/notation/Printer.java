@@ -5,9 +5,7 @@ import org.jetbrains.annotations.NotNull;
 import java.io.IOException;
 import java.util.ArrayDeque;
 import java.util.Deque;
-import java.util.Map;
-import java.util.Optional;
-import java.util.Set;
+import java.util.List;
 
 public class Printer {
   private final int width;
@@ -27,9 +25,8 @@ public class Printer {
         "",
         false,
         names,
-        Set.of(),
         indent,
-        Optional.empty(),
+        List.of(),
         packageName
     );
     chunks.push(chunk);

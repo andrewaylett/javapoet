@@ -2,14 +2,13 @@ package com.squareup.javapoet.notation;
 
 import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.Notate;
-import com.squareup.javapoet.TypeName;
 import org.jetbrains.annotations.NotNull;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 public class Context extends Notation {
@@ -63,22 +62,38 @@ public class Context extends Notation {
   }
 
   private Chunk apply(Chunk chunk) {
-    var scope = chunk.scope
-        .map(t -> t.nestedClass(simpleName))
-        .orElseGet(() -> ClassName.get(chunk.packageName, simpleName));
+    var className = chunk.scopes.isEmpty()
+        ? ClassName.get(chunk.packageName, simpleName)
+        : chunk.scopes
+            .get(chunk.scopes.size() - 1)
+            .className()
+            .nestedClass(simpleName);
+
+    var scope = new Chunk.Scope(this, className);
+    var scopes =
+        Stream.concat(chunk.scopes.stream(), Stream.of(scope)).toList();
 
     var newNames = new PriorityMap<>(chunk.names);
-    var enclosedNames = allContextNames().collect(Collectors.toSet());
+    var namesInScope = new HashMap<String, ClassName>();
+
+    scopes
+        .stream()
+        .flatMap(s -> s
+            .context()
+            .immediateChildContextNames()
+            .map(n -> s.className().nestedClass(n)))
+        .forEach(c -> namesInScope.put(c.simpleName(), c));
+
     chunk.names
         .keySet()
         .stream()
         .flatMap(o -> o instanceof ClassName c ? Stream.of(c) : Stream.of())
         .filter(c -> c
             .canonicalName()
-            .startsWith(scope.topLevelClassName().canonicalName()))
-        .map(n -> Map.<Object, String>entry(n, scope.referenceTo(n,
-            enclosedNames
-        )))
+            .startsWith(className.topLevelClassName().canonicalName()))
+        .map(n -> Map.<Object, String>entry(n,
+            className.referenceTo(n, namesInScope)
+        ))
         .forEach(newNames.entrySet()::add);
 
     this.childNames.forEach((k, v) -> {
@@ -90,17 +105,18 @@ public class Context extends Notation {
       }
     });
 
-    return chunk.names(newNames).inScope(innerContexts, scope);
+    return chunk.names(newNames).inScope(scope);
   }
 
   public Stream<String> allContextNames() {
     var builder = Stream.<String>builder();
-    builder.add(simpleName);
-    innerContexts
-        .stream()
-        .flatMap(Context::allContextNames)
-        .forEach(builder);
+    immediateChildContextNames().forEach(builder);
+    innerContexts.stream().flatMap(Context::allContextNames).forEach(builder);
     return builder.build();
+  }
+
+  public Stream<String> immediateChildContextNames() {
+    return innerContexts.stream().map(c -> c.simpleName);
   }
 
   @Override

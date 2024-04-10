@@ -5,8 +5,8 @@ import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 
 import java.io.IOException;
-import java.util.Optional;
-import java.util.Set;
+import java.util.List;
+import java.util.stream.Stream;
 
 import static java.util.Objects.requireNonNull;
 
@@ -15,9 +15,8 @@ public class Chunk {
   public final String indent;
   public final Notation notation;
   public final PriorityMap<Object, String> names;
-  public final Set<Context> currentContexts;
   public final String indentBy;
-  public final Optional<ClassName> scope;
+  public final List<Scope> scopes;
   public final String packageName;
 
   @Contract(pure = true)
@@ -26,18 +25,16 @@ public class Chunk {
       String indent,
       boolean flat,
       PriorityMap<Object, String> names,
-      Set<Context> currentContexts,
       String indentBy,
-      Optional<ClassName> scope,
+      List<Scope> scopes,
       String packageName
   ) {
     this.notation = notation;
     this.indent = indent;
     this.flat = flat;
     this.names = names;
-    this.currentContexts = currentContexts;
     this.indentBy = indentBy;
-    this.scope = scope;
+    this.scopes = List.copyOf(scopes);
     this.packageName = packageName;
   }
 
@@ -47,9 +44,8 @@ public class Chunk {
         this.indent,
         this.flat,
         names,
-        currentContexts,
         indentBy,
-        scope,
+        scopes,
         packageName
     );
   }
@@ -60,9 +56,8 @@ public class Chunk {
         this.indent + indent,
         this.flat,
         names,
-        currentContexts,
         indentBy,
-        scope,
+        scopes,
         packageName
     );
   }
@@ -73,22 +68,20 @@ public class Chunk {
         this.indent,
         true,
         names,
-        currentContexts,
         indentBy,
-        scope,
+        scopes,
         packageName
     );
   }
 
-  @Contract(value = "_, _ -> new", pure = true)
-  public Chunk inScope(Set<Context> contexts, ClassName scope) {
+  @Contract(value = "_ -> new", pure = true)
+  public Chunk inScope(Scope scope) {
     return new Chunk(this.notation,
         this.indent,
         flat,
         names,
-        contexts,
         indentBy,
-        Optional.of(scope),
+        Stream.concat(scopes.stream(), Stream.of(scope)).toList(),
         packageName
     );
   }
@@ -99,9 +92,8 @@ public class Chunk {
         this.indent,
         flat,
         newNames,
-        currentContexts,
         indentBy,
-        scope,
+        scopes,
         packageName
     );
   }
@@ -117,4 +109,6 @@ public class Chunk {
   public @NotNull String getName(Object tag) {
     return requireNonNull(names.get(tag));
   }
+
+  public record Scope(Context context, ClassName className) {}
 }

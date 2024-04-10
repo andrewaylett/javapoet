@@ -26,10 +26,10 @@ import javax.lang.model.util.SimpleElementVisitor8;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Set;
 
 import static com.squareup.javapoet.Util.checkArgument;
 import static com.squareup.javapoet.Util.checkNotNull;
@@ -376,10 +376,10 @@ public final class ClassName extends ObjectTypeName
     var className = (ClassName) o;
     return Objects.equals(packageName, className.packageName) && Objects.equals(enclosingClassName,
         className.enclosingClassName
-    ) && Objects.equals(
-        simpleName,
-        className.simpleName
-    ) && Objects.equals(canonicalName, className.canonicalName);
+    ) && Objects.equals(simpleName, className.simpleName) && Objects.equals(
+        canonicalName,
+        className.canonicalName
+    );
   }
 
   @Override
@@ -396,7 +396,12 @@ public final class ClassName extends ObjectTypeName
     return Notation.typeRef(this);
   }
 
-  public String referenceTo(TypeName other, Set<String> enclosedNames) {
+  public String referenceTo(
+      TypeName other, HashMap<String, ClassName> enclosedNames
+  ) {
+    if (this.equals(other)) {
+      return this.simpleName();
+    }
     if (!(other instanceof ClassName c) || !Objects.equals(packageName,
         c.packageName
     )) {
@@ -417,10 +422,23 @@ public final class ClassName extends ObjectTypeName
     } else {
       proposedSimpleNames = otherSimpleNames;
     }
-    if (!thisSimpleNames.isEmpty() && enclosedNames.contains(proposedSimpleNames.get(0))) {
-      // Name collisions with something inside this scope
-      while (!restoreSimpleNames.isEmpty() && enclosedNames.contains(proposedSimpleNames.get(0))) {
-        proposedSimpleNames.add(0, restoreSimpleNames.remove(restoreSimpleNames.size() - 1));
+    TypeName target = enclosedNames.get(proposedSimpleNames.get(0));
+    if (target != null) {
+      // Potential name collision with something inside this scope
+      if (proposedSimpleNames.size() > 1) {
+        for (var n : proposedSimpleNames.subList(1, proposedSimpleNames.size())) {
+          target = target.nestedClass(n);
+        }
+      }
+      var enclosing = other;
+      while (target != null && enclosing != null && !restoreSimpleNames.isEmpty()
+          && !Objects.equals(target, enclosing)) {
+        // Walk back up the nested types until we find a match
+        proposedSimpleNames.add(0,
+            restoreSimpleNames.remove(restoreSimpleNames.size() - 1)
+        );
+        enclosing = enclosing.enclosingClassName();
+        target = target.enclosingClassName();
       }
     }
     return String.join(".", proposedSimpleNames);
