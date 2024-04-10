@@ -473,12 +473,14 @@ public final class TypeSpecTest {
            * Avalanche!
            */
           ROCK,
+
           PAPER("flat") {
             @Override
             public String toString() {
               return "paper airplane!";
             }
           },
+
           SCISSORS("peace sign"),
           ;
 

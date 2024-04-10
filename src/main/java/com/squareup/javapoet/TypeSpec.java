@@ -252,11 +252,13 @@ public final class TypeSpec {
       );
     } else {
       var lines = Stream.<Notation>builder();
-      lines.add(Notate.javadoc(javadoc.toNotation().suppressImports()));
+      lines.add(Notate.javadoc(javadoc.toNotation(true).suppressImports()));
       annotations.stream().map(Emitable::toNotation).forEach(lines);
       var declaration = Stream.<Notation>builder();
-      modifiers.stream()
-          .filter(m -> !implicitModifiers.contains(m) && !kind.asMemberModifiers.contains(m))
+      modifiers
+          .stream()
+          .filter(m -> !implicitModifiers.contains(m)
+              && !kind.asMemberModifiers.contains(m))
           .map(String::valueOf)
           .map(Notation::txt)
           .forEach(declaration);
@@ -321,24 +323,34 @@ public final class TypeSpec {
 
   private Notation fromPreamble(Notation preamble) {
     var body = Stream.<Notation>builder();
-    var needsSeparator = kind == Kind.ENUM
-        && (!fieldSpecs.isEmpty() || !methodSpecs.isEmpty()
-        || !typeSpecs.isEmpty());
+    if (kind == Kind.ENUM) {
+      var needsSeparator = !fieldSpecs.isEmpty() || !methodSpecs.isEmpty()
+          || !typeSpecs.isEmpty();
 
-    var constants =
-        enumConstants
-            .entrySet()
+      var constants = enumConstants
+          .entrySet()
+          .stream()
+          .map(e -> e.getValue().notationForEnumConstant(e.getKey()))
+          .toList();
+      var enumHasJavadoc =
+          enumConstants.values().stream().anyMatch(t -> !t.javadoc.isEmpty());
+      if (enumHasJavadoc) {
+        body.add(constants
             .stream()
-            .map(e -> e.getValue().notationForEnumConstant(e.getKey()))
-            .toList();
-    body.add(constants
-        .stream()
-        .collect(join(txt(", ")))
-        .then(needsSeparator ? txt(";") : empty())
-        .or(constants
+            .collect(join(txt(",\n\n")))
+            .then(needsSeparator ? txt(",\n;") : txt(",")));
+      } else {
+        body.add(constants
             .stream()
-            .collect(join(txt(",\n")))
-            .then(needsSeparator ? txt("\n;") : empty())));
+            .collect(join(txt(", ")))
+            .then(needsSeparator ? txt(";") : empty())
+            .flat()
+            .or(constants
+                .stream()
+                .collect(join(txt(",\n")))
+                .then(needsSeparator ? txt(",\n;") : txt(","))));
+      }
+    }
 
     // Static fields.
     var staticFields = fieldSpecs
@@ -348,7 +360,13 @@ public final class TypeSpec {
         .collect(asLines());
     body.add(staticFields);
 
-    body.add(staticBlock.toNotation(true));
+    if (!staticBlock.isEmpty()) {
+      body.add(Notate.wrapAndIndentUnlessEmpty(
+          txt("static {"),
+          staticBlock.toNotation(true),
+          txt("}")
+      ));
+    }
 
     // Non-static fields.
     var nonStaticFields = fieldSpecs
@@ -359,7 +377,13 @@ public final class TypeSpec {
     body.add(nonStaticFields);
 
     // Initializer block.
-    body.add(initializerBlock.toNotation(true));
+    if (!initializerBlock.isEmpty()) {
+      body.add(Notate.wrapAndIndentUnlessEmpty(
+          txt("{"),
+          initializerBlock.toNotation(true),
+          txt("}")
+      ));
+    }
 
     // Constructors.
     var constructors = methodSpecs
@@ -399,7 +423,7 @@ public final class TypeSpec {
 
   private Notation notationForEnumConstant(String name) {
     var preamble = Stream.<Notation>builder();
-    preamble.add(javadoc.toNotation());
+    preamble.add(Notate.javadoc(javadoc.toNotation(true)));
     annotations.stream().map(Emitable::toNotation).forEach(preamble);
     var emumNotation = literal(name);
     var anonymousTypeNotation = anonymousTypeArguments.toNotation();
@@ -518,11 +542,11 @@ public final class TypeSpec {
     private TypeName superclass = ClassName.OBJECT;
 
     private Builder(
-        @NotNull Kind kind, @Nullable String name,
+        @NotNull Kind kind,
+        @Nullable String name,
         @Nullable CodeBlock anonymousTypeArguments
     ) {
-      checkArgument(
-          name == null || SourceVersion.isName(name),
+      checkArgument(name == null || SourceVersion.isName(name),
           "not a valid name: %s",
           name
       );
@@ -533,8 +557,7 @@ public final class TypeSpec {
 
     @Contract("_, _ -> this")
     public @NotNull Builder addJavadoc(
-        @NotNull String format,
-        @NotNull Object... args
+        @NotNull String format, @NotNull Object... args
     ) {
       javadoc.add(format, args);
       return this;
@@ -597,16 +620,13 @@ public final class TypeSpec {
 
     @Contract("_ -> this")
     public @NotNull Builder superclass(@NotNull TypeName superclass) {
-      checkState(
-          this.kind == Kind.CLASS,
+      checkState(this.kind == Kind.CLASS,
           "only classes have super classes, not " + this.kind
       );
-      checkState(
-          this.superclass == ClassName.OBJECT,
+      checkState(this.superclass == ClassName.OBJECT,
           "superclass already set to " + this.superclass
       );
-      checkArgument(
-          !superclass.isPrimitive(),
+      checkArgument(!superclass.isPrimitive(),
           "superclass may not be a primitive"
       );
       this.superclass = superclass;
@@ -620,8 +640,7 @@ public final class TypeSpec {
 
     @Contract("_, _ -> this")
     public @NotNull Builder superclass(
-        @NotNull Type superclass,
-        boolean avoidNestedTypeNameClashes
+        @NotNull Type superclass, boolean avoidNestedTypeNameClashes
     ) {
       superclass(TypeName.get(superclass));
       if (avoidNestedTypeNameClashes) {
@@ -640,8 +659,7 @@ public final class TypeSpec {
 
     @Contract("_, _ -> this")
     public @NotNull Builder superclass(
-        @NotNull TypeMirror superclass,
-        boolean avoidNestedTypeNameClashes
+        @NotNull TypeMirror superclass, boolean avoidNestedTypeNameClashes
     ) {
       superclass(TypeName.get(superclass));
       if (avoidNestedTypeNameClashes && superclass instanceof DeclaredType) {
@@ -677,8 +695,7 @@ public final class TypeSpec {
 
     @Contract("_, _ -> this")
     public @NotNull Builder addSuperinterface(
-        @NotNull Type superinterface,
-        boolean avoidNestedTypeNameClashes
+        @NotNull Type superinterface, boolean avoidNestedTypeNameClashes
     ) {
       addSuperinterface(TypeName.get(superinterface));
       if (avoidNestedTypeNameClashes) {
@@ -709,14 +726,12 @@ public final class TypeSpec {
 
     @Contract("_, _ -> this")
     public @NotNull Builder addSuperinterface(
-        @NotNull TypeMirror superinterface,
-        boolean avoidNestedTypeNameClashes
+        @NotNull TypeMirror superinterface, boolean avoidNestedTypeNameClashes
     ) {
       addSuperinterface(TypeName.get(superinterface));
       if (avoidNestedTypeNameClashes
           && superinterface instanceof DeclaredType declaredType) {
-        var superInterfaceElement =
-            (TypeElement) declaredType.asElement();
+        var superInterfaceElement = (TypeElement) declaredType.asElement();
         avoidClashesWithNestedClasses(superInterfaceElement);
       }
       return this;
@@ -729,8 +744,7 @@ public final class TypeSpec {
 
     @Contract("_, _ -> this")
     public @NotNull Builder addEnumConstant(
-        @NotNull String name,
-        @NotNull TypeSpec typeSpec
+        @NotNull String name, @NotNull TypeSpec typeSpec
     ) {
       enumConstants.put(name, typeSpec);
       return this;
@@ -759,7 +773,7 @@ public final class TypeSpec {
     }
 
     public Builder addStaticBlock(CodeBlock block) {
-      staticBlock.beginControlFlow("static").add(block).endControlFlow();
+      staticBlock.add(block);
       return this;
     }
 
@@ -768,12 +782,7 @@ public final class TypeSpec {
         throw new UnsupportedOperationException(
             kind + " can't have initializer blocks");
       }
-      initializerBlock
-          .add("{$W")
-          .indent()
-          .add(block)
-          .unindent()
-          .add("$W}");
+      initializerBlock.add(block);
       return this;
     }
 
@@ -814,8 +823,7 @@ public final class TypeSpec {
     public Builder alwaysQualify(String... simpleNames) {
       checkArgument(simpleNames != null, "simpleNames == null");
       for (var name : simpleNames) {
-        checkArgument(
-            name != null,
+        checkArgument(name != null,
             "null entry in simpleNames array: %s",
             Arrays.toString(simpleNames)
         );
@@ -862,8 +870,8 @@ public final class TypeSpec {
       }
       for (var superinterface : typeElement.getInterfaces()) {
         if (superinterface instanceof DeclaredType) {
-          var superinterfaceElement
-              = (TypeElement) ((DeclaredType) superinterface).asElement();
+          var superinterfaceElement =
+              (TypeElement) ((DeclaredType) superinterface).asElement();
           avoidClashesWithNestedClasses(superinterfaceElement);
         }
       }
@@ -915,8 +923,7 @@ public final class TypeSpec {
       }
 
       if (!modifiers.isEmpty()) {
-        checkState(
-            anonymousTypeArguments == null,
+        checkState(anonymousTypeArguments == null,
             "forbidden on anonymous types."
         );
         for (var modifier : modifiers) {
@@ -944,8 +951,7 @@ public final class TypeSpec {
             enumConstant.getValue().anonymousTypeArguments != null,
             "enum constants must have anonymous type arguments"
         );
-        checkArgument(
-            SourceVersion.isName(name),
+        checkArgument(SourceVersion.isName(name),
             "not a valid enum constant: %s",
             name
         );
@@ -953,8 +959,7 @@ public final class TypeSpec {
 
       for (var fieldSpec : fieldSpecs) {
         if (kind == Kind.INTERFACE || kind == Kind.ANNOTATION) {
-          requireExactlyOneOf(
-              fieldSpec.modifiers,
+          requireExactlyOneOf(fieldSpec.modifiers,
               Modifier.PUBLIC,
               Modifier.PRIVATE
           );
@@ -972,8 +977,7 @@ public final class TypeSpec {
 
       for (var methodSpec : methodSpecs) {
         if (kind == Kind.INTERFACE) {
-          requireExactlyOneOf(
-              methodSpec.modifiers,
+          requireExactlyOneOf(methodSpec.modifiers,
               Modifier.PUBLIC,
               Modifier.PRIVATE
           );
@@ -993,8 +997,7 @@ public final class TypeSpec {
                 methodSpec.name
             );
           } else {
-            requireExactlyOneOf(
-                methodSpec.modifiers,
+            requireExactlyOneOf(methodSpec.modifiers,
                 Modifier.ABSTRACT,
                 Modifier.STATIC,
                 Modifier.DEFAULT
@@ -1003,7 +1006,10 @@ public final class TypeSpec {
         } else if (kind == Kind.ANNOTATION) {
           checkState(methodSpec.modifiers.equals(kind.implicitMethodModifiers),
               "%s %s.%s requires modifiers %s",
-              kind, name, methodSpec.name, kind.implicitMethodModifiers
+              kind,
+              name,
+              methodSpec.name,
+              kind.implicitMethodModifiers
           );
         }
         if (kind != Kind.ANNOTATION) {
@@ -1028,7 +1034,10 @@ public final class TypeSpec {
 
       for (var typeSpec : typeSpecs) {
         checkArgument(typeSpec.modifiers.containsAll(kind.implicitTypeModifiers),
-            "%s %s.%s requires modifiers %s", kind, name, typeSpec.name,
+            "%s %s.%s requires modifiers %s",
+            kind,
+            name,
+            typeSpec.name,
             kind.implicitTypeModifiers
         );
       }
