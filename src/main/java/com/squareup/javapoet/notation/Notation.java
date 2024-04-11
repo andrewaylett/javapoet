@@ -20,6 +20,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.regex.Pattern;
 import java.util.stream.Collector;
 import java.util.stream.Stream;
@@ -200,17 +201,26 @@ public abstract class Notation {
           var left = empty();
           var right = empty();
           for (var next : arr) {
+            Function<Notation, Notation> rewrap = (x) -> x;
+            if (next instanceof Indent indent) {
+              next = indent.inner;
+              rewrap = n -> n.indent(indent.indent);
+            } else if (next instanceof Statement statement) {
+              next = statement.inner;
+              rewrap = Notation::statement;
+            }
+
             if (next instanceof Choice choice) {
               foundChoice = true;
-              left = left.then(choice.left);
-              right = right.then(choice.right);
+              left = left.then(rewrap.apply(choice.left));
+              right = right.then(rewrap.apply(choice.right));
             } else {
-              left = left.then(next.flat());
-              right = right.then(next);
+              left = left.then(rewrap.apply(next));
+              right = right.then(rewrap.apply(next));
             }
           }
           if (foundChoice) {
-            return left.or(right);
+            return left.flat().or(right);
           }
           return right;
         }

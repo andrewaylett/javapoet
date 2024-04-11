@@ -1869,7 +1869,7 @@ public final class TypeSpecTest {
                 .indent()
                 .addStatement("$$wnd.alert(msg)")
                 .unindent()
-                .add("$W}-*/")
+                .add("}-*/")
                 .build())
             .build())
         .build();
@@ -2013,7 +2013,8 @@ public final class TypeSpecTest {
         new java.lang.Runnable() {
           @java.lang.Override
           public void run() {}
-        }""");
+        }
+        """);
   }
 
   @Test

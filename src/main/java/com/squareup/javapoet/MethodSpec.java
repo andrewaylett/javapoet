@@ -332,11 +332,11 @@ public final class MethodSpec implements Emitable {
       components.add(method.then(txt(";")));
     } else if (hasModifier(Modifier.NATIVE)) {
       // Code is allowed to support stuff like GWT JSNI.
-      components.add(Notate.wrapAndIndentUnlessEmpty(
-          method,
-          code.toNotation(),
-          txt(";")
-      ));
+      components.add(
+          method.then(
+          code.toNotation(true)).then(
+          txt(";"))
+      );
     } else {
       components.add(method.then(Notate.wrapAndIndentUnlessEmpty(
           txt(" {"),

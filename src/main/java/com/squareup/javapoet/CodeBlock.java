@@ -31,6 +31,7 @@ import java.lang.reflect.Type;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.ListIterator;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Set;
@@ -259,7 +260,12 @@ public final class CodeBlock implements Emitable {
           builder.add(txt("$"));
           break;
 
-        case "$>", "$[": {
+        case "$[": {
+          stack.push(builder);
+          builder = new ArrayList<>();
+        }
+        break;
+        case "$>": {
           var addNL = false;
           if (!builder.isEmpty() && builder.get(
               builder.size() - 1) instanceof NewLine) {
@@ -280,36 +286,17 @@ public final class CodeBlock implements Emitable {
         }
 
         case "$]": {
-          var addNl = false;
-          var statementBuilder = builder;
-          try {
-            builder = stack.pop();
-          } catch (NoSuchElementException e) {
-            throw new IllegalStateException("statement exit $] has no matching statement enter $[",
-                e
-            );
-          }
-          if (!statementBuilder.isEmpty()) {
-            if (statementBuilder.get(
-                statementBuilder.size() - 1) instanceof NewLine) {
-              statementBuilder.remove(statementBuilder.size() - 1);
-              addNl = true;
-            }
-            builder.add(Notation.statement(statementBuilder
-                .stream()
-                .collect(Notation.join(empty()))));
-            if (addNl) {
-              builder.add(nl());
-            }
-          }
+          builder = popStatement(builder, stack);
           break;
         }
 
         case "$W":
+          builder = processTokenAfterNewline(partIterator, stack, builder);
           builder.add(txt(" ").or(nl()));
           break;
 
         case "$Z":
+          builder = processTokenAfterNewline(partIterator, stack, builder);
           builder.add(empty().or(nl()));
           break;
 
@@ -338,15 +325,70 @@ public final class CodeBlock implements Emitable {
       builder = unindent(stack, builder);
     }
     if (stripResult) {
-      while (!builder.isEmpty() && builder.get(0) instanceof NewLine) {
-        builder.remove(0);
-      }
-      while (!builder.isEmpty() && builder.get(
-          builder.size() - 1) instanceof NewLine) {
-        builder.remove(builder.size() - 1);
-      }
+      stripBuilder(builder);
     }
     return builder.stream().collect(Notation.hoistChoice());
+  }
+
+  private ArrayList<Notation> processTokenAfterNewline(
+      ListIterator<String> partIterator,
+      ArrayDeque<ArrayList<Notation>> stack,
+      ArrayList<Notation> builder
+  ) {
+    if (partIterator.hasNext()) {
+      var next = partIterator.next();
+      switch (next) {
+        case "$>", "$[":
+          stack.push(builder);
+          builder = new ArrayList<>();
+          break;
+        case "$]": {
+          builder = popStatement(builder, stack);
+          break;
+        }
+        case "$<": {
+          builder = unindent(stack, builder);
+          break;
+        }
+        default:
+          // move back again
+          partIterator.previous();
+          break;
+      }
+    }
+    return builder;
+  }
+
+  private static @Nonnull ArrayList<Notation> popStatement(
+      ArrayList<Notation> builder,
+      ArrayDeque<ArrayList<Notation>> stack
+  ) {
+    var statementBuilder = builder;
+    try {
+      builder = stack.pop();
+    } catch (NoSuchElementException e) {
+      throw new IllegalStateException("statement exit $] has no matching statement enter $[",
+          e
+      );
+    }
+    if (!statementBuilder.isEmpty()) {
+      stripBuilder(statementBuilder);
+      builder.add(Notation.statement(statementBuilder
+          .stream()
+          .collect(hoistChoice())));
+      builder.add(nl());
+    }
+    return builder;
+  }
+
+  private static void stripBuilder(ArrayList<Notation> builder) {
+    while (!builder.isEmpty() && builder.get(0) instanceof NewLine) {
+      builder.remove(0);
+    }
+    while (!builder.isEmpty() && builder.get(
+        builder.size() - 1) instanceof NewLine) {
+      builder.remove(builder.size() - 1);
+    }
   }
 
   @NotNull
@@ -354,14 +396,18 @@ public final class CodeBlock implements Emitable {
       ArrayDeque<ArrayList<Notation>> stack,
       ArrayList<Notation> builder
   ) {
+    var addNL = false;
     while (!builder.isEmpty() && builder.get(
         builder.size() - 1) instanceof NewLine) {
       builder.remove(builder.size() - 1);
+      addNL = true;
     }
     var indented = builder.stream().collect(hoistChoice());
     builder = stack.pop();
     builder.add(indented.indent());
-    builder.add(nl());
+    if (addNL) {
+      builder.add(nl());
+    }
     return builder;
   }
 

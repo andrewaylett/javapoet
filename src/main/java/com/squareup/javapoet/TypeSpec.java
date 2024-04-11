@@ -248,7 +248,7 @@ public final class TypeSpec {
       preamble = Notate.wrapAndIndent(
           txt("new ").then(typeRef(supertype)).then(txt("(")),
           anonymousTypeArguments.toNotation(),
-          txt(")")
+          txt(") {")
       );
     } else {
       var lines = Stream.<Notation>builder();
