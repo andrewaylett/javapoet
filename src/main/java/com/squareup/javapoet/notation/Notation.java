@@ -202,12 +202,19 @@ public abstract class Notation {
           var right = empty();
           for (var next : arr) {
             Function<Notation, Notation> rewrap = (x) -> x;
-            if (next instanceof Indent indent) {
-              next = indent.inner;
-              rewrap = n -> n.indent(indent.indent);
-            } else if (next instanceof Statement statement) {
-              next = statement.inner;
-              rewrap = Notation::statement;
+            while (next instanceof Indent || next instanceof Statement) {
+              if (next instanceof Indent indent) {
+                next = indent.inner;
+                var prev = rewrap;
+                rewrap = n -> n.indent(indent.indent);
+                rewrap = rewrap.andThen(prev);
+              } else {
+                var statement = (Statement) next;
+                next = statement.inner;
+                var prev = rewrap;
+                rewrap = Notation::statement;
+                rewrap = rewrap.andThen(prev);
+              }
             }
 
             if (next instanceof Choice choice) {

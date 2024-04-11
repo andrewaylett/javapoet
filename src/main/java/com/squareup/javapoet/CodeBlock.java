@@ -375,7 +375,7 @@ public final class CodeBlock implements Emitable {
       stripBuilder(statementBuilder);
       builder.add(Notation.statement(statementBuilder
           .stream()
-          .collect(hoistChoice())));
+          .collect(hoistChoice()).indent().indent()));
       builder.add(nl());
     }
     return builder;
