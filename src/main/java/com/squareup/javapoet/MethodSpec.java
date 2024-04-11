@@ -585,7 +585,7 @@ public final class MethodSpec implements Emitable {
     }
 
     public Builder addStatement(String format, Object... args) {
-      code.addStatement(format.strip(), args);
+      code.addStatement(stripNL(format), args);
       return this;
     }
 
