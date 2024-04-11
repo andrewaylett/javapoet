@@ -98,11 +98,9 @@ public final class FieldSpec implements Emitable {
 
     Notation declaration;
     if (!initializer.isEmpty()) {
-      decl.add(txt("="));
-      declaration = Notate.spacesOrWrapAndIndent(decl.build().collect(join(txt(" ").or(nl()))),
-          initializer.toNotation(true).then(txt(";")),
-          empty()
-      );
+      decl.add(txt("= "));
+      declaration = decl.build().collect(join(txt(" ").or(nl()))).indent().then(
+          initializer.toNotation(true).then(txt(";")).indent().indent());
     } else {
       declaration = decl.build().collect(join(txt(" ").or(nl())));
     }

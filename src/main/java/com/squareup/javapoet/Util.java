@@ -32,6 +32,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Stream;
 
+import static com.squareup.javapoet.notation.Notation.asLines;
 import static com.squareup.javapoet.notation.Notation.join;
 import static com.squareup.javapoet.notation.Notation.txt;
 import static java.lang.Character.isISOControl;
@@ -164,26 +165,25 @@ final class Util {
         result.append("\\\"");
         continue;
       }
+      // need to append indent after linefeed?
+      if (c == '\n') {
+        if (i + 1 < value.length()) {
+          lines.add(txt(result.toString()));
+          result.setLength(0);
+        }
+        continue;
+      }
       // default case: just let character literal do its work
       result.append(characterLiteralWithoutSingleQuotes(c));
-      // need to append indent after linefeed?
-      if (c == '\n' && i + 1 < value.length()) {
-        lines.add(txt(result.toString()));
-        result.setLength(0);
-      }
     }
     lines.add(txt(result.toString()));
     if (lines.size() == 1) {
       return txt("\"").then(lines.get(0)).then(txt("\""));
     }
-    return Stream.of(
-        txt("\"").then(lines.get(0)),
-        lines
-            .subList(1, lines.size())
-            .stream()
-            .collect(join(txt("\"\n+ \"")))
-            .indent()
-            .indent()
-    ).collect(join(txt("\"\n+ \""))).then(txt("\""));
+    var builder = Stream.<Notation>builder();
+    builder.add(txt("\"\"\""));
+    lines.forEach(builder);
+    builder.add(txt("\"\"\""));
+    return builder.build().collect(asLines());
   }
 }

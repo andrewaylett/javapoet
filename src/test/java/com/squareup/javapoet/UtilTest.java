@@ -62,7 +62,7 @@ public class UtilTest {
     stringLiteral("abc");
     stringLiteral("♦♥♠♣");
     stringLiteral("€\\t@\\t$", "€\t@\t$", " ");
-    stringLiteral("abc();\\n\"\n  + \"def();", "abc();\ndef();", " ");
+    stringLiteral("\"\"\nabc();\ndef();\n\"\"", "abc();\ndef();", " ");
     stringLiteral("This is \\\"quoted\\\"!", "This is \"quoted\"!", "  ");
     stringLiteral("e^{i\\\\pi}+1=0", "e^{i\\pi}+1=0", " ");
   }

@@ -625,7 +625,8 @@ public final class TypeSpecTest {
         import java.lang.Deprecated;
 
         public enum Roshambo {
-          @Deprecated ROCK,
+          @Deprecated
+          ROCK,
           PAPER,
           SCISSORS,
         }
@@ -1574,13 +1575,12 @@ public final class TypeSpecTest {
         import java.util.Map;
 
         class Util {
-          private static final Map<String, String> ESCAPE_HTML =
-            ImmutableMap.<String, String>builder()
-                .add("'", "&#39;")
-                .add("&", "&amp;")
-                .add("<", "&lt;")
-                .add(">", "&gt;")
-                .build();
+          private static final Map<String, String> ESCAPE_HTML = ImmutableMap.<String, String>builder()
+                  .add("'", "&#39;")
+                  .add("&", "&amp;")
+                  .add("<", "&lt;")
+                  .add(">", "&gt;")
+                  .build();
 
           int commonPrefixLength(List<String> listA, List<String> listB) {
             int size = Math.min(listA.size(), listB.size());
@@ -2167,10 +2167,12 @@ public final class TypeSpecTest {
         import java.lang.String;
 
         class Taco {
-          String toppings = "shell\\n"
-              + "beef\\n"
-              + "lettuce\\n"
-              + "cheese\\n";
+          String toppings = \"""
+              shell
+              beef
+              lettuce
+              cheese
+              \""";
         }
         """);
   }
