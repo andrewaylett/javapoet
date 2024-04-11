@@ -45,11 +45,6 @@ public class Flat extends Notation {
   }
 
   @Override
-  public @NotNull Notation flat() {
-    return inner.flat();
-  }
-
-  @Override
   public Notation toNotation() {
     return Notate.fnLike("Flat", List.of(inner));
   }

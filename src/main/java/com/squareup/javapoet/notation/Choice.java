@@ -44,11 +44,6 @@ public class Choice extends Notation {
   }
 
   @Override
-  public @NotNull Notation flat() {
-    return left.flat();
-  }
-
-  @Override
   public Notation toNotation() {
     if (left instanceof Flat f && f.inner.equals(right)) {
       return Notate.fnLike("FlatChoice", List.of(right));

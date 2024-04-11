@@ -23,11 +23,6 @@ public class Statement extends Notation {
   }
 
   @Override
-  public @NotNull Notation flat() {
-    return new Statement(inner.flat());
-  }
-
-  @Override
   public Notation toNotation() {
     return Notate.fnLike("Statement", List.of(inner));
   }

@@ -47,11 +47,6 @@ public class Context extends Notation {
   }
 
   @Override
-  public @NotNull Notation flat() {
-    return new Context(simpleName, inner.flat(), typeVariableNames);
-  }
-
-  @Override
   public Notation toNotation() {
     return Notate.fnLike("Context<" + simpleName + ">", List.of(inner));
   }

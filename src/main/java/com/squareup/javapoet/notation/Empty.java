@@ -17,11 +17,6 @@ public class Empty extends Notation {
   }
 
   @Override
-  public @NotNull Notation flat() {
-    return this;
-  }
-
-  @Override
   public @NotNull Notation then(@NotNull Notation next) {
     return next;
   }

@@ -77,11 +77,6 @@ public class NoImport extends Notation {
   }
 
   @Override
-  public @NotNull Notation flat() {
-    return new NoImport(inner.flat(), suppressed);
-  }
-
-  @Override
   public Notation toNotation() {
     return Notate.fnLike("NoImport", List.of(inner));
   }

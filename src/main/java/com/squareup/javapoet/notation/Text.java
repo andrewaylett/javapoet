@@ -22,11 +22,6 @@ public class Text extends Notation {
   }
 
   @Override
-  public @NotNull Notation flat() {
-    return this;
-  }
-
-  @Override
   public @NotNull Notation then(@NotNull Notation next) {
     if (next instanceof Text t) {
       return txt(content + t.content);

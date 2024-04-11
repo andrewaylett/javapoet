@@ -25,7 +25,6 @@ import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.ExecutableType;
 import javax.lang.model.type.TypeVariable;
 import javax.lang.model.util.Types;
-import java.io.IOException;
 import java.lang.reflect.Type;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -39,6 +38,7 @@ import static com.squareup.javapoet.Util.checkArgument;
 import static com.squareup.javapoet.Util.checkNotNull;
 import static com.squareup.javapoet.Util.checkState;
 import static com.squareup.javapoet.notation.Notation.asLines;
+import static com.squareup.javapoet.notation.Notation.empty;
 import static com.squareup.javapoet.notation.Notation.join;
 import static com.squareup.javapoet.notation.Notation.nl;
 import static com.squareup.javapoet.notation.Notation.txt;
@@ -281,10 +281,10 @@ public final class MethodSpec implements Emitable {
     }
 
     if (isConstructor()) {
-      declaration.add(Notation.literal(enclosingName).then(txt("(")));
+      declaration.add(Notation.literal(enclosingName));
     } else {
       declaration.add(returnType.toNotation());
-      declaration.add(Notation.literal(name).then(txt("(")));
+      declaration.add(Notation.literal(name));
     }
 
     var partOne = declaration.stream().collect(join(txt(" ").or(nl())));
@@ -299,23 +299,35 @@ public final class MethodSpec implements Emitable {
     var partTwo =
         params.stream().collect(join(txt(", ").or(txt(",\n"))));
 
-    var partThree = txt(")");
-
-    var preamble = new ArrayList<Notation>();
-    preamble.add(Notate.wrapAndIndent(partOne, partTwo, partThree));
+    var extras = new ArrayList<Notation>();
 
     if (defaultValue != null && !defaultValue.isEmpty()) {
-      preamble.add(txt("default ").then(defaultValue.toNotation()));
+      extras.add(txt("default"));
+      extras.add(defaultValue.toNotation());
     }
 
     if (!exceptions.isEmpty()) {
-      preamble.add(txt("throws ").then(exceptions
+      extras.add(txt("throws"));
+      extras.add(exceptions
           .stream()
           .map(Notation::typeRef)
-          .collect(join(txt(", ").or(txt(",\n"))))));
+          .collect(join(txt(", ").or(txt(",\n")))));
     }
 
-    var method = preamble.stream().collect(join(txt(" ").or(nl())));
+    Notation partThree;
+    if (extras.isEmpty()) {
+      partThree = empty();
+    } else {
+      partThree = txt(" ").then(extras.stream().collect(join(txt(" "))).flat()
+          .or(
+              extras.stream().collect(join(txt(" "))).or(
+                  extras.stream().collect(join(nl()))
+              )
+          ));
+    }
+
+    var method = partOne.then(Notate.wrapAndIndent(txt("("), partTwo, txt(")"))).then(partThree);
+
     if (hasModifier(Modifier.ABSTRACT)) {
       components.add(method.then(txt(";")));
     } else if (hasModifier(Modifier.NATIVE)) {
@@ -326,11 +338,11 @@ public final class MethodSpec implements Emitable {
           txt(";")
       ));
     } else {
-      components.add(Notate.wrapAndIndentUnlessEmpty(
-          method.then(txt(" {")),
+      components.add(method.then(Notate.wrapAndIndentUnlessEmpty(
+          txt(" {"),
           code.toNotation(true),
           txt("}")
-      ));
+      )));
     }
     return components.stream().filter(n -> !n.isEmpty()).collect(join(nl())).inContext(typeVariables);
   }

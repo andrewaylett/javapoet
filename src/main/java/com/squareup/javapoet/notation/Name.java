@@ -18,11 +18,6 @@ public class Name extends Notation {
   }
 
   @Override
-  public @NotNull Notation flat() {
-    return this;
-  }
-
-  @Override
   public Notation toNotation() {
     return txt("Name(" + tag + ")");
   }

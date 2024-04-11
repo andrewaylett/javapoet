@@ -19,11 +19,6 @@ public class TypeRef extends Notation {
   }
 
   @Override
-  public @NotNull Notation flat() {
-    return this;
-  }
-
-  @Override
   public Notation toNotation() {
     return txt("TypeRef(" + ref.nameWhenImported() + ")");
   }

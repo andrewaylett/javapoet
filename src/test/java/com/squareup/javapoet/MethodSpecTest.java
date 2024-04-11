@@ -116,8 +116,7 @@ public final class MethodSpecTest {
         @java.lang.Override
         protected <T extends java.lang.Runnable & java.io.Closeable> java.lang.Runnable everything(
           java.lang.String arg0, java.util.List<? extends T> arg1
-        )
-        throws java.io.IOException, java.lang.SecurityException {}
+        ) throws java.io.IOException, java.lang.SecurityException {}
         """);
   }
 

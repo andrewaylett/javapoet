@@ -46,15 +46,6 @@ public class Concat extends Notation {
   }
 
   @Override
-  public @NotNull Notation flat() {
-    return content
-        .stream()
-        .map(Notation::flat)
-        .flatMap(n -> n instanceof Concat c ? c.content.stream() : Stream.of(n))
-        .collect(join(empty()));
-  }
-
-  @Override
   public Notation toNotation() {
     return Notate.fnLike("Concat", content);
   }

@@ -217,7 +217,10 @@ public abstract class Notation {
     );
   }
 
-  public abstract @NotNull Notation flat();
+  @Contract(value = "-> new", pure = true)
+  public @NotNull Notation flat() {
+    return new Flat(this);
+  }
 
   @Contract(value = "_ -> new", pure = true)
   public @NotNull Notation indent(String indent) {
