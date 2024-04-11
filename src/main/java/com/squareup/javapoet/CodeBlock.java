@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015 Square, Inc.
+ * Copyright © 2015 Square, Inc., 2024 Andrew Aylett
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@ package com.squareup.javapoet;
 import com.google.common.base.Splitter;
 import com.squareup.javapoet.notation.Concat;
 import com.squareup.javapoet.notation.NewLine;
+import com.squareup.javapoet.notation.Notate;
 import com.squareup.javapoet.notation.Notation;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
