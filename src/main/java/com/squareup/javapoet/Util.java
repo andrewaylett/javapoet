@@ -184,6 +184,6 @@ final class Util {
     builder.add(txt("\"\"\""));
     lines.forEach(builder);
     builder.add(txt("\"\"\""));
-    return builder.build().collect(asLines());
+    return builder.build().collect(asLines()).indent().indent();
   }
 }

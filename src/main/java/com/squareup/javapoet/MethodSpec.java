@@ -16,6 +16,7 @@
 package com.squareup.javapoet;
 
 import com.squareup.javapoet.notation.Notation;
+import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.Nullable;
 
 import javax.lang.model.SourceVersion;
@@ -31,6 +32,7 @@ import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Stream;
 
@@ -214,22 +216,46 @@ public final class MethodSpec implements Emitable {
   }
 
   @Override
+  @Contract(value = "null -> false", pure = true)
   public boolean equals(Object o) {
     if (this == o) {
       return true;
     }
-    if (o == null) {
-      return false;
+    if (o instanceof MethodSpec that) {
+      return varargs == that.varargs && Objects.equals(name, that.name)
+          && Objects.equals(javadoc, that.javadoc) && Objects.equals(
+          annotations,
+          that.annotations
+      ) && Objects.equals(modifiers, that.modifiers) && Objects.equals(
+          typeVariables,
+          that.typeVariables
+      ) && Objects.equals(returnType, that.returnType) && Objects.equals(
+          parameters,
+          that.parameters
+      ) && Objects.equals(exceptions, that.exceptions) && Objects.equals(
+          code,
+          that.code
+      ) && Objects.equals(defaultValue, that.defaultValue);
     }
-    if (getClass() != o.getClass()) {
-      return false;
-    }
-    return toString().equals(o.toString());
+    return false;
   }
 
   @Override
+  @Contract(pure = true)
   public int hashCode() {
-    return toString().hashCode();
+    return Objects.hash(
+        name,
+        javadoc,
+        annotations,
+        modifiers,
+        typeVariables,
+        returnType,
+        parameters,
+        varargs,
+        exceptions,
+        code,
+        defaultValue
+    );
   }
 
   @Override
@@ -327,7 +353,9 @@ public final class MethodSpec implements Emitable {
           ));
     }
 
-    var method = partOne.then(Notate.wrapAndIndent(txt("("), partTwo, txt(")"))).then(partThree);
+    var method = partOne
+        .then(Notate.wrapAndIndent(txt("("), partTwo, txt(")")))
+        .then(partThree);
 
     if (hasModifier(Modifier.ABSTRACT)) {
       components.add(method.then(txt(";")));
@@ -335,8 +363,8 @@ public final class MethodSpec implements Emitable {
       // Code is allowed to support stuff like GWT JSNI.
       components.add(
           method.then(
-          code.toNotation(true)).then(
-          txt(";"))
+              code.toNotation(true)).then(
+              txt(";"))
       );
     } else {
       components.add(method.then(Notate.wrapAndIndentUnlessEmpty(
@@ -345,7 +373,11 @@ public final class MethodSpec implements Emitable {
           txt("}")
       )));
     }
-    return components.stream().filter(n -> !n.isEmpty()).collect(join(nl())).inContext(typeVariables);
+    return components
+        .stream()
+        .filter(n -> !n.isEmpty())
+        .collect(join(nl()))
+        .inContext(typeVariables);
   }
 
   public static final class Builder {

@@ -34,6 +34,7 @@ import java.util.List;
 import java.util.ListIterator;
 import java.util.Map;
 import java.util.NoSuchElementException;
+import java.util.Objects;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -160,22 +161,25 @@ public final class CodeBlock implements Emitable {
   }
 
   @Override
+  @Contract(value = "null -> false", pure = true)
   public boolean equals(Object o) {
     if (this == o) {
       return true;
     }
-    if (o == null) {
-      return false;
+    if (o instanceof CodeBlock codeBlock) {
+      return Objects.equals(formatParts, codeBlock.formatParts)
+          && Objects.equals(
+          args,
+          codeBlock.args
+      );
     }
-    if (getClass() != o.getClass()) {
-      return false;
-    }
-    return toString().equals(o.toString());
+    return false;
   }
 
   @Override
+  @Contract(pure = true)
   public int hashCode() {
-    return toString().hashCode();
+    return Objects.hash(formatParts, args);
   }
 
   @Override
@@ -312,7 +316,7 @@ public final class CodeBlock implements Emitable {
     if (stripResult) {
       stripBuilder(builder);
     }
-    return builder.stream().collect(Notation.hoistChoice());
+    return builder.stream().collect(Notation.join(empty()));
   }
 
   private ArrayList<Notation> processTokenAfterNewline(

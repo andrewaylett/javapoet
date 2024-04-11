@@ -40,6 +40,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Stream;
 
@@ -58,7 +59,7 @@ import static com.squareup.javapoet.notation.Notation.typeRef;
 /**
  * A generated class, interface, or enum declaration.
  */
-public final class TypeSpec {
+public final class TypeSpec implements Emitable {
   public final Kind kind;
   public final String name;
   public final CodeBlock anonymousTypeArguments;
@@ -247,7 +248,7 @@ public final class TypeSpec {
           !superinterfaces.isEmpty() ? superinterfaces.get(0) : superclass;
       preamble = Notate.wrapAndIndent(
           txt("new ").then(typeRef(supertype)).then(txt("(")),
-          anonymousTypeArguments.toNotation(),
+          anonymousTypeArguments.toNotation(true),
           txt(") {")
       );
     } else {
@@ -444,22 +445,60 @@ public final class TypeSpec {
   }
 
   @Override
+  @Contract(value = "null -> false", pure = true)
   public boolean equals(Object o) {
     if (this == o) {
       return true;
     }
-    if (o == null) {
-      return false;
+    if (o instanceof TypeSpec typeSpec) {
+      return kind == typeSpec.kind && Objects.equals(name, typeSpec.name)
+          && Objects.equals(
+          anonymousTypeArguments,
+          typeSpec.anonymousTypeArguments
+      ) && Objects.equals(javadoc, typeSpec.javadoc) && Objects.equals(
+          annotations,
+          typeSpec.annotations
+      ) && Objects.equals(modifiers, typeSpec.modifiers) && Objects.equals(
+          typeVariables,
+          typeSpec.typeVariables
+      ) && Objects.equals(superclass, typeSpec.superclass) && Objects.equals(
+          superinterfaces,
+          typeSpec.superinterfaces
+      ) && Objects.equals(enumConstants, typeSpec.enumConstants)
+          && Objects.equals(
+          fieldSpecs,
+          typeSpec.fieldSpecs
+      ) && Objects.equals(staticBlock, typeSpec.staticBlock) && Objects.equals(
+          initializerBlock,
+          typeSpec.initializerBlock
+      ) && Objects.equals(methodSpecs, typeSpec.methodSpecs) && Objects.equals(
+          typeSpecs,
+          typeSpec.typeSpecs
+      );
     }
-    if (getClass() != o.getClass()) {
-      return false;
-    }
-    return toString().equals(o.toString());
+    return false;
   }
 
   @Override
+  @Contract(pure = true)
   public int hashCode() {
-    return toString().hashCode();
+    return Objects.hash(
+        kind,
+        name,
+        anonymousTypeArguments,
+        javadoc,
+        annotations,
+        modifiers,
+        typeVariables,
+        superclass,
+        superinterfaces,
+        enumConstants,
+        fieldSpecs,
+        staticBlock,
+        initializerBlock,
+        methodSpecs,
+        typeSpecs
+    );
   }
 
   @Override

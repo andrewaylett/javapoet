@@ -87,10 +87,10 @@ public final class FieldSpec implements Emitable {
     annotations.stream().map(Emitable::toNotation).forEach(context);
 
     var decl = Stream.<Notation>builder();
-    modifiers.stream()
+    decl.add(modifiers.stream()
         .filter(m -> !implicitModifiers.contains(m))
         .map(Notation::literal)
-        .forEach(decl);
+        .collect(join(txt(" "))));
     decl.add(type.toNotation());
     decl.add(Notation
         .literal(name)
@@ -99,10 +99,10 @@ public final class FieldSpec implements Emitable {
     Notation declaration;
     if (!initializer.isEmpty()) {
       decl.add(txt("= "));
-      declaration = decl.build().collect(join(txt(" ").or(nl()))).indent().then(
-          initializer.toNotation(true).then(txt(";")).indent().indent());
+      declaration = decl.build().filter(d -> !d.isEmpty()).collect(join(txt(" ").or(nl()))).indent().then(
+          initializer.toNotation(true).then(txt(";")));
     } else {
-      declaration = decl.build().collect(join(txt(" ").or(nl())));
+      declaration = decl.build().filter(d -> !d.isEmpty()).collect(join(txt(" ").or(nl())));
     }
     context.add(declaration);
 

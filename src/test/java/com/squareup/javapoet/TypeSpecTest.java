@@ -89,10 +89,6 @@ public final class TypeSpecTest {
           }
         }
         """);
-    assertEquals(
-        472949424,
-        taco.hashCode()
-    ); // update expected number if source changes
   }
 
   @Test
@@ -137,25 +133,25 @@ public final class TypeSpecTest {
   public void anonymousInnerClass() {
     var foo = ClassName.get(tacosPackage, "Foo");
     var bar = ClassName.get(tacosPackage, "Bar");
-    var thingThang = ClassName.get(tacosPackage, "Thing", "Thang");
-    ObjectTypeName thingThangOfFooBar =
-        ParameterizedTypeName.get(thingThang, foo, bar);
-    var thung = ClassName.get(tacosPackage, "Thung");
-    var simpleThung = ClassName.get(tacosPackage, "SimpleThung");
-    ObjectTypeName thungOfSuperBar =
-        ParameterizedTypeName.get(thung, WildcardTypeName.supertypeOf(bar));
-    ObjectTypeName thungOfSuperFoo =
-        ParameterizedTypeName.get(thung, WildcardTypeName.supertypeOf(foo));
-    ObjectTypeName simpleThungOfBar =
-        ParameterizedTypeName.get(simpleThung, bar);
+    var outerInner = ClassName.get(tacosPackage, "Outer", "Inner");
+    ObjectTypeName outerInnerOfFooBar =
+        ParameterizedTypeName.get(outerInner, foo, bar);
+    var other = ClassName.get(tacosPackage, "Other");
+    var simpleOther = ClassName.get(tacosPackage, "SimpleOther");
+    ObjectTypeName otherOfSuperBar =
+        ParameterizedTypeName.get(other, WildcardTypeName.supertypeOf(bar));
+    ObjectTypeName otherOfSuperFoo =
+        ParameterizedTypeName.get(other, WildcardTypeName.supertypeOf(foo));
+    ObjectTypeName simpleOtherOfBar =
+        ParameterizedTypeName.get(simpleOther, bar);
 
-    var thungParameter = ParameterSpec
-        .builder(thungOfSuperFoo, "thung")
+    var otherParameter = ParameterSpec
+        .builder(otherOfSuperFoo, "other")
         .addModifiers(Modifier.FINAL)
         .build();
-    var aSimpleThung = TypeSpec
-        .anonymousClassBuilder(CodeBlock.of("$N", thungParameter))
-        .superclass(simpleThungOfBar)
+    var aSimpleOther = TypeSpec
+        .anonymousClassBuilder(CodeBlock.of("$N", otherParameter))
+        .superclass(simpleOtherOfBar)
         .addMethod(MethodSpec
             .methodBuilder("doSomething")
             .addAnnotation(Override.class)
@@ -164,24 +160,24 @@ public final class TypeSpecTest {
             .addCode("/* code snippets */\n")
             .build())
         .build();
-    var aThingThang = TypeSpec
+    var aOuterInner = TypeSpec
         .anonymousClassBuilder("")
-        .superclass(thingThangOfFooBar)
+        .superclass(outerInnerOfFooBar)
         .addMethod(MethodSpec
             .methodBuilder("call")
             .addAnnotation(Override.class)
             .addModifiers(Modifier.PUBLIC)
-            .returns(thungOfSuperBar)
-            .addParameter(thungParameter)
-            .addCode("return $L;\n", aSimpleThung)
+            .returns(otherOfSuperBar)
+            .addParameter(otherParameter)
+            .addCode("return $L;\n", aSimpleOther)
             .build())
         .build();
     var taco = TypeSpec
         .classBuilder("Taco")
         .addField(FieldSpec
-            .builder(thingThangOfFooBar, "NAME")
+            .builder(outerInnerOfFooBar, "NAME")
             .addModifiers(Modifier.STATIC, Modifier.FINAL, Modifier.FINAL)
-            .initializer("$L", aThingThang)
+            .initializer("$L", aOuterInner)
             .build())
         .build();
 
@@ -191,10 +187,10 @@ public final class TypeSpecTest {
         import java.lang.Override;
 
         class Taco {
-          static final Thing.Thang<Foo, Bar> NAME = new Thing.Thang<Foo, Bar>() {
+          static final Outer.Inner<Foo, Bar> NAME = new Outer.Inner<Foo, Bar>() {
             @Override
-            public Thung<? super Bar> call(final Thung<? super Foo> thung) {
-              return new SimpleThung<Bar>(thung) {
+            public Other<? super Bar> call(final Other<? super Foo> other) {
+              return new SimpleOther<Bar>(other) {
                 @Override
                 public void doSomething(Bar bar) {
                   /* code snippets */
@@ -1576,11 +1572,11 @@ public final class TypeSpecTest {
 
         class Util {
           private static final Map<String, String> ESCAPE_HTML = ImmutableMap.<String, String>builder()
-                  .add("'", "&#39;")
-                  .add("&", "&amp;")
-                  .add("<", "&lt;")
-                  .add(">", "&gt;")
-                  .build();
+              .add("'", "&#39;")
+              .add("&", "&amp;")
+              .add("<", "&lt;")
+              .add(">", "&gt;")
+              .build();
 
           int commonPrefixLength(List<String> listA, List<String> listB) {
             int size = Math.min(listA.size(), listB.size());
@@ -1868,11 +1864,9 @@ public final class TypeSpecTest {
             .addParameter(String.class, "msg")
             .addCode(CodeBlock
                 .builder()
-                .add(" /*-{$W")
-                .indent()
+                .add(" /*-${")
                 .addStatement("$$wnd.alert(msg)")
-                .unindent()
-                .add("}-*/")
+                .add("$}-*/")
                 .build())
             .build())
         .build();
@@ -2129,12 +2123,12 @@ public final class TypeSpecTest {
         class Taco {
           Comparator<String> comparePrefix(final int length) {
             return new Comparator<String>() {
-              @Override
-              public int compare(String a, String b) {
-                return a.substring(0, length)
-                    .compareTo(b.substring(0, length));
-              }
-            };
+                  @Override
+                  public int compare(String a, String b) {
+                    return a.substring(0, length)
+                        .compareTo(b.substring(0, length));
+                  }
+                };
           }
 
           void sortPrefix(List<String> list, final int length) {

@@ -12,10 +12,28 @@ public class Statement extends Notation {
   public Statement(Notation inner) {
     super(inner.names, inner.imports, inner.childContexts);
 
-    inner.visit((Notation notation) -> {
-      if (notation instanceof Statement) {
-        throw new IllegalStateException(
-            "statement enter $[ followed by statement enter $[");
+    inner.visit(new Visitor() {
+      int contextNestLevel = 0;
+      @Override
+      public void accept(Notation notation) {
+        if (contextNestLevel == 0 && notation instanceof Statement) {
+          throw new IllegalStateException(
+              "statement enter $[ followed by statement enter $[");
+        }
+      }
+
+      @Override
+      public void enter(Notation n) {
+        if (n instanceof Context) {
+          contextNestLevel++;
+        }
+      }
+
+      @Override
+      public void exit(Notation n) {
+        if (n instanceof Context) {
+          contextNestLevel--;
+        }
       }
     });
 
