@@ -335,7 +335,7 @@ public final class CodeBlockTest {
     });
     assertThat(expected)
         .hasMessageThat()
-        .isEqualTo("statement exit $] has no matching statement enter $[");
+        .isEqualTo("statement exit $] but no statement found");
   }
 
   @Test

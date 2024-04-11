@@ -1529,11 +1529,11 @@ public final class TypeSpecTest {
             String.class,
             String.class
         )
-        .add("\n.add($S, $S)", '\'', "&#39;")
-        .add("\n.add($S, $S)", '&', "&amp;")
-        .add("\n.add($S, $S)", '<', "&lt;")
-        .add("\n.add($S, $S)", '>', "&gt;")
-        .add("\n.build()")
+        .add("$Z.add($S, $S)", '\'', "&#39;")
+        .add("$Z.add($S, $S)", '&', "&amp;")
+        .add("$Z.add($S, $S)", '<', "&lt;")
+        .add("$Z.add($S, $S)", '>', "&gt;")
+        .add("$Z.build()")
         .build();
     var escapeHtml = FieldSpec
         .builder(ParameterizedTypeName.get(
@@ -2448,8 +2448,7 @@ public final class TypeSpecTest {
           void addTopping(Topping topping) {
             try {
               /* do something tricky with the topping */
-            } catch (IllegalToppingException e) {
-            }
+            } catch (IllegalToppingException e) {}
           }
         }
         """);

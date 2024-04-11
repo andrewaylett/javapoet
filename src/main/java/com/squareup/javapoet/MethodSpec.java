@@ -34,6 +34,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Stream;
 
+import static com.squareup.javapoet.CodeBlock.Builder.stripNL;
 import static com.squareup.javapoet.Util.checkArgument;
 import static com.squareup.javapoet.Util.checkNotNull;
 import static com.squareup.javapoet.Util.checkState;
@@ -498,12 +499,12 @@ public final class MethodSpec implements Emitable {
     }
 
     public Builder addCode(String format, Object... args) {
-      code.add(format.strip(), args);
+      code.add(stripNL(format), args);
       return this;
     }
 
     public Builder addNamedCode(String format, Map<String, ?> args) {
-      code.addNamed(format.strip(), args);
+      code.addNamed(stripNL(format), args);
       return this;
     }
 

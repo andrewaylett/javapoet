@@ -218,26 +218,22 @@ public final class CodeBlock implements Emitable {
     while (partIterator.hasNext()) {
       var part = partIterator.next();
       switch (part) {
-        case "$L", "$N": {
+        case "$L", "$N" -> {
           var literal = literal(this.args.get(a++));
           if (literal instanceof Concat concat) {
             builder.addAll(concat.content);
           } else {
             builder.add(literal);
           }
-          break;
         }
-
-        case "$S": {
+        case "$S" -> {
           var string = (String) this.args.get(a++);
           // Emit null as a literal null: no quotes.
           builder.add(string != null
               ? stringLiteralWithDoubleQuotes(string)
               : txt("null"));
-          break;
         }
-
-        case "$T": {
+        case "$T" -> {
           var typeName = (TypeName) this.args.get(a++);
           // defer "typeName.emit(this)" if next format part will be handled by the default case
           if (typeName instanceof ClassName candidate
@@ -246,7 +242,8 @@ public final class CodeBlock implements Emitable {
                 .get(partIterator.nextIndex())
                 .startsWith("$")) {
               if (staticImportClassNames.contains(candidate.canonicalName)) {
-                checkState(deferredTypeName == null,
+                checkState(
+                    deferredTypeName == null,
                     "pending type for static import?!"
                 );
                 deferredTypeName = candidate;
@@ -255,56 +252,35 @@ public final class CodeBlock implements Emitable {
             }
           }
           builder.add(typeRef(typeName));
-          break;
         }
-
-        case "$$": {
-          builder.add(txt("$"));
-          break;
-        }
-
-        case "$[": {
-          builder = pushStatement(stack, builder);
-          break;
-        }
-        case "$>": {
+        case "$$" -> builder.add(txt("$"));
+        case "$[" -> builder = pushStatement(stack, builder);
+        case "$>" -> {
           var addNL = false;
           if (!builder.isEmpty() && builder.get(
               builder.size() - 1) instanceof NewLine) {
             addNL = true;
             builder.remove(builder.size() - 1);
           }
-          stack.push(new StackObject(builder, false));
+          stack.push(new StackObject(builder, StackObjectType.INDENT));
           builder = new ArrayList<>();
           if (addNL) {
             builder.add(nl());
           }
-          break;
         }
-
-        case "$<": {
-          builder = unindent(stack, builder);
-          break;
-        }
-
-        case "$]": {
-          builder = popStatement(stack, builder);
-          break;
-        }
-
-        case "$W": {
+        case "$<" -> builder = unindent(stack, builder);
+        case "$]" -> builder = popStatement(stack, builder);
+        case "${" -> builder = pushBlock(stack, builder);
+        case "$}" -> builder = popBlock(stack, builder);
+        case "$W" -> {
           builder = processTokenAfterNewline(partIterator, stack, builder);
           builder.add(txt(" ").or(nl()));
-          break;
         }
-
-        case "$Z": {
+        case "$Z" -> {
           builder = processTokenAfterNewline(partIterator, stack, builder);
           builder.add(empty().or(nl()));
-          break;
         }
-
-        default: {
+        default -> {
           // handle deferred type
           if (deferredTypeName != null) {
             if (part.startsWith(".")) {
@@ -323,12 +299,15 @@ public final class CodeBlock implements Emitable {
           }
 
           splitAtNewLines(part).forEach(builder::add);
-          break;
         }
       }
     }
     while (!stack.isEmpty()) {
-      builder = unindent(stack, builder);
+      builder = switch (stack.peek().type) {
+        case INDENT -> unindent(stack, builder);
+        case STATEMENT -> popStatement(stack, builder);
+        case BLOCK -> popBlock(stack, builder);
+      };
     }
     if (stripResult) {
       stripBuilder(builder);
@@ -344,28 +323,17 @@ public final class CodeBlock implements Emitable {
     if (partIterator.hasNext()) {
       var next = partIterator.next();
       switch (next) {
-        case "$>": {
-          stack.push(new StackObject(builder, false));
+        case "$>" -> {
+          stack.push(new StackObject(builder, StackObjectType.INDENT));
           builder = new ArrayList<>();
-          break;
         }
-        case "$[": {
-          builder = pushStatement(stack, builder);
-          break;
-        }
-        case "$]": {
-          builder = popStatement(stack, builder);
-          break;
-        }
-        case "$<": {
-          builder = unindent(stack, builder);
-          break;
-        }
-        default: {
-          // move back again
-          partIterator.previous();
-          break;
-        }
+        case "$[" -> builder = pushStatement(stack, builder);
+        case "$]" -> builder = popStatement(stack, builder);
+        case "${" -> builder = pushBlock(stack, builder);
+        case "$}" -> builder = popBlock(stack, builder);
+        case "$<" -> builder = unindent(stack, builder);
+        default -> // move back again
+            partIterator.previous();
       }
     }
     return builder;
@@ -374,10 +342,10 @@ public final class CodeBlock implements Emitable {
   private static @Nonnull ArrayList<Notation> pushStatement(
       ArrayDeque<StackObject> stack, ArrayList<Notation> builder
   ) {
-    if (stack.stream().anyMatch(o -> o.isStatement)) {
+    if (stack.stream().anyMatch(o -> o.type == StackObjectType.STATEMENT)) {
       throw new IllegalStateException("statement enter $[ followed by statement enter $[");
     }
-    stack.push(new StackObject(builder, true));
+    stack.push(new StackObject(builder, StackObjectType.STATEMENT));
     builder = new ArrayList<>();
     return builder;
   }
@@ -389,11 +357,11 @@ public final class CodeBlock implements Emitable {
     try {
       var stackObject = stack.pop();
       rv = stackObject.builder;
-      if (!stackObject.isStatement) {
-        throw new IllegalStateException("statement exit $] has no matching statement enter $[");
+      if (stackObject.type != StackObjectType.STATEMENT) {
+        throw new IllegalStateException("statement exit $] but found " + stackObject.type);
       }
     } catch (NoSuchElementException e) {
-      throw new IllegalStateException("statement exit $] has no matching statement enter $[", e);
+      throw new IllegalStateException("statement exit $] but no statement found", e);
     }
     if (!builder.isEmpty()) {
       stripBuilder(builder);
@@ -402,6 +370,34 @@ public final class CodeBlock implements Emitable {
           .collect(hoistChoice()).indent().indent()));
       rv.add(nl());
     }
+    return rv;
+  }
+
+  private static @Nonnull ArrayList<Notation> pushBlock(
+      ArrayDeque<StackObject> stack, ArrayList<Notation> builder
+  ) {
+    stack.push(new StackObject(builder, StackObjectType.BLOCK));
+    builder = new ArrayList<>();
+    return builder;
+  }
+
+  private static @Nonnull ArrayList<Notation> popBlock(
+      ArrayDeque<StackObject> stack, ArrayList<Notation> builder
+  ) {
+    ArrayList<Notation> rv;
+    try {
+      var stackObject = stack.pop();
+      rv = stackObject.builder;
+      if (stackObject.type != StackObjectType.BLOCK) {
+        throw new IllegalStateException("block exit $} incorrectly matches " + stackObject.type);
+      }
+    } catch (NoSuchElementException e) {
+      throw new IllegalStateException("block exit $} but no block found", e);
+    }
+    stripBuilder(builder);
+    rv.add(Notate.wrapAndIndentUnlessEmpty(txt("{"), builder
+        .stream()
+        .collect(hoistChoice()), txt("}")));
     return rv;
   }
 
@@ -428,8 +424,8 @@ public final class CodeBlock implements Emitable {
     }
     var indented = builder.stream().collect(hoistChoice());
     var stackObject = stack.pop();
-    if (stackObject.isStatement) {
-      throw new IllegalStateException("Attempt to unindent $< when close statement $] expected");
+    if (stackObject.type != StackObjectType.INDENT) {
+      throw new IllegalStateException("Attempt to unindent $< but found " + stackObject.type);
     }
     var rv = stackObject.builder;
     rv.add(indented.indent());
@@ -675,9 +671,31 @@ public final class CodeBlock implements Emitable {
       return this;
     }
 
+    public static String stripNL(String in) {
+      if (in.isEmpty()) {
+        return in;
+      }
+      var a = in.toCharArray();
+      var start = 0;
+      var count = a.length;
+      while (count > 0 && a[start] == '\n') {
+        start++;
+        count--;
+      }
+      while (count > 0 && a[start + count - 1] == '\n') {
+        count--;
+      }
+      if (count == a.length) {
+        return in;
+      }
+      return new String(a, start, count);
+    }
+
     private boolean isNoArgPlaceholder(char c) {
-      return c == '$' || c == '>' || c == '<' || c == '[' || c == ']'
-          || c == 'W' || c == 'Z';
+      return switch (c) {
+        case '$', '>', '<', '[', ']', 'W', 'Z', '{', '}' -> true;
+        default -> false;
+      };
     }
 
     private void addArgument(String format, char c, Object arg) {
@@ -752,8 +770,7 @@ public final class CodeBlock implements Emitable {
      *                    Shouldn't contain braces or newline characters.
      */
     public Builder beginControlFlow(String controlFlow, Object... args) {
-      add(controlFlow + " {\n", args);
-      indent();
+      add(controlFlow + " ${", args);
       return this;
     }
 
@@ -762,15 +779,12 @@ public final class CodeBlock implements Emitable {
      *                    Shouldn't contain braces or newline characters.
      */
     public Builder nextControlFlow(String controlFlow, Object... args) {
-      unindent();
-      add("} " + controlFlow + " {\n", args);
-      indent();
+      add("$} " + controlFlow + " ${", args);
       return this;
     }
 
     public Builder endControlFlow() {
-      unindent();
-      add("}\n");
+      add("$}\n");
       return this;
     }
 
@@ -779,8 +793,7 @@ public final class CodeBlock implements Emitable {
      *                    "while(foo == 20)". Only used for "do/while" control flows.
      */
     public Builder endControlFlow(String controlFlow, Object... args) {
-      unindent();
-      add("} " + controlFlow + ";\n", args);
+      add("$} " + controlFlow + ";\n", args);
       return this;
     }
 
@@ -855,5 +868,8 @@ public final class CodeBlock implements Emitable {
     }
   }
 
-  private record StackObject(ArrayList<Notation> builder, boolean isStatement) {}
+  private enum StackObjectType {
+    INDENT, STATEMENT, BLOCK
+  }
+  private record StackObject(ArrayList<Notation> builder, StackObjectType type) {}
 }
