@@ -212,13 +212,13 @@ public final class CodeBlock implements Emitable {
         .collect(Collectors.toSet());
     var a = 0;
     var partIterator = this.formatParts.listIterator();
-    var stack = new ArrayDeque<ArrayList<Notation>>();
+    var stack = new ArrayDeque<StackObject>();
     var builder = new ArrayList<Notation>();
     @Nullable ClassName deferredTypeName = null;
     while (partIterator.hasNext()) {
       var part = partIterator.next();
       switch (part) {
-        case "$L", "$N":
+        case "$L", "$N": {
           var literal = literal(this.args.get(a++));
           if (literal instanceof Concat concat) {
             builder.addAll(concat.content);
@@ -226,14 +226,16 @@ public final class CodeBlock implements Emitable {
             builder.add(literal);
           }
           break;
+        }
 
-        case "$S":
+        case "$S": {
           var string = (String) this.args.get(a++);
           // Emit null as a literal null: no quotes.
           builder.add(string != null
               ? stringLiteralWithDoubleQuotes(string)
               : txt("null"));
           break;
+        }
 
         case "$T": {
           var typeName = (TypeName) this.args.get(a++);
@@ -256,15 +258,15 @@ public final class CodeBlock implements Emitable {
           break;
         }
 
-        case "$$":
+        case "$$": {
           builder.add(txt("$"));
           break;
+        }
 
         case "$[": {
-          stack.push(builder);
-          builder = new ArrayList<>();
+          builder = pushStatement(stack, builder);
+          break;
         }
-        break;
         case "$>": {
           var addNL = false;
           if (!builder.isEmpty() && builder.get(
@@ -272,13 +274,13 @@ public final class CodeBlock implements Emitable {
             addNL = true;
             builder.remove(builder.size() - 1);
           }
-          stack.push(builder);
+          stack.push(new StackObject(builder, false));
           builder = new ArrayList<>();
           if (addNL) {
             builder.add(nl());
           }
+          break;
         }
-        break;
 
         case "$<": {
           builder = unindent(stack, builder);
@@ -286,25 +288,28 @@ public final class CodeBlock implements Emitable {
         }
 
         case "$]": {
-          builder = popStatement(builder, stack);
+          builder = popStatement(stack, builder);
           break;
         }
 
-        case "$W":
+        case "$W": {
           builder = processTokenAfterNewline(partIterator, stack, builder);
           builder.add(txt(" ").or(nl()));
           break;
+        }
 
-        case "$Z":
+        case "$Z": {
           builder = processTokenAfterNewline(partIterator, stack, builder);
           builder.add(empty().or(nl()));
           break;
+        }
 
-        default:
+        default: {
           // handle deferred type
           if (deferredTypeName != null) {
             if (part.startsWith(".")) {
-              emitStaticImportMember(staticImports,
+              emitStaticImportMember(
+                  staticImports,
                   deferredTypeName,
                   part
               ).forEach(builder::add);
@@ -319,6 +324,7 @@ public final class CodeBlock implements Emitable {
 
           splitAtNewLines(part).forEach(builder::add);
           break;
+        }
       }
     }
     while (!stack.isEmpty()) {
@@ -332,53 +338,71 @@ public final class CodeBlock implements Emitable {
 
   private ArrayList<Notation> processTokenAfterNewline(
       ListIterator<String> partIterator,
-      ArrayDeque<ArrayList<Notation>> stack,
+      ArrayDeque<StackObject> stack,
       ArrayList<Notation> builder
   ) {
     if (partIterator.hasNext()) {
       var next = partIterator.next();
       switch (next) {
-        case "$>", "$[":
-          stack.push(builder);
+        case "$>": {
+          stack.push(new StackObject(builder, false));
           builder = new ArrayList<>();
           break;
+        }
+        case "$[": {
+          builder = pushStatement(stack, builder);
+          break;
+        }
         case "$]": {
-          builder = popStatement(builder, stack);
+          builder = popStatement(stack, builder);
           break;
         }
         case "$<": {
           builder = unindent(stack, builder);
           break;
         }
-        default:
+        default: {
           // move back again
           partIterator.previous();
           break;
+        }
       }
     }
     return builder;
   }
 
-  private static @Nonnull ArrayList<Notation> popStatement(
-      ArrayList<Notation> builder,
-      ArrayDeque<ArrayList<Notation>> stack
+  private static @Nonnull ArrayList<Notation> pushStatement(
+      ArrayDeque<StackObject> stack, ArrayList<Notation> builder
   ) {
-    var statementBuilder = builder;
-    try {
-      builder = stack.pop();
-    } catch (NoSuchElementException e) {
-      throw new IllegalStateException("statement exit $] has no matching statement enter $[",
-          e
-      );
+    if (stack.stream().anyMatch(o -> o.isStatement)) {
+      throw new IllegalStateException("statement enter $[ followed by statement enter $[");
     }
-    if (!statementBuilder.isEmpty()) {
-      stripBuilder(statementBuilder);
-      builder.add(Notation.statement(statementBuilder
+    stack.push(new StackObject(builder, true));
+    builder = new ArrayList<>();
+    return builder;
+  }
+
+  private static @Nonnull ArrayList<Notation> popStatement(
+      ArrayDeque<StackObject> stack, ArrayList<Notation> builder
+  ) {
+    ArrayList<Notation> rv;
+    try {
+      var stackObject = stack.pop();
+      rv = stackObject.builder;
+      if (!stackObject.isStatement) {
+        throw new IllegalStateException("statement exit $] has no matching statement enter $[");
+      }
+    } catch (NoSuchElementException e) {
+      throw new IllegalStateException("statement exit $] has no matching statement enter $[", e);
+    }
+    if (!builder.isEmpty()) {
+      stripBuilder(builder);
+      rv.add(Notation.statement(builder
           .stream()
           .collect(hoistChoice()).indent().indent()));
-      builder.add(nl());
+      rv.add(nl());
     }
-    return builder;
+    return rv;
   }
 
   private static void stripBuilder(ArrayList<Notation> builder) {
@@ -393,7 +417,7 @@ public final class CodeBlock implements Emitable {
 
   @NotNull
   private ArrayList<Notation> unindent(
-      ArrayDeque<ArrayList<Notation>> stack,
+      ArrayDeque<StackObject> stack,
       ArrayList<Notation> builder
   ) {
     var addNL = false;
@@ -403,12 +427,16 @@ public final class CodeBlock implements Emitable {
       addNL = true;
     }
     var indented = builder.stream().collect(hoistChoice());
-    builder = stack.pop();
-    builder.add(indented.indent());
-    if (addNL) {
-      builder.add(nl());
+    var stackObject = stack.pop();
+    if (stackObject.isStatement) {
+      throw new IllegalStateException("Attempt to unindent $< when close statement $] expected");
     }
-    return builder;
+    var rv = stackObject.builder;
+    rv.add(indented.indent());
+    if (addNL) {
+      rv.add(nl());
+    }
+    return rv;
   }
 
   private Stream<Notation> splitAtNewLines(String part) {
@@ -826,4 +854,6 @@ public final class CodeBlock implements Emitable {
       return builder.build();
     }
   }
+
+  private record StackObject(ArrayList<Notation> builder, boolean isStatement) {}
 }

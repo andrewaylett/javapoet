@@ -321,7 +321,7 @@ public final class CodeBlockTest {
   @Test
   public void tooManyStatementEntersInOneGo() {
     var expected = assertThrows(IllegalStateException.class, () -> {
-      builder().add("$[$[");
+      builder().add("$[$[").build().toNotation();
     });
     assertThat(expected)
         .hasMessageThat()
