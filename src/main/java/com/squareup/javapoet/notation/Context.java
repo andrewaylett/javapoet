@@ -129,7 +129,10 @@ public class Context extends Notation {
             n,
             className.referenceTo(n, namesInScope)
         ))
-        .forEach(newNames.entrySet()::add);
+        .forEach(e -> {
+          newNames.values().remove(e.getValue());
+          newNames.entrySet().add(e);
+        });
 
     typeVariableNames.forEach(tvn -> {
       newNames.values().remove(tvn.canonicalName());
