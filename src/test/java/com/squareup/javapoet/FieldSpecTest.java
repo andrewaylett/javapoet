@@ -26,8 +26,8 @@ import static org.junit.Assert.assertThrows;
 public class FieldSpecTest {
   @Test
   public void equalsAndHashCode() {
-    FieldSpec a = FieldSpec.builder(int.class, "foo").build();
-    FieldSpec b = FieldSpec.builder(int.class, "foo").build();
+    var a = FieldSpec.builder(int.class, "foo").build();
+    var b = FieldSpec.builder(int.class, "foo").build();
     assertThat(a.equals(b)).isTrue();
     assertThat(a.hashCode()).isEqualTo(b.hashCode());
     assertThat(a.toString()).isEqualTo(b.toString());
@@ -44,7 +44,7 @@ public class FieldSpecTest {
 
   @Test
   public void nullAnnotationsAddition() {
-    var expected = assertThrows(
+    @SuppressWarnings("DataFlowIssue") var expected = assertThrows(
         IllegalArgumentException.class,
         () -> builder(int.class, "foo").addAnnotations(null)
     );
@@ -54,7 +54,7 @@ public class FieldSpecTest {
 
   @Test
   public void modifyAnnotations() {
-    FieldSpec.Builder builder = FieldSpec.builder(int.class, "foo")
+    var builder = FieldSpec.builder(int.class, "foo")
         .addAnnotation(Override.class)
         .addAnnotation(SuppressWarnings.class);
 
@@ -64,7 +64,7 @@ public class FieldSpecTest {
 
   @Test
   public void modifyModifiers() {
-    FieldSpec.Builder builder = FieldSpec.builder(int.class, "foo")
+    var builder = FieldSpec.builder(int.class, "foo")
         .addModifiers(Modifier.PUBLIC, Modifier.STATIC);
 
     builder.modifiers.remove(1);

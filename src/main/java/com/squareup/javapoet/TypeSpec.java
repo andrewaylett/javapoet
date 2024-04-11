@@ -108,32 +108,6 @@ public final class TypeSpec implements Emitable {
     this.originatingElements = Util.immutableList(originatingElementsMutable);
   }
 
-  /**
-   * Creates a type spec for type-resolution only (in CodeWriter)
-   * while emitting the type declaration but before entering the type body.
-   */
-  private TypeSpec(@NotNull TypeSpec type) {
-    assert type.anonymousTypeArguments == null;
-    this.kind = type.kind;
-    this.name = type.name;
-    this.anonymousTypeArguments = null;
-    this.javadoc = type.javadoc;
-    this.annotations = Collections.emptyList();
-    this.modifiers = Collections.emptySet();
-    this.typeVariables = Collections.emptyList();
-    this.superclass = null;
-    this.superinterfaces = Collections.emptyList();
-    this.enumConstants = Collections.emptyMap();
-    this.fieldSpecs = Collections.emptyList();
-    this.staticBlock = type.staticBlock;
-    this.initializerBlock = type.initializerBlock;
-    this.methodSpecs = Collections.emptyList();
-    this.typeSpecs = Collections.emptyList();
-    this.originatingElements = Collections.emptyList();
-    this.nestedTypesSimpleNames = Collections.emptySet();
-    this.alwaysQualifiedNames = Collections.emptySet();
-  }
-
   @Contract("_ -> new")
   public static @NotNull Builder classBuilder(@NotNull String name) {
     return new Builder(Kind.CLASS, checkNotNull(name, "name == null"), null);

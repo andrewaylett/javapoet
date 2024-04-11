@@ -53,9 +53,9 @@ final class TestFiler implements Filer {
   public JavaFileObject createSourceFile(
       CharSequence name, Element... originatingElements
   ) throws IOException {
-    String relative = name.toString().replace(".", separator)
+    var relative = name.toString().replace(".", separator)
         + ".java"; // Assumes well-formed.
-    Path path = fileSystemRoot.resolve(relative);
+    var path = fileSystemRoot.resolve(relative);
     originatingElementsMap.put(
         path,
         Util.immutableSet(Arrays.asList(originatingElements))
@@ -98,7 +98,7 @@ final class TestFiler implements Filer {
 
     @Override
     public OutputStream openOutputStream() throws IOException {
-      Path parent = path.getParent();
+      var parent = path.getParent();
       if (!Files.exists(parent)) {
         fileSystemProvider.createDirectory(parent);
       }

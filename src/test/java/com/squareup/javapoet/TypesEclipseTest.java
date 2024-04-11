@@ -73,14 +73,14 @@ public final class TypesEclipseTest extends AbstractTypesTest {
 
     static private boolean compile(Iterable<? extends Processor> processors) {
       JavaCompiler compiler = new EclipseCompiler();
-      DiagnosticCollector<JavaFileObject> diagnosticCollector =
-          new DiagnosticCollector<>();
+      var diagnosticCollector =
+          new DiagnosticCollector<JavaFileObject>();
       JavaFileManager fileManager = compiler.getStandardFileManager(
           diagnosticCollector,
           Locale.getDefault(),
           UTF_8
       );
-      JavaCompiler.CompilationTask task = compiler.getTask(
+      var task = compiler.getTask(
           null,
           fileManager,
           diagnosticCollector,
@@ -97,8 +97,8 @@ public final class TypesEclipseTest extends AbstractTypesTest {
       return new Statement() {
         @Override
         public void evaluate() throws Throwable {
-          final AtomicReference<Throwable> thrown = new AtomicReference<>();
-          boolean successful =
+          final var thrown = new AtomicReference<Throwable>();
+          var successful =
               compile(ImmutableList.of(new AbstractProcessor() {
                 @Override
                 public SourceVersion getSupportedSourceVersion() {
@@ -134,7 +134,7 @@ public final class TypesEclipseTest extends AbstractTypesTest {
                 }
               }));
           checkState(successful);
-          Throwable t = thrown.get();
+          var t = thrown.get();
           if (t != null) {
             throw t;
           }

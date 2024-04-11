@@ -33,7 +33,6 @@ import java.util.Set;
 import java.util.stream.Stream;
 
 import static com.squareup.javapoet.notation.Notation.asLines;
-import static com.squareup.javapoet.notation.Notation.join;
 import static com.squareup.javapoet.notation.Notation.txt;
 import static java.lang.Character.isISOControl;
 
@@ -95,13 +94,6 @@ final class Util {
     return Collections.unmodifiableSet(new LinkedHashSet<>(set));
   }
 
-  static <T> Set<T> union(Set<T> a, Set<T> b) {
-    Set<T> result = new LinkedHashSet<>();
-    result.addAll(a);
-    result.addAll(b);
-    return result;
-  }
-
   static void requireExactlyOneOf(
       Set<Modifier> modifiers, Modifier... mutuallyExclusive
   ) {
@@ -121,28 +113,19 @@ final class Util {
 
   static String characterLiteralWithoutSingleQuotes(char c) {
     // see https://docs.oracle.com/javase/specs/jls/se7/html/jls-3.html#jls-3.10.6
-    switch (c) {
-      case '\b':
-        return "\\b"; /* \\u0008: backspace (BS) */
-      case '\t':
-        return "\\t"; /* \\u0009: horizontal tab (HT) */
-      case '\n':
-        return "\\n"; /* \\u000a: linefeed (LF) */
-      case '\f':
-        return "\\f"; /* \\u000c: form feed (FF) */
-      case '\r':
-        return "\\r"; /* \\u000d: carriage return (CR) */
-      case '\"':
-        return "\"";  /* \\u0022: double quote (") */
-      case '\'':
-        return "\\'"; /* \\u0027: single quote (') */
-      case '\\':
-        return "\\\\";  /* \\u005c: backslash (\) */
-      default:
-        return isISOControl(c)
-            ? String.format("\\u%04x", (int) c)
-            : Character.toString(c);
-    }
+    return switch (c) {
+      case '\b' -> "\\b"; /* \\u0008: backspace (BS) */
+      case '\t' -> "\\t"; /* \\u0009: horizontal tab (HT) */
+      case '\n' -> "\\n"; /* \\u000a: linefeed (LF) */
+      case '\f' -> "\\f"; /* \\u000c: form feed (FF) */
+      case '\r' -> "\\r"; /* \\u000d: carriage return (CR) */
+      case '\"' -> "\"";  /* \\u0022: double quote (") */
+      case '\'' -> "\\'"; /* \\u0027: single quote (') */
+      case '\\' -> "\\\\";  /* \\u005c: backslash (\) */
+      default -> isISOControl(c)
+          ? String.format("\\u%04x", (int) c)
+          : Character.toString(c);
+    };
   }
 
   /**

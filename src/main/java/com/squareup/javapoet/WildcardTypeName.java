@@ -20,7 +20,6 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import javax.lang.model.element.TypeParameterElement;
-import java.io.IOException;
 import java.lang.reflect.Type;
 import java.lang.reflect.WildcardType;
 import java.util.Collections;
@@ -31,7 +30,6 @@ import java.util.Objects;
 import java.util.stream.Stream;
 
 import static com.squareup.javapoet.Util.checkArgument;
-import static com.squareup.javapoet.notation.Notation.typeRef;
 
 public final class WildcardTypeName extends ObjectTypeName {
   public final List<TypeName> upperBounds;

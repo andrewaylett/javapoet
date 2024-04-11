@@ -20,7 +20,6 @@ import org.jetbrains.annotations.Nullable;
 
 import javax.lang.model.SourceVersion;
 import javax.lang.model.element.Modifier;
-import java.io.IOException;
 import java.lang.reflect.Type;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -110,19 +109,6 @@ public final class FieldSpec implements Emitable {
         .build()
         .filter(n -> !n.isEmpty())
         .collect(Notation.asLines());
-  }
-
-  void emit(CodeWriter codeWriter, Set<Modifier> implicitModifiers)
-      throws IOException {
-    codeWriter.emitJavadoc(javadoc);
-    codeWriter.emitAnnotations(annotations, false);
-    codeWriter.emitModifiers(modifiers, implicitModifiers);
-    codeWriter.emit("$T $L", type, name);
-    if (!initializer.isEmpty()) {
-      codeWriter.emit(" = ");
-      codeWriter.emit(initializer);
-    }
-    codeWriter.emit(";\n");
   }
 
   @Override

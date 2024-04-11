@@ -48,7 +48,6 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.squareup.javapoet.CodeBlock.builder;
 import static com.squareup.javapoet.TypeName.get;
 import static com.squareup.javapoet.TypeSpec.classBuilder;
-import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
 

@@ -23,7 +23,6 @@ import org.jetbrains.annotations.Nullable;
 import javax.annotation.Nonnull;
 import javax.lang.model.element.TypeParameterElement;
 import javax.lang.model.type.TypeVariable;
-import java.io.IOException;
 import java.lang.reflect.Type;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -38,7 +37,6 @@ import static com.squareup.javapoet.Util.checkArgument;
 import static com.squareup.javapoet.Util.checkNotNull;
 import static com.squareup.javapoet.notation.Notation.join;
 import static com.squareup.javapoet.notation.Notation.txt;
-import static com.squareup.javapoet.notation.Notation.typeRef;
 
 public final class TypeVariableName extends ObjectTypeName {
   public final String name;

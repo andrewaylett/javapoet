@@ -10,12 +10,12 @@ import java.util.ArrayDeque;
 import java.util.Collection;
 import java.util.Deque;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import java.util.Spliterator;
 
 public class PriorityMap<K, V> extends AbstractMap<K, V> {
   private final Map<K, Deque<V>> delegate;
@@ -45,9 +45,7 @@ public class PriorityMap<K, V> extends AbstractMap<K, V> {
 
   public PriorityMap<K, V> immutableCopy() {
     var delegate = new HashMap<K, Deque<V>>();
-    this.delegate.forEach((key, value) -> {
-      delegate.put(key, new ReadOnlyArrayDeque<>(value));
-    });
+    this.delegate.forEach((key, value) -> delegate.put(key, new ReadOnlyArrayDeque<>(value)));
     return new PriorityMap<>(Map.copyOf(delegate));
   }
 
@@ -145,11 +143,6 @@ public class PriorityMap<K, V> extends AbstractMap<K, V> {
     @Override
     public @NotNull Iterator<Map.Entry<K, V>> iterator() {
       return new AbstractEntrySetIterator<>(delegate.entrySet().iterator());
-    }
-
-    @Override
-    public Spliterator<Entry<K, V>> spliterator() {
-      return super.spliterator();
     }
 
     @Override
@@ -328,7 +321,7 @@ public class PriorityMap<K, V> extends AbstractMap<K, V> {
 
     @Override
     public boolean containsAll(@Nonnull Collection<?> c) {
-      return delegate.containsAll(c);
+      return new HashSet<>(delegate).containsAll(c);
     }
 
     @Override

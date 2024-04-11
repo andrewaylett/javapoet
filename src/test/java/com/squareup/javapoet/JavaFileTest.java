@@ -103,7 +103,7 @@ public final class JavaFileTest {
   @Test
   public void importStaticForCrazyFormatsWorks() {
     var method = MethodSpec.methodBuilder("method").build();
-    var _unused = JavaFile.builder(
+    var _ignored = JavaFile.builder(
             "com.squareup.tacos",
             TypeSpec.classBuilder("Taco")
                 .addStaticBlock(CodeBlock.builder()

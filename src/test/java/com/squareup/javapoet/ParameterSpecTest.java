@@ -152,10 +152,12 @@ public class ParameterSpecTest {
     assertThat(builder.build().modifiers).containsExactly(Modifier.PUBLIC);
   }
 
+  @SuppressWarnings({"unused", "InnerClassMayBeStatic"})
   final class VariableElementFieldClass {
     String name;
   }
 
+  @SuppressWarnings({"unused", "InnerClassMayBeStatic"})
   final class VariableElementParameterClass {
     public void foo(@Nullable final String bar) {
     }

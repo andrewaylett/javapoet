@@ -32,22 +32,27 @@ public class TypeNameTest {
   private static final AnnotationSpec ANNOTATION_SPEC =
       AnnotationSpec.builder(ClassName.OBJECT).build();
 
+  @SuppressWarnings({"ClassEscapesDefinedScope", "DataFlowIssue"})
   protected static TestGeneric<String>.Inner testGenericStringInner() {
     return null;
   }
 
+  @SuppressWarnings({"ClassEscapesDefinedScope", "DataFlowIssue"})
   protected static TestGeneric<Integer>.Inner testGenericIntInner() {
     return null;
   }
 
+  @SuppressWarnings({"ClassEscapesDefinedScope", "DataFlowIssue"})
   protected static TestGeneric<Short>.InnerGeneric<Long> testGenericInnerLong() {
     return null;
   }
 
+  @SuppressWarnings({"ClassEscapesDefinedScope", "DataFlowIssue"})
   protected static TestGeneric<Short>.InnerGeneric<Integer> testGenericInnerInt() {
     return null;
   }
 
+  @SuppressWarnings({"ClassEscapesDefinedScope", "DataFlowIssue"})
   protected static TestGeneric.NestedNonGeneric testNestedNonGeneric() {
     return null;
   }
@@ -193,7 +198,7 @@ public class TypeNameTest {
         .addEqualityGroup(a1, b1)
         .addEqualityGroup(a1.toString(), b1.toString())
         .testEquals();
-    TypeName a = TypeName.get(Object[].class);
+    var a = TypeName.get(Object[].class);
     TypeName b = ArrayTypeName.of(Object.class);
     new EqualsTester()
         .addEqualityGroup(a, b)
@@ -209,7 +214,7 @@ public class TypeNameTest {
         .addEqualityGroup(a2, b2)
         .addEqualityGroup(a2.toString(), b2.toString())
         .testEquals();
-    TypeName a1 = TypeName.get(Object.class);
+    var a1 = TypeName.get(Object.class);
     TypeName b1 = ClassName.get(Object.class);
     new EqualsTester()
         .addEqualityGroup(a1, b1)
@@ -241,8 +246,8 @@ public class TypeNameTest {
 
   @Test
   public void equalsAndHashCodeTypeVariableName() {
-    TypeName a = TypeName.get(Object.class);
-    TypeName b = TypeName.get(Object.class);
+    var a = TypeName.get(Object.class);
+    var b = TypeName.get(Object.class);
     new EqualsTester()
         .addEqualityGroup(a, b)
         .addEqualityGroup(a.toString(), b.toString())
@@ -283,7 +288,7 @@ public class TypeNameTest {
   }
 
   @Test
-  public void isPrimitive() throws Exception {
+  public void isPrimitive() {
     assertThat(PrimitiveType.Integer.isPrimitive()).isTrue();
     assertThat(ClassName.get("java.lang", "Integer").isPrimitive()).isFalse();
     assertThat(ClassName.get("java.lang", "String").isPrimitive()).isFalse();
@@ -292,7 +297,7 @@ public class TypeNameTest {
   }
 
   @Test
-  public void isBoxedPrimitive() throws Exception {
+  public void isBoxedPrimitive() {
     assertThat(PrimitiveType.Integer.isBoxedPrimitive()).isFalse();
     assertThat(ClassName
         .get("java.lang", "Integer")
@@ -307,7 +312,7 @@ public class TypeNameTest {
   }
 
   @Test
-  public void canBoxAnnotatedPrimitive() throws Exception {
+  public void canBoxAnnotatedPrimitive() {
     assertThat(PrimitiveType.Boolean
         .annotated(ANNOTATION_SPEC)
         .box()).isEqualTo(
@@ -315,11 +320,12 @@ public class TypeNameTest {
   }
 
   @Test
-  public void canUnboxAnnotatedPrimitive() throws Exception {
+  public void canUnboxAnnotatedPrimitive() {
     assertThat(ClassName.get("java.lang", "Boolean").annotated(ANNOTATION_SPEC)
         .unbox()).isEqualTo(PrimitiveType.Boolean.annotated(ANNOTATION_SPEC));
   }
 
+  @SuppressWarnings("InnerClassMayBeStatic")
   protected static class TestGeneric<T> {
     static class NestedNonGeneric {
     }

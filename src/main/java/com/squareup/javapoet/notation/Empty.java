@@ -10,7 +10,7 @@ import java.util.Set;
 
 @SuppressWarnings("UnstableApiUsage")
 public class Empty extends Notation {
-  public static Empty INSTANCE = new Empty();
+  public static final Empty INSTANCE = new Empty();
 
   private Empty() {
     super(Map.of(), Set.of(), Set.of());

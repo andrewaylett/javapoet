@@ -61,17 +61,17 @@ public class UtilTest {
   public void stringLiteral() {
     stringLiteral("abc");
     stringLiteral("♦♥♠♣");
-    stringLiteral("€\\t@\\t$", "€\t@\t$", " ");
-    stringLiteral("\"\"\n    abc();\n    def();\n    \"\"", "abc();\ndef();", " ");
-    stringLiteral("This is \\\"quoted\\\"!", "This is \"quoted\"!", "  ");
-    stringLiteral("e^{i\\\\pi}+1=0", "e^{i\\pi}+1=0", " ");
+    stringLiteral("€\\t@\\t$", "€\t@\t$");
+    stringLiteral("\"\"\n    abc();\n    def();\n    \"\"", "abc();\ndef();");
+    stringLiteral("This is \\\"quoted\\\"!", "This is \"quoted\"!");
+    stringLiteral("e^{i\\\\pi}+1=0", "e^{i\\pi}+1=0");
   }
 
   void stringLiteral(String string) {
-    stringLiteral(string, string, " ");
+    stringLiteral(string, string);
   }
 
-  void stringLiteral(String expected, String value, String indent) {
+  void stringLiteral(String expected, String value) {
     assertEquals(
         "\"" + expected + "\"",
         Util.stringLiteralWithDoubleQuotes(value).toCode()

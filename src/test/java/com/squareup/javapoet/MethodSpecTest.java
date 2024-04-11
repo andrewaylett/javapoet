@@ -128,10 +128,12 @@ public final class MethodSpecTest {
     var method = MethodSpec.overriding(methodElement)
         .addStatement("return null")
         .build();
-    assertThat(method.toString()).isEqualTo("@java.lang.Override\n"
-        + "<T, R, V extends java.lang.Throwable> T run(R param) throws V {\n"
-        + "  return null;\n"
-        + "}\n");
+    assertThat(method.toString()).isEqualTo("""
+        @java.lang.Override
+        <T, R, V extends java.lang.Throwable> T run(R param) throws V {
+          return null;
+        }
+        """);
   }
 
   @Test
@@ -139,8 +141,10 @@ public final class MethodSpecTest {
     var classElement = getElement(HasAnnotation.class);
     var exec = getOnlyElement(methodsIn(classElement.getEnclosedElements()));
     var method = MethodSpec.overriding(exec).build();
-    assertThat(method.toString()).isEqualTo("@java.lang.Override\n"
-        + "public java.lang.String toString() {}\n");
+    assertThat(method.toString()).isEqualTo("""
+        @java.lang.Override
+        public java.lang.String toString() {}
+        """);
   }
 
   @Test
@@ -163,8 +167,10 @@ public final class MethodSpecTest {
     var methods = methodsIn(elements.getAllMembers(classElement));
     var exec = findFirst(methods, "call");
     var method = MethodSpec.overriding(exec, classType, types).build();
-    assertThat(method.toString()).isEqualTo("@java.lang.Override\n"
-        + "public java.lang.Integer call() throws java.lang.Exception {}\n");
+    assertThat(method.toString()).isEqualTo("""
+        @java.lang.Override
+        public java.lang.Integer call() throws java.lang.Exception {}
+        """);
     exec = findFirst(methods, "compareTo");
     method = MethodSpec.overriding(exec, classType, types).build();
     assertThat(method.toString()).isEqualTo("@java.lang.Override\n"
@@ -172,8 +178,10 @@ public final class MethodSpecTest {
         + " arg0) {}\n");
     exec = findFirst(methods, "fail");
     method = MethodSpec.overriding(exec, classType, types).build();
-    assertThat(method.toString()).isEqualTo("@java.lang.Override\n"
-        + "public void fail() throws java.lang.IllegalStateException {}\n");
+    assertThat(method.toString()).isEqualTo("""
+        @java.lang.Override
+        public void fail() throws java.lang.IllegalStateException {}
+        """);
   }
 
   @Test
@@ -261,10 +269,12 @@ public final class MethodSpecTest {
         .addParameter(PrimitiveType.Double, "money")
         .addJavadoc("Gets the best Taco\n")
         .build();
-    assertThat(methodSpec.toString()).isEqualTo("/**\n"
-        + " * Gets the best Taco\n"
-        + " */\n"
-        + "private void getTaco(double money) {}\n");
+    assertThat(methodSpec.toString()).isEqualTo("""
+        /**
+         * Gets the best Taco
+         */
+        private void getTaco(double money) {}
+        """);
   }
 
   @Test
@@ -278,13 +288,15 @@ public final class MethodSpecTest {
             .build())
         .addJavadoc("Gets the best Taco money can buy.")
         .build();
-    assertThat(methodSpec.toString()).isEqualTo("/**\n"
-        + " * Gets the best Taco money can buy.\n"
-        + " *\n"
-        + " * @param money the amount required to buy the taco.\n"
-        + " * @param count the number of Tacos to buy.\n"
-        + " */\n"
-        + "void getTaco(double money, int count) {}\n");
+    assertThat(methodSpec.toString()).isEqualTo("""
+        /**
+         * Gets the best Taco money can buy.
+         *
+         * @param money the amount required to buy the taco.
+         * @param count the number of Tacos to buy.
+         */
+        void getTaco(double money, int count) {}
+        """);
   }
 
   @Test
@@ -297,11 +309,13 @@ public final class MethodSpecTest {
             .addJavadoc("the number of Tacos to buy.\n")
             .build())
         .build();
-    assertThat(methodSpec.toString()).isEqualTo("/**\n"
-        + " * @param money the amount required to buy the taco.\n"
-        + " * @param count the number of Tacos to buy.\n"
-        + " */\n"
-        + "void getTaco(double money, int count) {}\n");
+    assertThat(methodSpec.toString()).isEqualTo("""
+        /**
+         * @param money the amount required to buy the taco.
+         * @param count the number of Tacos to buy.
+         */
+        void getTaco(double money, int count) {}
+        """);
   }
 
   @Test
@@ -402,9 +416,11 @@ public final class MethodSpecTest {
         .addCode("codeWithNoNewline();")
         .build();
 
-    assertThat(methodSpec.toString()).isEqualTo("void method() {\n"
-        + "  codeWithNoNewline();\n"
-        + "}\n");
+    assertThat(methodSpec.toString()).isEqualTo("""
+        void method() {
+          codeWithNoNewline();
+        }
+        """);
   }
 
   /**
@@ -416,9 +432,11 @@ public final class MethodSpecTest {
         .addCode("codeWithNoNewline();\n") // Have a newline already, so ensure we're not adding one
         .build();
 
-    assertThat(methodSpec.toString()).isEqualTo("void method() {\n"
-        + "  codeWithNoNewline();\n"
-        + "}\n");
+    assertThat(methodSpec.toString()).isEqualTo("""
+        void method() {
+          codeWithNoNewline();
+        }
+        """);
   }
 
   @Test
@@ -452,17 +470,20 @@ public final class MethodSpecTest {
         .endControlFlow(named("while ($field:N > $threshold:L)", m))
         .build();
 
-    assertThat(methodSpec.toString()).isEqualTo("void method() {\n" +
-        "  do {\n" +
-        "    valueField--;\n" +
-        "  } while (valueField > 5);\n" +
-        "}\n");
+    assertThat(methodSpec.toString()).isEqualTo("""
+        void method() {
+          do {
+            valueField--;
+          } while (valueField > 5);
+        }
+        """);
   }
 
   @Target(ElementType.PARAMETER)
   @interface Nullable {
   }
 
+  @SuppressWarnings("unused")
   interface Throws<R extends RuntimeException> {
     void fail() throws R;
   }
@@ -481,6 +502,7 @@ public final class MethodSpecTest {
     ) throws IOException, SecurityException;
   }
 
+  @SuppressWarnings({"unused", "DataFlowIssue", "RedundantThrows"})
   abstract static class Generics {
     <T, R, V extends Throwable> T run(R param) throws V {
       return null;
@@ -492,6 +514,7 @@ public final class MethodSpecTest {
     public abstract String toString();
   }
 
+  @SuppressWarnings("unused")
   abstract static class InvalidOverrideMethods {
     static void staticMethod() {
     }
@@ -503,6 +526,7 @@ public final class MethodSpecTest {
     }
   }
 
+  @SuppressWarnings("unused")
   abstract static class AbstractClassWithPrivateAnnotation {
 
     abstract void foo(@PrivateAnnotation final String bar);
@@ -511,6 +535,7 @@ public final class MethodSpecTest {
     }
   }
 
+  @SuppressWarnings({"unused", "InnerClassMayBeStatic"})
   final class FinalClass {
     void method() {
     }

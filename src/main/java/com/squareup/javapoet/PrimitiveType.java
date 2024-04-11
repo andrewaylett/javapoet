@@ -3,7 +3,6 @@ package com.squareup.javapoet;
 import com.squareup.javapoet.notation.Notation;
 import org.jetbrains.annotations.NotNull;
 
-import java.io.IOException;
 import java.util.List;
 
 public enum PrimitiveType implements TypeName {

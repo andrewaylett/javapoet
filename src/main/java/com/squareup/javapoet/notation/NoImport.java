@@ -14,6 +14,7 @@ import java.util.stream.Stream;
 
 public class NoImport extends Notation {
   private final Notation inner;
+  @SuppressWarnings("FieldCanBeLocal") // Useful for debugging
   private final Set<String> suppressed;
 
   public NoImport(@NotNull Notation inner) {

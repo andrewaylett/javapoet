@@ -36,7 +36,6 @@ import java.util.Date;
 import static com.google.common.truth.Truth.assertThat;
 import static com.squareup.javapoet.JavaFile.builder;
 import static com.squareup.javapoet.TypeSpec.classBuilder;
-import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.nio.file.Files.createDirectories;
 import static java.nio.file.Files.createFile;
 import static org.junit.Assert.assertThrows;

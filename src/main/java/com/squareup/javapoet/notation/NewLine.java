@@ -10,7 +10,7 @@ import java.util.Set;
 
 @SuppressWarnings("UnstableApiUsage")
 public class NewLine extends Notation {
-  public static NewLine INSTANCE = new NewLine();
+  public static final NewLine INSTANCE = new NewLine();
 
   private NewLine() {
     super(Map.of(), Set.of(), Set.of());
