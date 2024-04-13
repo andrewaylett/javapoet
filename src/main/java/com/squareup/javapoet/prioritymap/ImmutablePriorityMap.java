@@ -9,7 +9,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-@SuppressWarnings("Immutable") // AbstractMap has interior mutability as an optimisation
 @Immutable(containerOf = {"K", "V"})
 public class ImmutablePriorityMap<K, V> extends AbstractPriorityMap<K, V, ImmutableArrayDeque<V>> {
   private final ImmutableMap<K, ImmutableArrayDeque<V>> delegate;
@@ -40,13 +39,12 @@ public class ImmutablePriorityMap<K, V> extends AbstractPriorityMap<K, V, Immuta
     return new ImmutablePriorityMap<>(ImmutableMap.copyOf(delegate));
   }
 
-  @Contract(pure = true)
+  @Contract(value = "-> this", pure = true)
   @Override
   public ImmutablePriorityMap<K, V> immutableCopy() {
-    var delegate = new HashMap<K, ImmutableArrayDeque<V>>();
-    this.getDelegate().forEach((key, value) -> delegate.put(key, new ImmutableArrayDeque<>(value)));
-    return new ImmutablePriorityMap<>(ImmutableMap.copyOf(delegate));
+    return this;
   }
+
   @Override
   protected Map<K, ImmutableArrayDeque<V>> getDelegate() {
     return delegate;

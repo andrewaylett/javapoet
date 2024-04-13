@@ -16,17 +16,21 @@
 package com.squareup.javapoet.prioritymap;
 
 import org.jetbrains.annotations.Contract;
+import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import javax.annotation.Nonnull;
-import java.util.AbstractMap;
+import java.util.AbstractCollection;
+import java.util.AbstractSet;
+import java.util.Collection;
 import java.util.Deque;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 
-public abstract class AbstractPriorityMap<K, V, D extends Deque<V>> extends AbstractMap<K, V> implements PriorityMap<K, V> {
+public abstract class AbstractPriorityMap<K, V, D extends Deque<V>> implements PriorityMap<K, V> {
   @Contract(pure = true)
   @Override
   public int size() {
@@ -113,6 +117,95 @@ public abstract class AbstractPriorityMap<K, V, D extends Deque<V>> extends Abst
       if (deque.isEmpty()) {
         getDelegate().remove(key);
       }
+    }
+  }
+
+  @NotNull
+  @Override
+  public Set<K> keySet() {
+    // lifted from AbstractMap but without the mutating optimisation
+    return new AbstractSet<>() {
+      public @NotNull Iterator<K> iterator() {
+        return new Iterator<>() {
+          private final Iterator<Entry<K, V>> i = entrySet().iterator();
+
+          public boolean hasNext() {
+            return i.hasNext();
+          }
+
+          public K next() {
+            return i.next().getKey();
+          }
+
+          public void remove() {
+            i.remove();
+          }
+        };
+      }
+
+      public int size() {
+        return AbstractPriorityMap.this.size();
+      }
+
+      public boolean isEmpty() {
+        return AbstractPriorityMap.this.isEmpty();
+      }
+
+      public void clear() {
+        AbstractPriorityMap.this.clear();
+      }
+
+      public boolean contains(Object k) {
+        return AbstractPriorityMap.this.containsKey(k);
+      }
+    };
+  }
+
+  @NotNull
+  @Override
+  public Collection<V> values() {
+    // lifted from AbstractMap but without the mutating optimisation
+    return new AbstractCollection<>() {
+      public @NotNull Iterator<V> iterator() {
+        return new Iterator<>() {
+          private final Iterator<Entry<K, V>> i = entrySet().iterator();
+
+          public boolean hasNext() {
+            return i.hasNext();
+          }
+
+          public V next() {
+            return i.next().getValue();
+          }
+
+          public void remove() {
+            i.remove();
+          }
+        };
+      }
+
+      public int size() {
+        return AbstractPriorityMap.this.size();
+      }
+
+      public boolean isEmpty() {
+        return AbstractPriorityMap.this.isEmpty();
+      }
+
+      public void clear() {
+        AbstractPriorityMap.this.clear();
+      }
+
+      public boolean contains(Object v) {
+        return AbstractPriorityMap.this.containsValue(v);
+      }
+    };
+  }
+
+  @Override
+  public void putAll(@NotNull Map<? extends K, ? extends V> m) {
+    for (var e : m.entrySet()) {
+      put(e.getKey(), e.getValue());
     }
   }
 
