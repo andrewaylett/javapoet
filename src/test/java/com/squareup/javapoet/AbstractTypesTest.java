@@ -22,6 +22,7 @@ import org.junit.Test;
 import javax.annotation.processing.AbstractProcessor;
 import javax.annotation.processing.RoundEnvironment;
 import javax.lang.model.element.TypeElement;
+import javax.lang.model.element.TypeParameterElement;
 import javax.lang.model.type.ErrorType;
 import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
@@ -155,11 +156,12 @@ public abstract class AbstractTypesTest {
         ));
     assertThat(((TypeVariableName) TypeName.get(typeVariables
         .get(4)
-        .asType())).bounds)
+        .asType())).getBounds())
         .containsExactly(number, runnable);
   }
 
   @Test
+  @SuppressWarnings("DoNotCall")
   public void getTypeVariableTypeMirrorRecursive() {
     var typeMirror = getElement(Recursive.class).asType();
     var typeName = (ParameterizedTypeName) TypeName.get(typeMirror);
@@ -168,14 +170,8 @@ public abstract class AbstractTypesTest {
 
     var typeVariableName = (TypeVariableName) typeName.typeArguments.get(0);
 
-    try {
-      typeVariableName.bounds.set(0, null);
-      fail("Expected UnsupportedOperationException");
-    } catch (UnsupportedOperationException expected) {
-    }
-
     assertThat(Notation.typeRef(typeVariableName).toCode()).isEqualTo("T");
-    assertThat(typeVariableName.bounds.toString())
+    assertThat(typeVariableName.getBounds().toString())
         .isEqualTo("[java.util.Map<java.util.List<T>, java.util.Set<T[]>>]");
   }
 

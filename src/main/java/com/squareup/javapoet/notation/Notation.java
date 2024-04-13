@@ -19,14 +19,21 @@ import com.google.common.base.Splitter;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
+import com.google.errorprone.annotations.Immutable;
+import com.squareup.javapoet.CodeBlock;
 import com.squareup.javapoet.Emitable;
+import com.squareup.javapoet.ParameterSpec;
 import com.squareup.javapoet.TypeName;
+import com.squareup.javapoet.prioritymap.HashPriorityMap;
 import org.intellij.lang.annotations.PrintFormat;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 
 import java.io.IOException;
 import java.io.StringWriter;
+import javax.lang.model.element.Modifier;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -40,27 +47,30 @@ import java.util.regex.Pattern;
 import java.util.stream.Collector;
 import java.util.stream.Stream;
 
+@Immutable
 public abstract class Notation {
   // From java.util.Formatter
   // %[argument_index$][flags][width][.precision][t]conversion
   private static final String formatSpecifier
       = "%(?:\\d+\\$)?(?:[-#+ 0,(<]*)?(?:\\d+)?(?:\\.\\d+)?[tT]?[a-zA-Z%]";
   private static final Pattern fsPattern = Pattern.compile(formatSpecifier);
-  public final Map<Object, String> names;
-  public final Set<TypeName> imports;
-  public final Set<Context> childContexts;
+  public final ImmutableMap<Emitable, String> names;
+  public final ImmutableSet<TypeName> imports;
+  public final ImmutableSet<Context> childContexts;
 
-  public Notation(Map<Object, String> names, Set<TypeName> imports, Set<Context> childContexts) {
-    this.names = Map.copyOf(names);
-    this.imports = Set.copyOf(imports);
-    this.childContexts = Set.copyOf(childContexts);
+  @Contract(pure = true)
+  public Notation(Map<Emitable, String> names, Set<TypeName> imports, Set<Context> childContexts) {
+    this.names = ImmutableMap.copyOf(names);
+    this.imports = ImmutableSet.copyOf(imports);
+    this.childContexts = ImmutableSet.copyOf(childContexts);
   }
 
-  public Notation(Map<Object, String> names, Set<TypeName> imports) {
-    this.names = Map.copyOf(names);
-    this.imports = Set.copyOf(imports);
+  @Contract(pure = true)
+  public Notation(Map<ParameterSpec, String> names, Set<TypeName> imports) {
+    this.names = ImmutableMap.copyOf(names);
+    this.imports = ImmutableSet.copyOf(imports);
     if (this instanceof Context c) {
-      this.childContexts = Set.of(c);
+      this.childContexts = ImmutableSet.of(c);
     } else {
       throw new IllegalArgumentException("Called two-param constructor of Notation when not a Context");
     }
@@ -97,28 +107,43 @@ public abstract class Notation {
     }
   }
 
+  @Contract(pure = true)
   public static @NotNull Notation name(
-      @NotNull Object tag,
+      @NotNull ParameterSpec tag,
       @NotNull String suggestion
   ) {
     return new Name(tag, suggestion);
   }
 
+  @Contract(pure = true)
   public static @NotNull Notation typeRef(@NotNull TypeName ref) {
     return new TypeRef(ref);
   }
 
+  @Contract(pure = true)
   public static @NotNull Notation staticImport(@NotNull TypeName ref, @NotNull String name) {
     return new StaticImportRef(ref, name);
   }
 
-  public static <T> @NotNull Notation literal(@NotNull T ref) {
-    if (ref instanceof Emitable e) {
-      return e.toNotation();
+  @Contract(pure = true)
+  public static @NotNull Notation literal(@NotNull Emitable ref) {
+    if (ref instanceof CodeBlock c) {
+      return new Literal(c.toNotation(true));
     }
-    return new Literal<>(ref);
+    return new Literal(ref.toNotation());
   }
 
+  @Contract(pure = true)
+  public static @NotNull Notation literal(@NotNull Modifier ref) {
+    return new Literal(txt(ref.toString()));
+  }
+
+  @Contract(pure = true)
+  public static @NotNull Notation literal(@NotNull String ref) {
+    return new Literal(txt(ref));
+  }
+
+  @Contract(pure = true)
   public static @NotNull Notation statement(@NotNull Notation ref) {
     return new Statement(ref);
   }
@@ -201,6 +226,7 @@ public abstract class Notation {
     );
   }
 
+  @Contract(pure = true)
   public static @NotNull Collector<Notation, List<Notation>, Notation> hoistChoice() {
     return Collector.of(
         ArrayList::new,
@@ -316,11 +342,12 @@ public abstract class Notation {
     return new Context(Optional.empty(), this, Set.copyOf(typeVariableNames));
   }
 
+  @Contract(pure = true)
   @Override
   public String toString() {
     var out = new StringWriter();
     try {
-      var names = PriorityMap.from(this.names);
+      var names = HashPriorityMap.from(this.names);
       for (var ty : this.imports) {
         names.put(ty, ty.canonicalName());
       }
@@ -332,12 +359,14 @@ public abstract class Notation {
     }
   }
 
+  @Contract(pure = true)
   public abstract Notation toNotation();
 
+  @Contract(pure = true)
   public String toCode() {
     var out = new StringWriter();
     try {
-      var names = PriorityMap.from(this.names);
+      var names = HashPriorityMap.from(this.names);
       for (var ty : this.imports) {
         names.put(ty, ty.canonicalName());
       }
@@ -349,6 +378,7 @@ public abstract class Notation {
     }
   }
 
+  @Contract(pure = true)
   public abstract boolean isEmpty();
 
   public abstract void visit(
@@ -362,9 +392,11 @@ public abstract class Notation {
 
   public abstract void visit(@NotNull Visitor visitor);
 
+  @Contract(value = "null -> false", pure = true)
   @Override
   public abstract boolean equals(Object o);
 
+  @Contract(pure = true)
   @Override
   public abstract int hashCode();
 

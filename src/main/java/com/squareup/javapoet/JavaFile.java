@@ -16,10 +16,12 @@
 package com.squareup.javapoet;
 
 import com.google.common.base.Splitter;
+import com.google.common.collect.ImmutableSet;
 import com.squareup.javapoet.notation.Context;
 import com.squareup.javapoet.notation.Notation;
 import com.squareup.javapoet.notation.Printer;
-import com.squareup.javapoet.notation.PriorityMap;
+import com.squareup.javapoet.prioritymap.HashPriorityMap;
+import org.jetbrains.annotations.NotNull;
 
 import javax.annotation.processing.Filer;
 import javax.lang.model.element.Element;
@@ -64,8 +66,8 @@ public final class JavaFile implements Emitable {
   public final String packageName;
   public final TypeSpec typeSpec;
   public final boolean skipJavaLangImports;
-  private final Set<String> staticImports;
-  private final Set<String> alwaysQualify;
+  private final ImmutableSet<String> staticImports;
+  private final ImmutableSet<String> alwaysQualify;
   private final String indent;
 
   private JavaFile(Builder builder) {
@@ -73,12 +75,12 @@ public final class JavaFile implements Emitable {
     this.packageName = builder.packageName;
     this.typeSpec = builder.typeSpec;
     this.skipJavaLangImports = builder.skipJavaLangImports;
-    this.staticImports = Util.immutableSet(builder.staticImports);
+    this.staticImports = ImmutableSet.copyOf(builder.staticImports);
     this.indent = builder.indent;
 
     Set<String> alwaysQualifiedNames = new LinkedHashSet<>();
     fillAlwaysQualifiedNames(builder.typeSpec, alwaysQualifiedNames);
-    this.alwaysQualify = Util.immutableSet(alwaysQualifiedNames);
+    this.alwaysQualify = ImmutableSet.copyOf(alwaysQualifiedNames);
   }
 
   public static Builder builder(String packageName, TypeSpec typeSpec) {
@@ -108,7 +110,7 @@ public final class JavaFile implements Emitable {
           .sorted(ClassName.PACKAGE_COMPARATOR)
           .toList();
       var actualImports = new HashSet<ClassName>();
-      var names = PriorityMap.from(notation.names);
+      var names = HashPriorityMap.from(notation.names);
       var localNames = notation.childContexts
           .stream()
           .flatMap(Context::immediateChildContextNames)
@@ -358,7 +360,7 @@ public final class JavaFile implements Emitable {
   }
 
   @Override
-  public Notation toNotation() {
+  public @NotNull Notation toNotation() {
     return typeSpec.toNotation();
   }
 

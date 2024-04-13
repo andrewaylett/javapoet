@@ -15,6 +15,7 @@
  */
 package com.squareup.javapoet.notation;
 
+import com.google.errorprone.annotations.Immutable;
 import com.squareup.javapoet.TypeName;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
@@ -24,22 +25,26 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 
+@Immutable
 public class StaticImportRef extends Notation {
 
   private final TypeName ref;
   private final String part;
 
+  @Contract(pure = true)
   public StaticImportRef(TypeName ref, String part) {
     super(Map.of(), Set.of(), Set.of());
     this.ref = ref;
     this.part = part;
   }
 
+  @Contract(pure = true)
   @Override
   public Notation toNotation() {
     return txt("StaticTypeRef(" + ref.nameWhenImported() + "." + part + ")");
   }
 
+  @Contract(pure = true)
   @Override
   public boolean isEmpty() {
     return false;

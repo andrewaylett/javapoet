@@ -15,6 +15,7 @@
  */
 package com.squareup.javapoet.notation;
 
+import com.google.errorprone.annotations.Immutable;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 
@@ -23,24 +24,29 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 
+@Immutable
 @SuppressWarnings("UnstableApiUsage")
 public class Empty extends Notation {
   public static final Empty INSTANCE = new Empty();
 
+  @Contract(pure = true)
   private Empty() {
     super(Map.of(), Set.of(), Set.of());
   }
 
+  @Contract(pure = true)
   @Override
   public @NotNull Notation then(@NotNull Notation next) {
     return next;
   }
 
+  @Contract(pure = true)
   @Override
   public Notation toNotation() {
     return txt("Empty()");
   }
 
+  @Contract(pure = true)
   @Override
   public boolean isEmpty() {
     return true;
@@ -68,11 +74,13 @@ public class Empty extends Notation {
     visitor.accept(this);
   }
 
+  @Contract(value = "null -> false", pure = true)
   @Override
   public boolean equals(Object o) {
     return o instanceof Empty;
   }
 
+  @Contract(pure = true)
   @Override
   public int hashCode() {
     return Objects.hashCode(this.getClass());

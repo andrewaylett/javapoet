@@ -15,6 +15,10 @@
  */
 package com.squareup.javapoet.notation;
 
+import com.squareup.javapoet.Emitable;
+import com.squareup.javapoet.prioritymap.AbstractPriorityMap;
+import com.squareup.javapoet.prioritymap.PriorityMap;
+import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 
 import java.io.IOException;
@@ -27,10 +31,11 @@ public class Printer {
   private final Deque<Chunk> chunks = new ArrayDeque<>();
   private int col = 0;
 
+  @Contract(pure = true)
   public Printer(
       @NotNull Notation notation,
       int width,
-      PriorityMap<Object, String> names,
+      PriorityMap<Emitable, String> names,
       String indent,
       String packageName
   ) {
@@ -47,6 +52,7 @@ public class Printer {
     chunks.push(chunk);
   }
 
+  @Contract(pure = true)
   public void print(@NotNull Appendable inner) throws IOException {
     var out = new NoTrailingSpaceAppendable(inner);
     while (!chunks.isEmpty()) {
@@ -141,7 +147,7 @@ public class Printer {
 
   private static class NoTrailingSpaceAppendable implements Appendable {
     private final Appendable inner;
-    final StringBuffer whitespace = new StringBuffer();
+    final StringBuilder whitespace = new StringBuilder();
 
     NoTrailingSpaceAppendable(Appendable inner) {
       this.inner = inner;

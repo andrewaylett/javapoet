@@ -15,8 +15,14 @@
  */
 package com.squareup.javapoet.notation;
 
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
+import com.google.errorprone.annotations.Immutable;
 import com.squareup.javapoet.ClassName;
+import com.squareup.javapoet.Emitable;
 import com.squareup.javapoet.TypeName;
+import com.squareup.javapoet.prioritymap.HashPriorityMap;
+import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.HashMap;
@@ -28,13 +34,15 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+@Immutable
 public class Context extends Notation {
-  public final Map<Object, String> childNames;
-  public final Set<Context> innerContexts;
+  public final ImmutableMap<Emitable, String> childNames;
+  public final ImmutableSet<Context> innerContexts;
   public final Optional<String> simpleName;
   public final Notation inner;
-  private final Set<TypeName> typeVariableNames;
+  private final ImmutableSet<TypeName> typeVariableNames;
 
+  @Contract(pure = true)
   public Context(
       Optional<String> name,
       Notation inner,
@@ -52,19 +60,22 @@ public class Context extends Notation {
     this.innerContexts = inner.childContexts;
     this.simpleName = name;
     this.inner = inner;
-    this.typeVariableNames = typeVariableNames;
+    this.typeVariableNames = ImmutableSet.copyOf(typeVariableNames);
   }
 
+  @Contract(pure = true)
   static boolean tvnMatches(Set<TypeName> set, TypeName instance) {
     var tvn = instance.withoutAnnotations();
     return set.stream().anyMatch(n -> n.withoutAnnotations().equals(tvn));
   }
 
+  @Contract(pure = true)
   @Override
   public Notation toNotation() {
     return Notate.fnLike("Context<" + simpleName + ">", List.of(inner));
   }
 
+  @Contract(pure = true)
   @Override
   public boolean isEmpty() {
     return inner.isEmpty();
@@ -113,7 +124,7 @@ public class Context extends Notation {
     var scopes =
         Stream.concat(chunk.scopes.stream(), Stream.of(scope)).toList();
 
-    var newNames = new PriorityMap<>(chunk.names);
+    var newNames = new HashPriorityMap<>(chunk.names);
     var namesInScope = new HashMap<String, Object>();
 
     scopes
@@ -139,7 +150,7 @@ public class Context extends Notation {
         .filter(c -> c
             .canonicalName()
             .startsWith(className.topLevelClassName().canonicalName()))
-        .map(n -> Map.<Object, String>entry(
+        .map(n -> Map.<Emitable, String>entry(
             n,
             className.referenceTo(n, namesInScope)
         ))
@@ -165,6 +176,7 @@ public class Context extends Notation {
     return chunk.names(newNames).inScope(scope);
   }
 
+  @Contract(pure = true)
   public Stream<String> allContextNames() {
     var builder = Stream.<String>builder();
     immediateChildContextNames().forEach(builder);
@@ -172,6 +184,7 @@ public class Context extends Notation {
     return builder.build();
   }
 
+  @Contract(pure = true)
   public Stream<String> immediateChildContextNames() {
     return Stream.concat(
         typeVariableNames
@@ -191,6 +204,7 @@ public class Context extends Notation {
     visitor.exit(this);
   }
 
+  @Contract(value = "null -> false", pure = true)
   @Override
   public boolean equals(Object o) {
     if (this == o) {
@@ -202,6 +216,7 @@ public class Context extends Notation {
     return false;
   }
 
+  @Contract(pure = true)
   @Override
   public int hashCode() {
     return Objects.hash(inner);

@@ -15,6 +15,9 @@
  */
 package com.squareup.javapoet.notation;
 
+import com.google.errorprone.annotations.Immutable;
+import com.squareup.javapoet.Emitable;
+import com.squareup.javapoet.ParameterSpec;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 
@@ -23,20 +26,24 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 
+@Immutable
 public class Name extends Notation {
 
-  private final Object tag;
+  private final Emitable tag;
 
-  public Name(Object tag, String suggestion) {
+  @Contract(pure = true)
+  public Name(ParameterSpec tag, String suggestion) {
     super(Map.of(tag, suggestion), Set.of(), Set.of());
     this.tag = tag;
   }
 
+  @Contract(pure = true)
   @Override
   public Notation toNotation() {
     return txt("Name(" + tag + ")");
   }
 
+  @Contract(pure = true)
   @Override
   public boolean isEmpty() {
     return false;

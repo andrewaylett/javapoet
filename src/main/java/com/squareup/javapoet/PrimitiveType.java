@@ -123,7 +123,7 @@ public enum PrimitiveType implements TypeName {
   }
 
   @Override
-  public Notation toNotation() {
+  public @NotNull Notation toNotation() {
     return Notation.typeRef(this);
   }
 }

@@ -15,6 +15,7 @@
  */
 package com.squareup.javapoet.notation;
 
+import com.google.errorprone.annotations.Immutable;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 
@@ -23,19 +24,23 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 
+@Immutable
 @SuppressWarnings("UnstableApiUsage")
 public class NewLine extends Notation {
   public static final NewLine INSTANCE = new NewLine();
 
+  @Contract(pure = true)
   private NewLine() {
     super(Map.of(), Set.of(), Set.of());
   }
 
+  @Contract(pure = true)
   @Override
   public Notation toNotation() {
     return txt("\\n");
   }
 
+  @Contract(pure = true)
   @Override
   public boolean isEmpty() {
     return false;
@@ -67,11 +72,13 @@ public class NewLine extends Notation {
     visitor.accept(this);
   }
 
+  @Contract(value = "null -> false", pure = true)
   @Override
   public boolean equals(Object o) {
     return o instanceof NewLine;
   }
 
+  @Contract(pure = true)
   @Override
   public int hashCode() {
     return Objects.hashCode(this.getClass());

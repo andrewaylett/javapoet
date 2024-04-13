@@ -16,6 +16,8 @@
 package com.squareup.javapoet;
 
 import com.google.common.base.Splitter;
+import com.google.common.collect.ImmutableList;
+import com.google.errorprone.annotations.Immutable;
 import com.squareup.javapoet.notation.Concat;
 import com.squareup.javapoet.notation.NewLine;
 import com.squareup.javapoet.notation.Notate;
@@ -88,6 +90,7 @@ import static com.squareup.javapoet.notation.Notation.typeRef;
  *   <li>{@code $]} ends a statement.
  * </ul>
  */
+@Immutable
 public final class CodeBlock implements Emitable {
   private static final Pattern NAMED_ARGUMENT =
       Pattern.compile("\\$(?<argumentName>[\\w_]+):(?<typeChar>\\w).*");
@@ -96,12 +99,12 @@ public final class CodeBlock implements Emitable {
   /**
    * A heterogeneous list containing string literals and value placeholders.
    */
-  final List<String> formatParts;
-  final List<Object> args;
+  final ImmutableList<String> formatParts;
+  final ImmutableList<Emitable> args;
 
   private CodeBlock(Builder builder) {
-    this.formatParts = Util.immutableList(builder.formatParts);
-    this.args = Util.immutableList(builder.args);
+    this.formatParts = ImmutableList.copyOf(builder.formatParts);
+    this.args = ImmutableList.copyOf(builder.args);
   }
 
   public static CodeBlock of(String format, Object... args) {
@@ -195,16 +198,19 @@ public final class CodeBlock implements Emitable {
     return builder;
   }
 
+  @Contract(" -> new")
   @Override
-  public Notation toNotation() {
+  public @NotNull Notation toNotation() {
     return toNotation(false);
   }
 
-  public Notation toNotation(boolean stripResult) {
+  @Contract(value = "_ -> new", pure = true)
+  public @NotNull Notation toNotation(boolean stripResult) {
     return toNotation(stripResult, JavaFile.CURRENT_STATIC_IMPORTS.get());
   }
 
-  public Notation toNotation(boolean stripResult, Set<String> staticImports) {
+  @Contract(value = "_, _ -> new", pure = true)
+  public @NotNull Notation toNotation(boolean stripResult, @NotNull Set<String> staticImports) {
     if (this.isEmpty()) {
       return empty();
     }
@@ -232,11 +238,11 @@ public final class CodeBlock implements Emitable {
           }
         }
         case "$S" -> {
-          var string = (String) this.args.get(a++);
+          var string = this.args.get(a++);
           // Emit null as a literal null: no quotes.
-          builder.add(string != null
-              ? stringLiteralWithDoubleQuotes(string)
-              : txt("null"));
+          builder.add(string instanceof EmitableString
+              ? stringLiteralWithDoubleQuotes(string.toNotation().toCode())
+              : string.toNotation());
         }
         case "$T" -> {
           var typeName = (TypeName) this.args.get(a++);
@@ -489,7 +495,7 @@ public final class CodeBlock implements Emitable {
 
   public static final class Builder {
     final List<String> formatParts = new ArrayList<>();
-    final List<Object> args = new ArrayList<>();
+    final List<Emitable> args = new ArrayList<>();
 
     private Builder() {
     }
@@ -724,32 +730,35 @@ public final class CodeBlock implements Emitable {
       }
     }
 
-    private String argToName(Object o) {
+    private Emitable argToName(Object o) {
       if (o instanceof CharSequence) {
-        return o.toString();
+        return new EmitableString(o.toString());
       }
       if (o instanceof ParameterSpec) {
-        return ((ParameterSpec) o).name;
+        return new EmitableString(((ParameterSpec) o).name);
       }
       if (o instanceof FieldSpec) {
-        return ((FieldSpec) o).name;
+        return new EmitableString(((FieldSpec) o).name);
       }
       if (o instanceof MethodSpec) {
-        return ((MethodSpec) o).name;
+        return new EmitableString(((MethodSpec) o).name);
       }
       if (o instanceof TypeSpec) {
-        return ((TypeSpec) o).name;
+        return new EmitableString(((TypeSpec) o).name);
       }
       throw new IllegalArgumentException("expected name but was " + o);
     }
 
-    private Object argToLiteral(Object o) {
-      return o;
+    private Emitable argToLiteral(Object o) {
+      if (o instanceof Emitable e) {
+        return e;
+      }
+      return new EmitableString(String.valueOf(o));
     }
 
-    @Contract(value = "null -> null", pure = true)
-    private @Nullable String argToString(Object o) {
-      return o != null ? String.valueOf(o) : null;
+    @Contract(value = "_ -> !null", pure = true)
+    private @NotNull Emitable argToString(Object o) {
+      return o != null ? new EmitableString(String.valueOf(o)) : new EmitableNull();
     }
 
     @Contract("null -> fail")
@@ -774,6 +783,7 @@ public final class CodeBlock implements Emitable {
      * @param controlFlow the control flow construct and its code, such as "if (foo == 5)".
      *                    Shouldn't contain braces or newline characters.
      */
+    @Contract("_, _ -> this")
     public Builder beginControlFlow(String controlFlow, Object... args) {
       add(controlFlow + " ${", args);
       return this;
@@ -783,11 +793,13 @@ public final class CodeBlock implements Emitable {
      * @param controlFlow the control flow construct and its code, such as "else if (foo == 10)".
      *                    Shouldn't contain braces or newline characters.
      */
+    @Contract("_, _ -> this")
     public Builder nextControlFlow(String controlFlow, Object... args) {
       add("$} " + controlFlow + " ${", args);
       return this;
     }
 
+    @Contract("-> this")
     public Builder endControlFlow() {
       add("$}\n");
       return this;
@@ -797,11 +809,13 @@ public final class CodeBlock implements Emitable {
      * @param controlFlow the optional control flow construct and its code, such as
      *                    "while(foo == 20)". Only used for "do/while" control flows.
      */
+    @Contract("_, _ -> this")
     public Builder endControlFlow(String controlFlow, Object... args) {
       add("$} " + controlFlow + ";\n", args);
       return this;
     }
 
+    @Contract("_, _ -> this")
     public Builder addStatement(String format, Object... args) {
       add("$[");
       add(format, args);
@@ -809,33 +823,39 @@ public final class CodeBlock implements Emitable {
       return this;
     }
 
+    @Contract("_ -> this")
     public Builder addStatement(CodeBlock codeBlock) {
       return addStatement("$L", codeBlock);
     }
 
+    @Contract("_ -> this")
     public Builder add(CodeBlock codeBlock) {
       formatParts.addAll(codeBlock.formatParts);
       args.addAll(codeBlock.args);
       return this;
     }
 
+    @Contract("-> this")
     public Builder indent() {
       this.formatParts.add("$>");
       return this;
     }
 
+    @Contract("-> this")
     public Builder unindent() {
       this.formatParts.add("$<");
       return this;
     }
 
+    @Contract("-> this")
     public Builder clear() {
       formatParts.clear();
       args.clear();
       return this;
     }
 
-    public CodeBlock build() {
+    @Contract(value = "-> new", pure = true)
+    public @NotNull CodeBlock build() {
       return new CodeBlock(this);
     }
   }
@@ -870,6 +890,22 @@ public final class CodeBlock implements Emitable {
 
     CodeBlock join() {
       return builder.build();
+    }
+  }
+
+  @Immutable
+  private record EmitableString(String str) implements Emitable {
+  @Override
+    public @NotNull Notation toNotation() {
+      return txt(str);
+    }
+  }
+
+  @Immutable
+  private record EmitableNull() implements Emitable {
+  @Override
+    public @NotNull Notation toNotation() {
+      return txt("null");
     }
   }
 

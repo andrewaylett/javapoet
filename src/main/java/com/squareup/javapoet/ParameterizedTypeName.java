@@ -15,6 +15,7 @@
  */
 package com.squareup.javapoet;
 
+import com.google.common.collect.ImmutableList;
 import com.squareup.javapoet.notation.Notation;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
@@ -40,7 +41,7 @@ import static com.squareup.javapoet.notation.Notation.txt;
 
 public final class ParameterizedTypeName extends ObjectTypeName {
   public final ClassName rawType;
-  public final List<? extends TypeName> typeArguments;
+  public final ImmutableList<? extends TypeName> typeArguments;
   private final TypeName enclosingType;
 
   ParameterizedTypeName(
@@ -50,7 +51,7 @@ public final class ParameterizedTypeName extends ObjectTypeName {
     super();
     this.rawType = checkNotNull(rawType, "rawType == null");
     this.enclosingType = enclosingType;
-    this.typeArguments = Util.immutableList(typeArguments);
+    this.typeArguments = ImmutableList.copyOf(typeArguments);
 
     checkArgument(!this.typeArguments.isEmpty() || enclosingType != null,
         "no type arguments: %s", rawType
@@ -191,6 +192,7 @@ public final class ParameterizedTypeName extends ObjectTypeName {
    * Returns a new {@link ParameterizedTypeName} instance for the specified {@code name} as nested
    * inside this class, with the specified {@code typeArguments}.
    */
+  @Override
   public @NotNull TypeName nestedClass(
       @NotNull String name,
       @NotNull List<TypeName> typeArguments
@@ -229,7 +231,7 @@ public final class ParameterizedTypeName extends ObjectTypeName {
   }
 
   @Override
-  public Notation toNotation() {
+  public @NotNull Notation toNotation() {
     return Stream.of(
         Notation.typeRef(this.rawType).then(txt("<")),
         typeArguments

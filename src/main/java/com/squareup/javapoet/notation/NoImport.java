@@ -15,6 +15,8 @@
  */
 package com.squareup.javapoet.notation;
 
+import com.google.common.collect.ImmutableSet;
+import com.google.errorprone.annotations.Immutable;
 import com.squareup.javapoet.TypeName;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
@@ -26,16 +28,19 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+@Immutable
 public class NoImport extends Notation {
   private final Notation inner;
   @SuppressWarnings("FieldCanBeLocal") // Useful for debugging
-  private final Set<String> suppressed;
+  private final ImmutableSet<String> suppressed;
 
+  @Contract(pure = true)
   public NoImport(@NotNull Notation inner) {
     this(inner, inner.imports.stream().map(TypeName::canonicalName).collect(
         Collectors.toSet()));
   }
 
+  @Contract(pure = true)
   public NoImport(@NotNull Notation inner, @NotNull Set<String> suppress) {
     super(
         Stream
@@ -59,9 +64,10 @@ public class NoImport extends Notation {
         inner.childContexts
     );
     this.inner = inner;
-    this.suppressed = suppress;
+    this.suppressed = ImmutableSet.copyOf(suppress);
   }
 
+  @Contract(pure = true)
   @Override
   public boolean isEmpty() {
     return inner.isEmpty();
@@ -91,6 +97,7 @@ public class NoImport extends Notation {
     visitor.exit(this);
   }
 
+  @Contract(pure = true)
   @Override
   public Notation toNotation() {
     return Notate.fnLike("NoImport", List.of(inner));

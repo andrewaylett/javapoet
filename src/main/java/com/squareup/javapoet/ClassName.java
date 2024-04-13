@@ -15,6 +15,7 @@
  */
 package com.squareup.javapoet;
 
+import com.google.errorprone.annotations.Immutable;
 import com.squareup.javapoet.notation.Notation;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -37,6 +38,7 @@ import static com.squareup.javapoet.Util.checkNotNull;
 /**
  * A fully-qualified class name for top-level and member classes.
  */
+@Immutable
 public final class ClassName extends ObjectTypeName
     implements Comparable<ClassName> {
   public static final Comparator<? super TypeName> PACKAGE_COMPARATOR =
@@ -392,7 +394,7 @@ public final class ClassName extends ObjectTypeName
   }
 
   @Override
-  public Notation toNotation() {
+  public @NotNull Notation toNotation() {
     return Notation.typeRef(this);
   }
 

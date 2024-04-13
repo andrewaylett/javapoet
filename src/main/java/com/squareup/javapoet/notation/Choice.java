@@ -15,6 +15,8 @@
  */
 package com.squareup.javapoet.notation;
 
+import com.google.errorprone.annotations.Immutable;
+import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.List;
@@ -23,10 +25,12 @@ import java.util.Objects;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+@Immutable
 public class Choice extends Notation {
   public final Notation left;
   public final Notation right;
 
+  @Contract(pure = true)
   public Choice(Notation left, Notation right) {
     super(
         Stream
@@ -57,6 +61,7 @@ public class Choice extends Notation {
     this.right = right;
   }
 
+  @Contract(pure = true)
   @Override
   public Notation toNotation() {
     if (left instanceof Flat f && f.inner.equals(right)) {
@@ -65,6 +70,7 @@ public class Choice extends Notation {
     return Notate.fnLike("Choice", List.of(left, right));
   }
 
+  @Contract(pure = true)
   @Override
   public boolean isEmpty() {
     return left.isEmpty() && right.isEmpty();
@@ -102,6 +108,7 @@ public class Choice extends Notation {
     visitor.exit(this);
   }
 
+  @Contract(pure = true)
   @Override
   public boolean equals(Object o) {
     if (this == o) {
@@ -116,6 +123,7 @@ public class Choice extends Notation {
     return false;
   }
 
+  @Contract(pure = true)
   @Override
   public int hashCode() {
     return Objects.hash(left, right);

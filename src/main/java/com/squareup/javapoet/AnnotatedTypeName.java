@@ -15,6 +15,8 @@
  */
 package com.squareup.javapoet;
 
+import com.google.common.collect.ImmutableList;
+import com.google.errorprone.annotations.Immutable;
 import com.squareup.javapoet.notation.Notation;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
@@ -31,11 +33,12 @@ import static com.squareup.javapoet.notation.Notation.join;
 import static com.squareup.javapoet.notation.Notation.nl;
 import static com.squareup.javapoet.notation.Notation.txt;
 
+@Immutable
 public final class AnnotatedTypeName implements TypeName {
   final @NotNull TypeName inner;
-  final @NotNull List<AnnotationSpec> annotations;
+  final @NotNull ImmutableList<AnnotationSpec> annotations;
 
-
+  @Contract(pure = true)
   public AnnotatedTypeName(
       @NotNull TypeName inner,
       @NotNull Collection<AnnotationSpec> annotations
@@ -43,13 +46,14 @@ public final class AnnotatedTypeName implements TypeName {
     checkNotNull(annotations, "annotations");
     if (inner instanceof AnnotatedTypeName annotated) {
       this.inner = annotated.inner;
-      this.annotations = annotated.concatAnnotations(annotations);
+      this.annotations = ImmutableList.copyOf(annotated.concatAnnotations(annotations));
     } else {
       this.inner = inner;
-      this.annotations = List.copyOf(annotations);
+      this.annotations = ImmutableList.copyOf(annotations);
     }
   }
 
+  @Contract(pure = true)
   @Override
   public boolean equals(@Nullable Object o) {
     if (this == o) {
@@ -64,16 +68,19 @@ public final class AnnotatedTypeName implements TypeName {
     return toString().equals(o.toString());
   }
 
+  @Contract(pure = true)
   @Override
   public int hashCode() {
     return toString().hashCode();
   }
 
+  @Contract(pure = true)
   @Override
   public String toString() {
     return toNotation().toCode();
   }
 
+  @Contract(pure = true)
   private @NotNull List<AnnotationSpec> concatAnnotations(
       @NotNull Collection<AnnotationSpec> annotations
   ) {
@@ -88,26 +95,31 @@ public final class AnnotatedTypeName implements TypeName {
     return inner;
   }
 
+  @Contract(pure = true)
   @Override
   public boolean isPrimitive() {
     return inner.isPrimitive();
   }
 
+  @Contract(pure = true)
   @Override
   public boolean isBoxedPrimitive() {
     return inner.isBoxedPrimitive();
   }
 
+  @Contract(value = " -> new", pure = true)
   @Override
   public AnnotatedTypeName box() {
     return new AnnotatedTypeName(inner.box(), annotations);
   }
 
+  @Contract(value = " -> new", pure = true)
   @Override
   public @NotNull AnnotatedTypeName unbox() {
     return new AnnotatedTypeName(inner.unbox(), annotations);
   }
 
+  @Contract(pure = true)
   @Override
   public @NotNull Notation toNotation() {
     return Stream.concat(
@@ -116,6 +128,7 @@ public final class AnnotatedTypeName implements TypeName {
     ).collect(join(txt(" ").or(nl())));
   }
 
+  @Contract(pure = true)
   @Override
   public @NotNull Notation toDeclaration() {
     return Stream.concat(
@@ -124,31 +137,37 @@ public final class AnnotatedTypeName implements TypeName {
     ).collect(join(txt(" ").or(nl())));
   }
 
+  @Contract(pure = true)
   @Override
   public @NotNull ClassName topLevelClassName() {
     return inner.topLevelClassName();
   }
 
+  @Contract(pure = true)
   @Override
   public @NotNull String reflectionName() {
     return inner.reflectionName();
   }
 
+  @Contract(pure = true)
   @Override
   public @Nullable TypeName enclosingClassName() {
     return inner.enclosingClassName();
   }
 
+  @Contract(pure = true)
   @Override
   public List<String> simpleNames() {
     return inner.simpleNames();
   }
 
+  @Contract(pure = true)
   @Override
   public @NotNull AnnotatedTypeName nestedClass(@NotNull String name) {
     return new AnnotatedTypeName(inner.nestedClass(name), annotations);
   }
 
+  @Contract(pure = true)
   @Override
   public @NotNull TypeName nestedClass(
       @NotNull String name,
@@ -160,6 +179,7 @@ public final class AnnotatedTypeName implements TypeName {
     );
   }
 
+  @Contract(pure = true)
   @Override
   public @NotNull TypeName withBounds(
       @NotNull List<? extends TypeName> bounds
@@ -167,17 +187,20 @@ public final class AnnotatedTypeName implements TypeName {
     return new AnnotatedTypeName(inner.withBounds(bounds), annotations);
   }
 
+  @Contract(pure = true)
   @Nonnull
   @Override
   public @NotNull String nameWhenImported() {
     return inner.nameWhenImported();
   }
 
+  @Contract(pure = true)
   @Override
   public @NotNull String canonicalName() {
     return inner.canonicalName();
   }
 
+  @Contract(pure = true)
   @Override
   public @NotNull String simpleName() {
     return inner.simpleName();

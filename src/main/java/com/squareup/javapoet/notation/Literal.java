@@ -15,6 +15,8 @@
  */
 package com.squareup.javapoet.notation;
 
+import com.google.errorprone.annotations.Immutable;
+import com.squareup.javapoet.Emitable;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 
@@ -23,15 +25,18 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 
-public class Literal<T> extends Notation {
+@Immutable
+public class Literal extends Notation {
 
-  private final T value;
+  private final Notation value;
 
-  public Literal(T value) {
-    super(Map.of(), Set.of(), Set.of());
+  @Contract(pure = true)
+  public Literal(Notation value) {
+    super(value.names, value.imports, value.childContexts);
     this.value = value;
   }
 
+  @Contract(pure = true)
   @Override
   public boolean isEmpty() {
     return false;
@@ -42,14 +47,15 @@ public class Literal<T> extends Notation {
       @NotNull Printer.PrinterVisitor printer,
       @NotNull Chunk chunk
   ) throws IOException {
-    printer.append(String.valueOf(value));
+    printer.push(chunk.withNotation(value));
   }
 
   @Override
   public @NotNull Printer.FlatResponse visit(
       @NotNull Printer.FlatVisitor flatVisitor, @NotNull Chunk chunk
   ) {
-    return flatVisitor.fitText(String.valueOf(value));
+    flatVisitor.push(chunk.withNotation(value));
+    return Printer.FlatResponse.INCONCLUSIVE;
   }
 
   @Override
@@ -57,9 +63,10 @@ public class Literal<T> extends Notation {
     visitor.accept(this);
   }
 
+  @Contract(pure = true)
   @Override
   public Notation toNotation() {
-    return Notate.wrapAndIndent(txt("Literal("), txt(String.valueOf(value)), txt(")"));
+    return Notate.wrapAndIndent(txt("Literal("), value.toNotation(), txt(")"));
   }
 
   @Override
@@ -68,7 +75,7 @@ public class Literal<T> extends Notation {
     if (this == o) {
       return true;
     }
-    if (o instanceof Literal<?> literal) {
+    if (o instanceof Literal literal) {
       return Objects.equals(value, literal.value);
     }
     return false;

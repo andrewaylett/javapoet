@@ -15,9 +15,13 @@
  */
 package com.squareup.javapoet;
 
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
+import com.google.errorprone.annotations.Immutable;
 import com.squareup.javapoet.notation.Notate;
 import com.squareup.javapoet.notation.Notation;
 import org.jetbrains.annotations.Contract;
+import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import javax.lang.model.SourceVersion;
@@ -50,18 +54,19 @@ import static com.squareup.javapoet.notation.Notation.txt;
 /**
  * A generated constructor or method declaration.
  */
+@Immutable
 public final class MethodSpec implements Emitable {
   static final String CONSTRUCTOR = "<init>";
 
   public final String name;
   public final CodeBlock javadoc;
-  public final List<AnnotationSpec> annotations;
-  public final Set<Modifier> modifiers;
-  public final List<TypeVariableName> typeVariables;
+  public final ImmutableList<AnnotationSpec> annotations;
+  public final ImmutableSet<Modifier> modifiers;
+  public final ImmutableList<TypeVariableName> typeVariables;
   public final TypeName returnType;
-  public final List<ParameterSpec> parameters;
+  public final ImmutableList<ParameterSpec> parameters;
   public final boolean varargs;
-  public final List<TypeName> exceptions;
+  public final ImmutableList<TypeName> exceptions;
   public final CodeBlock code;
   public final CodeBlock defaultValue;
 
@@ -80,13 +85,13 @@ public final class MethodSpec implements Emitable {
 
     this.name = checkNotNull(builder.name, "name == null");
     this.javadoc = builder.javadoc.build();
-    this.annotations = Util.immutableList(builder.annotations);
-    this.modifiers = Util.immutableSet(builder.modifiers);
-    this.typeVariables = Util.immutableList(builder.typeVariables);
+    this.annotations = ImmutableList.copyOf(builder.annotations);
+    this.modifiers = ImmutableSet.copyOf(builder.modifiers);
+    this.typeVariables = ImmutableList.copyOf(builder.typeVariables);
     this.returnType = builder.returnType;
-    this.parameters = Util.immutableList(builder.parameters);
+    this.parameters = ImmutableList.copyOf(builder.parameters);
     this.varargs = builder.varargs;
-    this.exceptions = Util.immutableList(builder.exceptions);
+    this.exceptions = ImmutableList.copyOf(builder.exceptions);
     this.defaultValue = builder.defaultValue;
     this.code = code;
   }
@@ -280,7 +285,7 @@ public final class MethodSpec implements Emitable {
   }
 
   @Override
-  public Notation toNotation() {
+  public @NotNull Notation toNotation() {
     return toNotation("Constructor", Set.of());
   }
 

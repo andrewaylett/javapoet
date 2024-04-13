@@ -15,11 +15,14 @@
  */
 package com.squareup.javapoet.notation;
 
+import com.google.errorprone.annotations.Immutable;
+import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.List;
 import java.util.Objects;
 
+@Immutable
 public class Statement extends Notation {
   public final Notation inner;
 
@@ -54,11 +57,13 @@ public class Statement extends Notation {
     this.inner = inner;
   }
 
+  @Contract(pure = true)
   @Override
   public Notation toNotation() {
     return Notate.fnLike("Statement", List.of(inner));
   }
 
+  @Contract(pure = true)
   @Override
   public boolean isEmpty() {
     return inner.isEmpty();
@@ -97,6 +102,7 @@ public class Statement extends Notation {
     visitor.exit(this);
   }
 
+  @Contract(value = "null -> false", pure = true)
   @Override
   public boolean equals(Object o) {
     if (this == o) {
@@ -108,6 +114,7 @@ public class Statement extends Notation {
     return false;
   }
 
+  @Contract(pure = true)
   @Override
   public int hashCode() {
     return Objects.hash(inner);

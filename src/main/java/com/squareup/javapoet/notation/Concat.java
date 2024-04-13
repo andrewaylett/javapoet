@@ -15,7 +15,10 @@
  */
 package com.squareup.javapoet.notation;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
+import com.google.errorprone.annotations.Immutable;
+import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.List;
@@ -23,9 +26,11 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
 
-public class Concat extends Notation {
-  public final @NotNull List<Notation> content;
+@Immutable
+public final class Concat extends Notation {
+  public final @NotNull ImmutableList<Notation> content;
 
+  @Contract(pure = true)
   public Concat(@NotNull List<Notation> content) {
     super(
         content
@@ -55,14 +60,16 @@ public class Concat extends Notation {
             .flatMap(n -> n.childContexts.stream().unordered())
             .collect(Collectors.toSet())
     );
-    this.content = List.copyOf(content);
+    this.content = ImmutableList.copyOf(content);
   }
 
+  @Contract(pure = true)
   @Override
   public Notation toNotation() {
     return Notate.fnLike("Concat", content);
   }
 
+  @Contract(pure = true)
   @Override
   public boolean isEmpty() {
     return content.stream().allMatch(Notation::isEmpty);
@@ -93,6 +100,7 @@ public class Concat extends Notation {
     visitor.exit(this);
   }
 
+  @Contract(value = "null -> false", pure = true)
   @Override
   public boolean equals(Object o) {
     if (this == o) {
@@ -104,6 +112,7 @@ public class Concat extends Notation {
     return false;
   }
 
+  @Contract(pure = true)
   @Override
   public int hashCode() {
     return Objects.hash(content);

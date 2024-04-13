@@ -15,8 +15,12 @@
  */
 package com.squareup.javapoet;
 
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
+import com.google.errorprone.annotations.Immutable;
 import com.squareup.javapoet.notation.Notation;
 import org.jetbrains.annotations.Contract;
+import org.jetbrains.annotations.NotNull;
 
 import javax.lang.model.SourceVersion;
 import javax.lang.model.element.ElementKind;
@@ -37,17 +41,18 @@ import static com.squareup.javapoet.Util.checkNotNull;
 /**
  * A generated parameter declaration.
  */
+@Immutable
 public final class ParameterSpec implements Emitable {
   public final String name;
-  public final List<AnnotationSpec> annotations;
-  public final Set<Modifier> modifiers;
+  public final ImmutableList<AnnotationSpec> annotations;
+  public final ImmutableSet<Modifier> modifiers;
   public final TypeName type;
   public final CodeBlock javadoc;
 
   private ParameterSpec(Builder builder) {
     this.name = checkNotNull(builder.name, "name == null");
-    this.annotations = Util.immutableList(builder.annotations);
-    this.modifiers = Util.immutableSet(builder.modifiers);
+    this.annotations = ImmutableList.copyOf(builder.annotations);
+    this.modifiers = ImmutableSet.copyOf(builder.modifiers);
     this.type = checkNotNull(builder.type, "type == null");
     this.javadoc = builder.javadoc.build();
   }
@@ -143,7 +148,7 @@ public final class ParameterSpec implements Emitable {
   }
 
   @Override
-  public Notation toNotation() {
+  public @NotNull Notation toNotation() {
     var builder = Stream.<Notation>builder();
     annotations.stream().map(Emitable::toNotation).forEach(builder);
     modifiers

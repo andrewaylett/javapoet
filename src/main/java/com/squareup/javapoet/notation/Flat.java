@@ -15,20 +15,24 @@
  */
 package com.squareup.javapoet.notation;
 
+import com.google.errorprone.annotations.Immutable;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.List;
 import java.util.Objects;
 
+@Immutable
 public class Flat extends Notation {
   public final Notation inner;
 
+  @Contract(pure = true)
   public Flat(@NotNull Notation inner) {
     super(inner.names, inner.imports, inner.childContexts);
     this.inner = inner;
   }
 
+  @Contract(pure = true)
   @Override
   public boolean isEmpty() {
     return inner.isEmpty();
@@ -58,6 +62,7 @@ public class Flat extends Notation {
     visitor.exit(this);
   }
 
+  @Contract(pure = true)
   @Override
   public Notation toNotation() {
     return Notate.fnLike("Flat", List.of(inner));

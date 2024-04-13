@@ -15,7 +15,10 @@
  */
 package com.squareup.javapoet.notation;
 
+import com.google.errorprone.annotations.Immutable;
+import com.squareup.javapoet.Emitable;
 import com.squareup.javapoet.TypeName;
+import com.squareup.javapoet.TypeVariableName;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 
@@ -23,21 +26,26 @@ import java.io.IOException;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.stream.Stream;
 
+@Immutable
 public class TypeRef extends Notation {
 
   private final TypeName ref;
 
+  @Contract(pure = true)
   public TypeRef(TypeName ref) {
     super(Map.of(), Set.of(ref), Set.of());
     this.ref = ref;
   }
 
+  @Contract(pure = true)
   @Override
   public Notation toNotation() {
     return txt("TypeRef(" + ref.nameWhenImported() + ")");
   }
 
+  @Contract(pure = true)
   @Override
   public boolean isEmpty() {
     return false;
@@ -48,14 +56,31 @@ public class TypeRef extends Notation {
       @NotNull Printer.PrinterVisitor printer,
       @NotNull Chunk chunk
   ) throws IOException {
-    printer.append(chunk.getName(ref));
+    var usableRef = getUsableRef(chunk);
+    printer.append(chunk.getName(usableRef));
+  }
+
+  private Emitable getUsableRef(@NotNull Chunk chunk) {
+    if (ref instanceof TypeVariableName tvn) {
+      // Special case: bounds are not required to match
+      return chunk
+          .getTags()
+          .stream()
+          .flatMap(tag -> tag instanceof TypeVariableName candidate && tvn
+              .nameWhenImported()
+              .equals(candidate.nameWhenImported())
+                  ? Stream.<Emitable>of(candidate) : Stream.of())
+          .findFirst().orElse(ref);
+    } else {
+      return ref;
+    }
   }
 
   @Override
   public @NotNull Printer.FlatResponse visit(
       @NotNull Printer.FlatVisitor flatVisitor, @NotNull Chunk chunk
   ) {
-    return flatVisitor.fitText(chunk.getName(ref));
+    return flatVisitor.fitText(chunk.getName(getUsableRef(chunk)));
   }
 
   @Override

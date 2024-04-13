@@ -15,6 +15,7 @@
  */
 package com.squareup.javapoet;
 
+import com.google.common.collect.ImmutableList;
 import com.squareup.javapoet.notation.Notation;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -32,16 +33,16 @@ import java.util.stream.Stream;
 import static com.squareup.javapoet.Util.checkArgument;
 
 public final class WildcardTypeName extends ObjectTypeName {
-  public final List<TypeName> upperBounds;
-  public final List<TypeName> lowerBounds;
+  public final ImmutableList<TypeName> upperBounds;
+  public final ImmutableList<TypeName> lowerBounds;
 
   private WildcardTypeName(
       List<TypeName> upperBounds,
       List<TypeName> lowerBounds
   ) {
     super();
-    this.upperBounds = Util.immutableList(upperBounds);
-    this.lowerBounds = Util.immutableList(lowerBounds);
+    this.upperBounds = ImmutableList.copyOf(upperBounds);
+    this.lowerBounds = ImmutableList.copyOf(lowerBounds);
 
     checkArgument(
         this.upperBounds.size() == 1,
@@ -238,7 +239,7 @@ public final class WildcardTypeName extends ObjectTypeName {
   }
 
   @Override
-  public Notation toNotation() {
+  public @NotNull Notation toNotation() {
     if (lowerBounds.size() == 1) {
       return Notation.txt("? super ").then(lowerBounds.get(0).toNotation());
     }

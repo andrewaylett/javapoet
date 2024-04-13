@@ -15,6 +15,7 @@
  */
 package com.squareup.javapoet;
 
+import com.google.errorprone.annotations.Immutable;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -66,6 +67,7 @@ import java.util.Map;
  * {@code Set<Long>}, use the factory methods on {@link ArrayTypeName}, {@link
  * ParameterizedTypeName}, {@link TypeVariableName}, and {@link WildcardTypeName}.
  */
+@Immutable
 public sealed interface TypeName extends Emitable
     permits ObjectTypeName, PrimitiveType, AnnotatedTypeName {
   /**

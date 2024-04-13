@@ -15,12 +15,19 @@
  */
 package com.squareup.javapoet;
 
+import com.google.errorprone.annotations.Immutable;
 import com.squareup.javapoet.notation.Notation;
+import org.jetbrains.annotations.Contract;
+import org.jetbrains.annotations.NotNull;
 
+@Immutable
 public interface Emitable {
+  @NotNull
+  @Contract(pure = true)
   Notation toNotation();
 
-  default Notation toDeclaration() {
+  @Contract(pure = true)
+  default @NotNull Notation toDeclaration() {
     return toNotation();
   }
 }

@@ -18,6 +18,7 @@ package com.squareup.javapoet.notation;
 import com.squareup.javapoet.AnnotationSpec;
 import com.squareup.javapoet.CodeBlock;
 import com.squareup.javapoet.Emitable;
+import org.jetbrains.annotations.Contract;
 
 import java.util.List;
 import java.util.stream.Stream;
@@ -29,6 +30,7 @@ import static com.squareup.javapoet.notation.Notation.nl;
 import static com.squareup.javapoet.notation.Notation.txt;
 
 public class Notate {
+  @Contract(pure = true)
   public static Notation javadoc(Notation javadoc) {
     if (javadoc.isEmpty()) {
       return Notation.empty();
@@ -39,6 +41,7 @@ public class Notate {
         .collect(Notation.asLines());
   }
 
+  @Contract(pure = true)
   public static Notation annotations(
       List<AnnotationSpec> annotations, boolean inline
   ) {
@@ -55,6 +58,7 @@ public class Notate {
     }
   }
 
+  @Contract(pure = true)
   public static Notation oneOrArray(List<CodeBlock> value) {
     if (value.size() == 1) {
       return value.get(0).toNotation();
@@ -66,6 +70,7 @@ public class Notate {
     return spacesOrWrapAndIndent(txt("{"), inner, txt("}"));
   }
 
+  @Contract(pure = true)
   public static Notation wrapAndIndent(
       Notation before, Notation wrapped, Notation after
   ) {
@@ -81,6 +86,7 @@ public class Notate {
             .then(after.isEmpty() ? empty() : nl().then(after)));
   }
 
+  @Contract(pure = true)
   public static Notation wrapAndIndentUnlessEmpty(
       Notation before, Notation wrapped, Notation after
   ) {
@@ -108,6 +114,7 @@ public class Notate {
             .then(after.isEmpty() ? empty() : nl().then(after)));
   }
 
+  @Contract(pure = true)
   public static Notation fnLike(String name, Iterable<Notation> content) {
     var builder = Stream.<Notation>builder();
     content.forEach(builder);

@@ -15,23 +15,31 @@
  */
 package com.squareup.javapoet.notation;
 
+import com.google.common.collect.ImmutableList;
+import com.google.errorprone.annotations.Immutable;
 import com.squareup.javapoet.ClassName;
+import com.squareup.javapoet.Emitable;
+import com.squareup.javapoet.prioritymap.HashPriorityMap;
+import com.squareup.javapoet.prioritymap.ImmutablePriorityMap;
+import com.squareup.javapoet.prioritymap.PriorityMap;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Stream;
 
 import static java.util.Objects.requireNonNull;
 
+@Immutable
 public class Chunk {
   public final boolean flat;
   public final String indent;
   public final Notation notation;
-  public final PriorityMap<Object, String> names;
+  public final ImmutablePriorityMap<Emitable, String> names;
   public final String indentBy;
-  public final List<Scope> scopes;
+  public final ImmutableList<Scope> scopes;
   public final String packageName;
 
   @Contract(pure = true)
@@ -39,7 +47,7 @@ public class Chunk {
       Notation notation,
       String indent,
       boolean flat,
-      PriorityMap<Object, String> names,
+      PriorityMap<Emitable, String> names,
       String indentBy,
       List<Scope> scopes,
       String packageName
@@ -49,7 +57,7 @@ public class Chunk {
     this.flat = flat;
     this.names = names.immutableCopy();
     this.indentBy = indentBy;
-    this.scopes = List.copyOf(scopes);
+    this.scopes = ImmutableList.copyOf(scopes);
     this.packageName = packageName;
   }
 
@@ -102,7 +110,7 @@ public class Chunk {
   }
 
   @Contract(value = "_ -> new", pure = true)
-  public Chunk names(PriorityMap<Object, String> newNames) {
+  public Chunk names(HashPriorityMap<Emitable, String> newNames) {
     return new Chunk(this.notation,
         this.indent,
         flat,
@@ -121,9 +129,15 @@ public class Chunk {
     return notation.visit(flatVisitor, this);
   }
 
-  public @NotNull String getName(Object tag) {
+  @Contract(pure = true)
+  public @NotNull String getName(Emitable tag) {
     return requireNonNull(names.get(tag));
   }
 
+  public @NotNull Set<Emitable> getTags() {
+    return names.keySet();
+  }
+
+  @Immutable
   public record Scope(Context context, ClassName className) {}
 }

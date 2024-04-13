@@ -15,6 +15,9 @@
  */
 package com.squareup.javapoet;
 
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.errorprone.annotations.FormatMethod;
 import com.squareup.javapoet.notation.Notation;
 import org.intellij.lang.annotations.PrintFormat;
 import org.jetbrains.annotations.Contract;
@@ -40,25 +43,22 @@ import static java.lang.Character.isISOControl;
  * Like Guava, but worse and standalone. This makes it easier to mix JavaPoet with libraries that
  * bring their own version of Guava.
  */
-final class Util {
+public final class Util {
   private Util() {
   }
 
-  static <K, V> Map<K, List<V>> immutableMultimap(Map<K, List<V>> multimap) {
-    var result = new LinkedHashMap<K, List<V>>();
+  static <K, V> ImmutableMap<K, ImmutableList<V>> immutableMultimap(Map<K, List<V>> multimap) {
+    var result = new LinkedHashMap<K, ImmutableList<V>>();
     for (var entry : multimap.entrySet()) {
       if (entry.getValue().isEmpty()) {
         continue;
       }
-      result.put(entry.getKey(), immutableList(entry.getValue()));
+      result.put(entry.getKey(), ImmutableList.copyOf(entry.getValue()));
     }
-    return Collections.unmodifiableMap(result);
+    return ImmutableMap.copyOf(result);
   }
 
-  static <K, V> Map<K, V> immutableMap(Map<K, V> map) {
-    return Collections.unmodifiableMap(new LinkedHashMap<>(map));
-  }
-
+  @FormatMethod
   static void checkArgument(
       boolean condition, @PrintFormat String format, Object... args
   ) {
@@ -68,6 +68,7 @@ final class Util {
   }
 
   @Contract("!null, _, _ -> param1; null, _, _ -> fail")
+  @FormatMethod
   static <T> @NotNull T checkNotNull(
       T reference, @PrintFormat String format, Object... args
   ) {
@@ -77,6 +78,7 @@ final class Util {
     return reference;
   }
 
+  @FormatMethod
   static void checkState(
       boolean condition, @PrintFormat String format, Object... args
   ) {

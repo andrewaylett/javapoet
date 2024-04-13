@@ -15,6 +15,7 @@
  */
 package com.squareup.javapoet.notation;
 
+import com.google.errorprone.annotations.Immutable;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 
@@ -22,16 +23,19 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
+@Immutable
 public class Indent extends Notation {
   public final Optional<String> indent;
   public final Notation inner;
 
+  @Contract(pure = true)
   public Indent(Optional<String> indent, Notation inner) {
     super(inner.names, inner.imports, inner.childContexts);
     this.indent = indent;
     this.inner = inner;
   }
 
+  @Contract(pure = true)
   @Override
   public boolean isEmpty() {
     return inner.isEmpty();
@@ -61,6 +65,7 @@ public class Indent extends Notation {
     visitor.exit(this);
   }
 
+  @Contract(pure = true)
   @Override
   public Notation toNotation() {
     return Notate.fnLike("Indent", List.of(inner));

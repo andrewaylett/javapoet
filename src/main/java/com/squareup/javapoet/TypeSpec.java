@@ -15,6 +15,10 @@
  */
 package com.squareup.javapoet;
 
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
+import com.google.errorprone.annotations.Immutable;
 import com.squareup.javapoet.notation.Notate;
 import com.squareup.javapoet.notation.Notation;
 import org.jetbrains.annotations.Contract;
@@ -60,53 +64,56 @@ import static com.squareup.javapoet.notation.Notation.typeRef;
 /**
  * A generated class, interface, or enum declaration.
  */
+@Immutable
 public final class TypeSpec implements Emitable {
   public final Kind kind;
   public final String name;
   public final CodeBlock anonymousTypeArguments;
   public final CodeBlock javadoc;
-  public final List<AnnotationSpec> annotations;
-  public final Set<Modifier> modifiers;
-  public final List<TypeName> typeVariables;
+  public final ImmutableList<AnnotationSpec> annotations;
+  public final ImmutableSet<Modifier> modifiers;
+  public final ImmutableList<TypeName> typeVariables;
   public final TypeName superclass;
-  public final List<TypeName> superinterfaces;
-  public final Map<String, TypeSpec> enumConstants;
-  public final List<FieldSpec> fieldSpecs;
+  public final ImmutableList<TypeName> superinterfaces;
+  public final ImmutableMap<String, TypeSpec> enumConstants;
+  public final ImmutableList<FieldSpec> fieldSpecs;
   public final CodeBlock staticBlock;
   public final CodeBlock initializerBlock;
-  public final List<MethodSpec> methodSpecs;
-  public final List<TypeSpec> typeSpecs;
-  public final List<Element> originatingElements;
-  public final Set<String> alwaysQualifiedNames;
-  final Set<String> nestedTypesSimpleNames;
+  public final ImmutableList<MethodSpec> methodSpecs;
+  public final ImmutableList<TypeSpec> typeSpecs;
+  @SuppressWarnings("Immutable") // Element is effectively immutable
+  public final ImmutableList<Element> originatingElements;
+  public final ImmutableSet<String> alwaysQualifiedNames;
+  final ImmutableSet<String> nestedTypesSimpleNames;
 
   private TypeSpec(@NotNull Builder builder) {
     this.kind = builder.kind;
     this.name = builder.name;
     this.anonymousTypeArguments = builder.anonymousTypeArguments;
     this.javadoc = builder.javadoc.build();
-    this.annotations = Util.immutableList(builder.annotations);
-    this.modifiers = Util.immutableSet(builder.modifiers);
-    this.typeVariables = Util.immutableList(builder.typeVariables);
+    this.annotations = ImmutableList.copyOf(builder.annotations);
+    this.modifiers = ImmutableSet.copyOf(builder.modifiers);
+    this.typeVariables = ImmutableList.copyOf(builder.typeVariables);
     this.superclass = builder.superclass;
-    this.superinterfaces = Util.immutableList(builder.superinterfaces);
-    this.enumConstants = Util.immutableMap(builder.enumConstants);
-    this.fieldSpecs = Util.immutableList(builder.fieldSpecs);
+    this.superinterfaces = ImmutableList.copyOf(builder.superinterfaces);
+    this.enumConstants = ImmutableMap.copyOf(builder.enumConstants);
+    this.fieldSpecs = ImmutableList.copyOf(builder.fieldSpecs);
     this.staticBlock = builder.staticBlock.build();
     this.initializerBlock = builder.initializerBlock.build();
-    this.methodSpecs = Util.immutableList(builder.methodSpecs);
-    this.typeSpecs = Util.immutableList(builder.typeSpecs);
-    this.alwaysQualifiedNames = Util.immutableSet(builder.alwaysQualifiedNames);
+    this.methodSpecs = ImmutableList.copyOf(builder.methodSpecs);
+    this.typeSpecs = ImmutableList.copyOf(builder.typeSpecs);
+    this.alwaysQualifiedNames = ImmutableSet.copyOf(builder.alwaysQualifiedNames);
 
-    nestedTypesSimpleNames = new HashSet<>(builder.typeSpecs.size());
+    var nestedTypesSimpleNamesBuilder = new HashSet<String>(builder.typeSpecs.size());
     List<Element> originatingElementsMutable =
         new ArrayList<>(builder.originatingElements);
     for (var typeSpec : builder.typeSpecs) {
-      nestedTypesSimpleNames.add(typeSpec.name);
+      nestedTypesSimpleNamesBuilder.add(typeSpec.name);
       originatingElementsMutable.addAll(typeSpec.originatingElements);
     }
+    this.nestedTypesSimpleNames = ImmutableSet.copyOf(nestedTypesSimpleNamesBuilder);
 
-    this.originatingElements = Util.immutableList(originatingElementsMutable);
+    this.originatingElements = ImmutableList.copyOf(originatingElementsMutable);
   }
 
   @Contract("_ -> new")
@@ -212,7 +219,7 @@ public final class TypeSpec implements Emitable {
     return builder;
   }
 
-  public Notation toNotation() {
+  public @NotNull Notation toNotation() {
     return toNotation(kind.implicitTypeModifiers);
   }
 
@@ -483,56 +490,48 @@ public final class TypeSpec implements Emitable {
 
   public enum Kind {
     CLASS(
-        Collections.emptySet(),
-        Collections.emptySet(),
-        Collections.emptySet(),
-        Collections.emptySet()
+        ImmutableSet.of(),
+        ImmutableSet.of(),
+        ImmutableSet.of(),
+        ImmutableSet.of()
     ),
 
     INTERFACE(
-        Util.immutableSet(Arrays.asList(
-            Modifier.PUBLIC,
-            Modifier.STATIC,
-            Modifier.FINAL
-        )),
-        Util.immutableSet(Arrays.asList(Modifier.PUBLIC, Modifier.ABSTRACT)),
-        Util.immutableSet(Arrays.asList(Modifier.PUBLIC, Modifier.STATIC)),
-        Util.immutableSet(Collections.singletonList(Modifier.STATIC))
+        ImmutableSet.of(Modifier.PUBLIC, Modifier.STATIC, Modifier.FINAL),
+        ImmutableSet.of(Modifier.PUBLIC, Modifier.ABSTRACT),
+        ImmutableSet.of(Modifier.PUBLIC, Modifier.STATIC),
+        ImmutableSet.of(Modifier.STATIC)
     ),
 
     ENUM(
-        Collections.emptySet(),
-        Collections.emptySet(),
-        Collections.emptySet(),
-        Collections.singleton(Modifier.STATIC)
+        ImmutableSet.of(),
+        ImmutableSet.of(),
+        ImmutableSet.of(),
+        ImmutableSet.of(Modifier.STATIC)
     ),
 
     ANNOTATION(
-        Util.immutableSet(Arrays.asList(
-            Modifier.PUBLIC,
-            Modifier.STATIC,
-            Modifier.FINAL
-        )),
-        Util.immutableSet(Arrays.asList(Modifier.PUBLIC, Modifier.ABSTRACT)),
-        Util.immutableSet(List.of(Modifier.STATIC)),
-        Util.immutableSet(Collections.singletonList(Modifier.STATIC))
+        ImmutableSet.of(Modifier.PUBLIC, Modifier.STATIC, Modifier.FINAL),
+        ImmutableSet.of(Modifier.PUBLIC, Modifier.ABSTRACT),
+        ImmutableSet.of(Modifier.STATIC),
+        ImmutableSet.of(Modifier.STATIC)
     );
 
-    private final Set<Modifier> implicitFieldModifiers;
-    private final Set<Modifier> implicitMethodModifiers;
-    private final Set<Modifier> implicitTypeModifiers;
-    private final Set<Modifier> asMemberModifiers;
+    private final ImmutableSet<Modifier> implicitFieldModifiers;
+    private final ImmutableSet<Modifier> implicitMethodModifiers;
+    private final ImmutableSet<Modifier> implicitTypeModifiers;
+    private final ImmutableSet<Modifier> asMemberModifiers;
 
     Kind(
-        Set<Modifier> implicitFieldModifiers,
-        Set<Modifier> implicitMethodModifiers,
-        Set<Modifier> implicitTypeModifiers,
-        Set<Modifier> asMemberModifiers
+        ImmutableSet<Modifier> implicitFieldModifiers,
+        ImmutableSet<Modifier> implicitMethodModifiers,
+        ImmutableSet<Modifier> implicitTypeModifiers,
+        ImmutableSet<Modifier> asMemberModifiers
     ) {
-      this.implicitFieldModifiers = Set.copyOf(implicitFieldModifiers);
-      this.implicitMethodModifiers = Set.copyOf(implicitMethodModifiers);
-      this.implicitTypeModifiers = Set.copyOf(implicitTypeModifiers);
-      this.asMemberModifiers = Set.copyOf(asMemberModifiers);
+      this.implicitFieldModifiers = implicitFieldModifiers;
+      this.implicitMethodModifiers = implicitMethodModifiers;
+      this.implicitTypeModifiers = implicitTypeModifiers;
+      this.asMemberModifiers = asMemberModifiers;
     }
   }
 
@@ -635,10 +634,10 @@ public final class TypeSpec implements Emitable {
     @Contract("_ -> this")
     public @NotNull Builder superclass(@NotNull TypeName superclass) {
       checkState(this.kind == Kind.CLASS,
-          "only classes have super classes, not " + this.kind
+          "only classes have super classes, not %s", this.kind
       );
       checkState(this.superclass == ClassName.OBJECT,
-          "superclass already set to " + this.superclass
+          "superclass already set to %s", this.superclass
       );
       checkArgument(!superclass.isPrimitive(),
           "superclass may not be a primitive"
@@ -792,7 +791,7 @@ public final class TypeSpec implements Emitable {
     }
 
     public Builder addInitializerBlock(CodeBlock block) {
-      if ((kind != Kind.CLASS && kind != Kind.ENUM)) {
+      if (kind != Kind.CLASS && kind != Kind.ENUM) {
         throw new UnsupportedOperationException(
             kind + " can't have initializer blocks");
       }

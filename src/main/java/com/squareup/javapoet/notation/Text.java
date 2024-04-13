@@ -15,6 +15,7 @@
  */
 package com.squareup.javapoet.notation;
 
+import com.google.errorprone.annotations.Immutable;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 
@@ -23,19 +24,23 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 
+@Immutable
 public class Text extends Notation {
   protected final String content;
 
+  @Contract(pure = true)
   public Text(@NotNull String s) {
     super(Map.of(), Set.of(), Set.of());
     this.content = s;
   }
 
+  @Contract(pure = true)
   @Override
   public boolean isEmpty() {
     return content.isEmpty();
   }
 
+  @Contract(pure = true)
   @Override
   public @NotNull Notation then(@NotNull Notation next) {
     if (next instanceof Text t) {
@@ -44,6 +49,7 @@ public class Text extends Notation {
     return super.then(next);
   }
 
+  @Contract(pure = true)
   @Override
   public Notation toNotation() {
     return txt("\"" + content + "\"");

@@ -15,6 +15,11 @@
  */
 package com.squareup.javapoet;
 
+import com.google.common.cache.CacheBuilder;
+import com.google.common.cache.CacheLoader;
+import com.google.common.cache.LoadingCache;
+import com.google.common.collect.ImmutableList;
+import com.google.errorprone.annotations.Immutable;
 import com.squareup.javapoet.notation.Notation;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
@@ -27,6 +32,7 @@ import java.lang.reflect.Type;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -38,21 +44,71 @@ import static com.squareup.javapoet.Util.checkNotNull;
 import static com.squareup.javapoet.notation.Notation.join;
 import static com.squareup.javapoet.notation.Notation.txt;
 
-public final class TypeVariableName extends ObjectTypeName {
-  public final String name;
-  public final List<TypeName> bounds;
+@Immutable
+public sealed abstract class TypeVariableName extends ObjectTypeName {
+  private final static LoadingCache<TypeParameterElement, TypeVariableName> mirrors =
+      CacheBuilder.newBuilder().build(new CacheLoader<>() {
+        @Override
+        public @NotNull TypeVariableName load(@NotNull TypeParameterElement key) throws Exception {
+          var bounds = key.getBounds();
+          try {
+            return new LiteralTypeVariableName(
+                key.getSimpleName().toString(),
+                bounds.stream().map(b -> TypeName.get(b, new HashMap<>())).filter(tn -> !tn.equals(ClassName.OBJECT)).toList()
+            );
+          } catch (IllegalStateException ignored) {
+            return new MirrorTypeVariableName(key);
+          }
+        }
+      });
 
-  private TypeVariableName(String name, List<TypeName> bounds) {
-    super();
-    this.name = checkNotNull(name, "name == null");
-    this.bounds = bounds;
+  @Immutable
+  private static final class LiteralTypeVariableName extends TypeVariableName {
+    public final String name;
+    public final ImmutableList<TypeName> bounds;
 
-    for (var bound : this.bounds) {
-      checkArgument(
-          !bound.isPrimitive() && bound != PrimitiveType.Void,
-          "invalid bound: %s",
-          bound
-      );
+    private LiteralTypeVariableName(String name, List<TypeName> bounds) {
+      super();
+      this.name = checkNotNull(name, "name == null");
+      this.bounds = ImmutableList.copyOf(bounds);
+
+      for (var bound : this.bounds) {
+        checkArgument(
+            !bound.isPrimitive() && bound != PrimitiveType.Void,
+            "invalid bound: %s",
+            bound
+        );
+      }
+    }
+
+    @Override
+    protected String getName() {
+      return name;
+    }
+
+    @Override
+    protected List<TypeName> getBounds() {
+      return bounds;
+    }
+  }
+
+  @Immutable
+  private static final class MirrorTypeVariableName extends TypeVariableName {
+    @SuppressWarnings("Immutable")
+    public final TypeParameterElement typeMirror;
+
+    private MirrorTypeVariableName(TypeParameterElement typeMirror) {
+      this.typeMirror = typeMirror;
+    }
+
+    @Override
+    protected String getName() {
+      return typeMirror.getSimpleName().toString();
+    }
+
+    @Override
+    protected List<TypeName> getBounds() {
+      return typeMirror.getBounds().stream().map(m -> TypeName.get(m, mirrors.asMap())).toList();
     }
   }
 
@@ -60,7 +116,7 @@ public final class TypeVariableName extends ObjectTypeName {
     // Strip java.lang.Object from bounds if it is present.
     List<TypeName> boundsNoObject = new ArrayList<>(bounds);
     boundsNoObject.remove(ClassName.OBJECT);
-    return new TypeVariableName(
+    return new LiteralTypeVariableName(
         name,
         Collections.unmodifiableList(boundsNoObject)
     );
@@ -104,26 +160,10 @@ public final class TypeVariableName extends ObjectTypeName {
    */
   static TypeVariableName get(
       TypeVariable mirror,
-      Map<TypeParameterElement, TypeVariableName> typeVariables
+      Map<TypeParameterElement, TypeVariableName> ignored
   ) {
     var element = (TypeParameterElement) mirror.asElement();
-    var typeVariableName = typeVariables.get(element);
-    if (typeVariableName == null) {
-      // Since the bounds field is public, we need to make it an unmodifiableList. But we control
-      // the List that that wraps, which means we can change it before returning.
-      List<TypeName> bounds = new ArrayList<>();
-      var visibleBounds = Collections.unmodifiableList(bounds);
-      typeVariableName = new TypeVariableName(
-          element.getSimpleName().toString(),
-          visibleBounds
-      );
-      typeVariables.put(element, typeVariableName);
-      for (var typeMirror : element.getBounds()) {
-        bounds.add(TypeName.get(typeMirror, typeVariables));
-      }
-      bounds.remove(ClassName.OBJECT);
-    }
-    return typeVariableName;
+    return mirrors.getUnchecked(element);
   }
 
   /**
@@ -159,7 +199,7 @@ public final class TypeVariableName extends ObjectTypeName {
     if (result == null) {
       List<TypeName> bounds = new ArrayList<>();
       var visibleBounds = Collections.unmodifiableList(bounds);
-      result = new TypeVariableName(type.getName(), visibleBounds);
+      result = new LiteralTypeVariableName(type.getName(), visibleBounds);
       map.put(type, result);
       for (var bound : type.getBounds()) {
         bounds.add(TypeName.get(bound, map));
@@ -197,20 +237,20 @@ public final class TypeVariableName extends ObjectTypeName {
   @Override
   public TypeVariableName withBounds(List<? extends TypeName> bounds) {
     var newBounds = new ArrayList<TypeName>();
-    newBounds.addAll(this.bounds);
+    newBounds.addAll(this.getBounds());
     newBounds.addAll(bounds);
-    return new TypeVariableName(name, newBounds);
+    return new LiteralTypeVariableName(getName(), newBounds);
   }
 
   @Nonnull
   @Override
   public @NotNull String nameWhenImported() {
-    return name;
+    return getName();
   }
 
   @Override
   public @NotNull String canonicalName() {
-    return name;
+    return getName();
   }
 
   @Override
@@ -239,7 +279,7 @@ public final class TypeVariableName extends ObjectTypeName {
 
   @Override
   public @NotNull String simpleName() {
-    return name;
+    return getName();
   }
 
   @Override
@@ -261,7 +301,6 @@ public final class TypeVariableName extends ObjectTypeName {
   public String toString() {
     return toNotation().toCode();
   }
-
   @Override
   @Contract(value = "null -> false", pure = true)
   public boolean equals(Object o) {
@@ -269,7 +308,11 @@ public final class TypeVariableName extends ObjectTypeName {
       return true;
     }
     if (o instanceof TypeVariableName that) {
-      return Objects.equals(name, that.name);
+
+      return Objects.equals(getName(), that.getName()) && Objects.equals(
+          getBounds(),
+          that.getBounds()
+      );
     }
     return false;
   }
@@ -277,24 +320,28 @@ public final class TypeVariableName extends ObjectTypeName {
   @Override
   @Contract(pure = true)
   public int hashCode() {
-    return Objects.hash(name);
+    return Objects.hash(getName());
   }
 
   @Override
-  public Notation toNotation() {
+  public @NotNull Notation toNotation() {
     return Notation.typeRef(this);
   }
 
-  public Notation toDeclaration() {
+  @Override
+  public @NotNull Notation toDeclaration() {
     var builder = Stream.<Notation>builder();
     builder.add(Notation.typeRef(this));
-    if (!bounds.isEmpty()) {
+    if (!getBounds().isEmpty()) {
       builder.add(txt("extends"));
-      builder.add(bounds
+      builder.add(getBounds()
           .stream()
           .map(Notation::typeRef)
           .collect(join(txt(" & "))));
     }
     return builder.build().filter(n -> !n.isEmpty()).collect(join(txt(" ")));
   }
+
+  protected abstract String getName();
+  protected abstract List<TypeName> getBounds();
 }

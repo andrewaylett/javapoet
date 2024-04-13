@@ -15,8 +15,12 @@
  */
 package com.squareup.javapoet;
 
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.errorprone.annotations.Immutable;
 import com.squareup.javapoet.notation.Notate;
 import com.squareup.javapoet.notation.Notation;
+import org.jetbrains.annotations.NotNull;
 
 import javax.lang.model.SourceVersion;
 import javax.lang.model.element.AnnotationMirror;
@@ -45,11 +49,12 @@ import static com.squareup.javapoet.notation.Notation.txt;
 /**
  * A generated annotation on a declaration.
  */
+@Immutable
 public final class AnnotationSpec implements Emitable {
   public static final String VALUE = "value";
 
   public final TypeName type;
-  public final Map<String, List<CodeBlock>> members;
+  public final ImmutableMap<String, ImmutableList<CodeBlock>> members;
 
   private AnnotationSpec(Builder builder) {
     this.type = builder.type;
@@ -115,7 +120,7 @@ public final class AnnotationSpec implements Emitable {
   }
 
   @Override
-  public Notation toNotation() {
+  public @NotNull Notation toNotation() {
     var ref = txt("@").then(Notation.typeRef(type));
     if (members.isEmpty()) {
       return ref;
@@ -140,7 +145,7 @@ public final class AnnotationSpec implements Emitable {
 
   public Builder toBuilder() {
     var builder = new Builder(type);
-    for (var entry : members.entrySet()) {
+    for (Map.Entry<String, ImmutableList<CodeBlock>> entry : members.entrySet()) {
       builder.members.put(entry.getKey(), new ArrayList<>(entry.getValue()));
     }
     return builder;
