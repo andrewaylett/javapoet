@@ -21,7 +21,7 @@
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 
     <java.version>17</java.version>
-    <truth.version>1.4.2</truth.version>
+    <truth.version>1.4.5</truth.version>
     <compile-testing.version>0.21.0</compile-testing.version>
     <error-prone.version>2.26.1</error-prone.version>
   </properties>
